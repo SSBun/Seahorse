@@ -1,0 +1,1212 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
+    },
+    "(Default)" : {
+
+    },
+    "#%@" : {
+
+    },
+    "%lld" : {
+
+    },
+    "%lld broken bookmarks found" : {
+
+    },
+    "%lld selected" : {
+
+    },
+    "%lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "•" : {
+
+    },
+    "• %@" : {
+
+    },
+    "• %lld broken" : {
+
+    },
+    "0.2s" : {
+
+    },
+    "5s" : {
+
+    },
+    "Accessibility Permission Granted" : {
+
+    },
+    "Accessibility Permission Required" : {
+
+    },
+    "Add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        }
+      }
+    },
+    "Add additional notes or metadata..." : {
+
+    },
+    "Add Bookmark" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add Bookmark"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加书签"
+          }
+        }
+      }
+    },
+    "Add Image" : {
+
+    },
+    "Add Item" : {
+
+    },
+    "Add New Category" : {
+
+    },
+    "Add New Tag" : {
+
+    },
+    "Add notes or description..." : {
+
+    },
+    "Add Text Note" : {
+
+    },
+    "Add to Favorites" : {
+
+    },
+    "Add your first bookmark to get started" : {
+
+    },
+    "Added" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加时间"
+          }
+        }
+      }
+    },
+    "Additional Notes" : {
+
+    },
+    "Advanced" : {
+
+    },
+    "AI" : {
+
+    },
+    "AI Parse" : {
+
+    },
+    "AI Parsed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Parsed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 已解析"
+          }
+        }
+      }
+    },
+    "AI Parsing Language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI Parsing Language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 解析语言"
+          }
+        }
+      }
+    },
+    "AI suggested new categories and tags that don't exist yet. Select which ones you'd like to create:" : {
+
+    },
+    "AI will generate summaries and suggestions in this language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI will generate summaries and suggestions in this language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 将使用此语言生成摘要和建议"
+          }
+        }
+      }
+    },
+    "All Bookmarks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All Bookmarks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有书签"
+          }
+        }
+      }
+    },
+    "All bookmarks are accessible ✓" : {
+
+    },
+    "All Good!" : {
+
+    },
+    "All your bookmarks are accessible." : {
+
+    },
+    "API Base URL" : {
+
+    },
+    "API Token" : {
+
+    },
+    "App Language" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Language"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用语言"
+          }
+        }
+      }
+    },
+    "App language will take effect after restart" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App language will take effect after restart"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用语言将在重启后生效"
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外观"
+          }
+        }
+      }
+    },
+    "Are you sure you want to delete '%@'? Bookmarks in this category will be moved to the 'None' category." : {
+
+    },
+    "Are you sure you want to delete '%@'? This tag will be removed from all bookmarks." : {
+
+    },
+    "Are you sure you want to delete '%@'? This tag will be removed from all items." : {
+
+    },
+    "Are you sure you want to delete %lld broken bookmark(s)? This action cannot be undone." : {
+
+    },
+    "Automatically save items when you copy the same content twice within the time window" : {
+
+    },
+    "Basic" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Basic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "基本设置"
+          }
+        }
+      }
+    },
+    "Bookmark" : {
+
+    },
+    "Bookmark not found" : {
+
+    },
+    "Bookmark title" : {
+
+    },
+    "Bookmarks" : {
+
+    },
+    "Cancel" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
+    },
+    "Card Style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Card Style"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "卡片样式"
+          }
+        }
+      }
+    },
+    "CATEGORIES" : {
+
+    },
+    "Categorizing Prompt" : {
+
+    },
+    "Category" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分类"
+          }
+        }
+      }
+    },
+    "Category name" : {
+
+    },
+    "Change..." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change..."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改..."
+          }
+        }
+      }
+    },
+    "Check for Broken Bookmarks" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for Broken Bookmarks"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "检查失效书签"
+          }
+        }
+      }
+    },
+    "Checking %lld of %lld..." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Checking %1$lld of %2$lld..."
+          }
+        }
+      }
+    },
+    "Checking: %@" : {
+
+    },
+    "Choose File..." : {
+
+    },
+    "Click Parse to generate an AI summary, or write your own..." : {
+
+    },
+    "Click to open URL in browser for verification" : {
+
+    },
+    "Color" : {
+
+    },
+    "Connection Test" : {
+
+    },
+    "Content" : {
+
+    },
+    "Copy" : {
+
+    },
+    "Copy Detection" : {
+
+    },
+    "Copy detection requires Accessibility permission to monitor keyboard events globally." : {
+
+    },
+    "Copy Link" : {
+
+    },
+    "Copy URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "复制链接"
+          }
+        }
+      }
+    },
+    "Create New Items?" : {
+
+    },
+    "Create Selected" : {
+
+    },
+    "Data Folder" : {
+      "comment" : "Data folder setting"
+    },
+    "Data Management" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data Management"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数据管理"
+          }
+        }
+      }
+    },
+    "Delete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
+    },
+    "Delete Bookmark" : {
+
+    },
+    "Delete Bookmarks" : {
+
+    },
+    "Delete Category" : {
+
+    },
+    "Delete Selected (%lld)" : {
+
+    },
+    "Delete Tag" : {
+
+    },
+    "Deselect All" : {
+
+    },
+    "Details" : {
+
+    },
+    "Diagnostic Results" : {
+
+    },
+    "Done" : {
+
+    },
+    "Double Copy Time Window" : {
+
+    },
+    "Edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        }
+      }
+    },
+    "Edit Bookmark" : {
+
+    },
+    "Edit Image" : {
+
+    },
+    "Edit Text Note" : {
+
+    },
+    "Enable Copy Detection" : {
+
+    },
+    "Enter the bookmark URL and click Parse to automatically fetch content and suggestions" : {
+
+    },
+    "Enter your API token" : {
+
+    },
+    "Enter your text content here..." : {
+
+    },
+    "Error" : {
+
+    },
+    "Existing Categories" : {
+
+    },
+    "Existing Tags" : {
+
+    },
+    "Export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出"
+          }
+        }
+      }
+    },
+    "Export creates a folder with the same structure as Preference Folder. You can use this for migration or backup." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export creates a folder with the same structure as Preference Folder. You can use this for migration or backup."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导出将创建与偏好设置文件夹相同结构的文件夹。您可以使用它进行迁移或备份。"
+          }
+        }
+      }
+    },
+    "Failed to load image" : {
+
+    },
+    "Favorite" : {
+
+    },
+    "Favorites" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Favorites"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收藏"
+          }
+        }
+      }
+    },
+    "Fetch Info" : {
+
+    },
+    "file:///path/to/image.jpg or https://..." : {
+
+    },
+    "Filter by %@" : {
+
+    },
+    "gpt-4o-mini" : {
+
+    },
+    "Grid" : {
+
+    },
+    "HTML bookmark files from Chrome, Firefox, Safari, etc." : {
+
+    },
+    "https://api.openai.com/v1" : {
+
+    },
+    "https://example.com" : {
+
+    },
+    "Icon" : {
+
+    },
+    "Image" : {
+
+    },
+    "Image not found" : {
+
+    },
+    "Import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "导入"
+          }
+        }
+      }
+    },
+    "Import Bookmarks" : {
+
+    },
+    "Import Bookmarks..." : {
+
+    },
+    "Import Error" : {
+
+    },
+    "Import from File" : {
+
+    },
+    "Importing bookmarks..." : {
+
+    },
+    "Invalid bookmark" : {
+
+    },
+    "Invalid image" : {
+
+    },
+    "Invalid text item" : {
+
+    },
+    "Invalid URL" : {
+
+    },
+    "Item ID: %@" : {
+
+    },
+    "Item not found" : {
+
+    },
+    "Items will be saved when you copy the same content twice within this time window" : {
+
+    },
+    "JSON files exported from Seahorse" : {
+
+    },
+    "List" : {
+
+    },
+    "Metadata" : {
+
+    },
+    "Model" : {
+
+    },
+    "New Category" : {
+
+    },
+    "New Tags" : {
+
+    },
+    "No Bookmarks" : {
+
+    },
+    "No bookmarks match your search" : {
+
+    },
+    "No broken bookmarks found yet" : {
+
+    },
+    "No image available" : {
+
+    },
+    "No Results Yet" : {
+
+    },
+    "No tags available" : {
+
+    },
+    "No tags available. Create tags in Settings." : {
+
+    },
+    "No tags yet. Add your first tag above." : {
+
+    },
+    "Notes" : {
+
+    },
+    "OK" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确定"
+          }
+        }
+      }
+    },
+    "Open Image" : {
+
+    },
+    "Open in Browser" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Browser"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在浏览器中打开"
+          }
+        }
+      }
+    },
+    "Open System Settings" : {
+
+    },
+    "Open URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开链接"
+          }
+        }
+      }
+    },
+    "Or enter path/URL" : {
+
+    },
+    "Page Summary Prompt" : {
+
+    },
+    "Parsing: %@" : {
+
+    },
+    "Parsing..." : {
+
+    },
+    "Paste an image or enter a file path/URL below" : {
+
+    },
+    "Paste image here (⌘V)" : {
+
+    },
+    "Pause Batch Parsing" : {
+
+    },
+    "Preference Folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preference Folder"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "偏好设置文件夹"
+          }
+        }
+      }
+    },
+    "Primary Color" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primary Color"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主题色"
+          }
+        }
+      }
+    },
+    "Refresh" : {
+
+    },
+    "Reset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置"
+          }
+        }
+      }
+    },
+    "Reset to default location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to default location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置为默认位置"
+          }
+        }
+      }
+    },
+    "Restart Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart Required"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要重启"
+          }
+        }
+      }
+    },
+    "Run diagnostics to check your bookmarks." : {
+
+    },
+    "Save Changes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Changes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存更改"
+          }
+        }
+      }
+    },
+    "Scanning in progress" : {
+
+    },
+    "Scanning..." : {
+
+    },
+    "Search" : {
+
+    },
+    "Select a category" : {
+
+    },
+    "Select All" : {
+
+    },
+    "Select All in Category" : {
+
+    },
+    "Select File" : {
+
+    },
+    "Show in Finder" : {
+
+    },
+    "Sort bookmarks" : {
+
+    },
+    "Start Batch Parsing" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop diagnostic scan" : {
+
+    },
+    "Stop Loading" : {
+
+    },
+    "Store all data (bookmarks, images, settings) in this location" : {
+      "comment" : "Store data hint"
+    },
+    "Store bookmarks and settings in this location" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Store bookmarks and settings in this location"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将书签和设置存储在此位置"
+          }
+        }
+      }
+    },
+    "Successfully imported %lld bookmarks!" : {
+
+    },
+    "Summary" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要"
+          }
+        }
+      }
+    },
+    "Tag" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签"
+          }
+        }
+      }
+    },
+    "Tag name" : {
+
+    },
+    "Tag Suggestion Prompt" : {
+
+    },
+    "Tags" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tags"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签"
+          }
+        }
+      }
+    },
+    "TAGS" : {
+
+    },
+    "Test Connection" : {
+
+    },
+    "Text Note" : {
+
+    },
+    "The AI model to use (e.g., gpt-4o-mini, gpt-4, gpt-3.5-turbo)" : {
+
+    },
+    "The app language change will take effect after you restart Seahorse." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app language change will take effect after you restart Seahorse."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用语言更改将在您重启 Seahorse 后生效。"
+          }
+        }
+      }
+    },
+    "The base URL for AI API requests" : {
+
+    },
+    "Title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Title"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标题"
+          }
+        }
+      }
+    },
+    "Type to add tag..." : {
+
+    },
+    "Unfavorite" : {
+
+    },
+    "Update" : {
+
+    },
+    "Updating..." : {
+
+    },
+    "URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "链接"
+          }
+        }
+      }
+    },
+    "Use {title} and {content} as placeholders for webpage title and content" : {
+
+    },
+    "Use {title}, {content}, and {categories} as placeholders" : {
+
+    },
+    "Use {title}, {content}, and {tags} as placeholders" : {
+
+    },
+    "View Diagnostic Progress" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Diagnostic Progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看诊断进度"
+          }
+        }
+      }
+    },
+    "View Mode" : {
+
+    },
+    "Why Accessibility Permission?" : {
+
+    },
+    "You can import bookmarks from:" : {
+
+    },
+    "Your API token will be stored in UserDefaults" : {
+
+    },
+    "Your bookmarks have been added to the \"None\" category. You can organize them later." : {
+
+    }
+  },
+  "version" : "1.0"
+}

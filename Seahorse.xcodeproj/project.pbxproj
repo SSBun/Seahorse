@@ -6,13 +6,31 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = C404BAF22EC7301C007D7FD4 /* OpenAI */; };
+		C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C4B4298B2EE00D5600EF6DB2 /* Kingfisher */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		C404BA202EC6C12F007D7FD4 /* Seahorse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Seahorse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C404BBFA2EC748BD007D7FD4 /* Exceptions for "Seahorse" folder in "Seahorse" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C404BA1F2EC6C12F007D7FD4 /* Seahorse */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		C404BA222EC6C12F007D7FD4 /* Seahorse */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C404BBFA2EC748BD007D7FD4 /* Exceptions for "Seahorse" folder in "Seahorse" target */,
+			);
 			path = Seahorse;
 			sourceTree = "<group>";
 		};
@@ -23,6 +41,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */,
+				C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +85,8 @@
 			);
 			name = Seahorse;
 			packageProductDependencies = (
+				C404BAF22EC7301C007D7FD4 /* OpenAI */,
+				C4B4298B2EE00D5600EF6DB2 /* Kingfisher */,
 			);
 			productName = Seahorse;
 			productReference = C404BA202EC6C12F007D7FD4 /* Seahorse.app */;
@@ -94,6 +116,10 @@
 			);
 			mainGroup = C404BA172EC6C12F007D7FD4;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C404BAF12EC7301C007D7FD4 /* XCRemoteSwiftPackageReference "OpenAI" */,
+				C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C404BA212EC6C12F007D7FD4 /* Products */;
 			projectDirPath = "";
@@ -257,6 +283,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Seahorse/Info.plist;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoadsInWebContent = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -284,6 +313,9 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Seahorse/Info.plist;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoads = YES;
+				INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsArbitraryLoadsInWebContent = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -319,6 +351,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C404BAF12EC7301C007D7FD4 /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/OpenAI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.7;
+			};
+		};
+		C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.6.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C404BAF22EC7301C007D7FD4 /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C404BAF12EC7301C007D7FD4 /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
+		};
+		C4B4298B2EE00D5600EF6DB2 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C404BA182EC6C12F007D7FD4 /* Project object */;
 }
