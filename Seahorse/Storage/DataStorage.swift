@@ -13,6 +13,11 @@ import OSLog
 class DataStorage: ObservableObject {
     static let shared = DataStorage()
     
+    static var preview: DataStorage = {
+        let storage = DataStorage(database: MockDatabase())
+        return storage
+    }()
+    
     private let database: DatabaseProtocol
     
     // Published properties for reactive UI updates

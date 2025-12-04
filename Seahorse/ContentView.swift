@@ -20,14 +20,17 @@ struct ContentView: View {
     @State private var showingAddText = false
     @State private var showingImportDialog = false
     @State private var showingDiagnosticResults = false
-    @StateObject private var batchParsingService: BatchParsingService
+    @ObservedObject var batchParsingService: BatchParsingService
     @StateObject private var diagnosticService: DiagnosticService
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
     @StateObject private var pasteHandler: PasteHandler
+    @FocusState private var isSearchFocused: Bool
     
-    init() {
+    @State private var windowDelegate = MainWindowDelegate()
+    
+    init(batchParsingService: BatchParsingService) {
         let dataStorage = DataStorage.shared
-        _batchParsingService = StateObject(wrappedValue: BatchParsingService(dataStorage: dataStorage))
+        self.batchParsingService = batchParsingService
         _diagnosticService = StateObject(wrappedValue: DiagnosticService(dataStorage: dataStorage))
         _pasteHandler = StateObject(wrappedValue: PasteHandler(dataStorage: dataStorage))
     }
@@ -112,13 +115,15 @@ struct ContentView: View {
             Group {
                 // Content area
                 if selectedCategory != nil || selectedTag != nil {
-                    if filteredItems.isEmpty {
-                        emptyStateView
-                    } else {
-                        ItemCollectionView(
-                            items: filteredItems,
-                            viewMode: viewMode
-                        )
+                    ItemCollectionView(
+                        items: filteredItems,
+                        viewMode: viewMode
+                    )
+                    .overlay {
+                        if filteredItems.isEmpty {
+                            emptyStateView
+                                .background(Color(NSColor.windowBackgroundColor)) // Ensure it covers the content
+                        }
                     }
                 } else {
                     Text("Select a category")
@@ -139,6 +144,7 @@ struct ContentView: View {
                         TextField("Search", text: $searchText)
                             .textFieldStyle(.plain)
                             .font(.system(size: 13))
+                            .focused($isSearchFocused)
                             .frame(width: 180)
                         
                         if !searchText.isEmpty {
@@ -288,6 +294,11 @@ struct ContentView: View {
                 }
             }
         }
+        .background(WindowAccessor { window in
+            if let window = window {
+                window.delegate = windowDelegate
+            }
+        })
         .onAppear {
             // Set initial selection
             if let firstCategory = dataStorage.categories.first {
@@ -317,6 +328,15 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowImportDialog"))) { _ in
             showingImportDialog = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowAddBookmark"))) { _ in
+            showingAddBookmark = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowAddImage"))) { _ in
+            showingAddImage = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowAddText"))) { _ in
+            showingAddText = true
+        }
         .onPasteCommand(of: [.url, .image, .plainText]) { providers in
             pasteHandler.handlePaste(providers: providers)
         }
@@ -344,7 +364,7 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(batchParsingService: BatchParsingService(dataStorage: DataStorage.shared))
         .environmentObject(DataStorage.shared)
         .frame(width: 1200, height: 800)
 }

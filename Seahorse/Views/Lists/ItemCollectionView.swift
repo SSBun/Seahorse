@@ -12,25 +12,13 @@ struct ItemCollectionView: View {
     let viewMode: ViewMode
     
     @EnvironmentObject var dataStorage: DataStorage
-    @StateObject private var appearanceManager = AppearanceManager.shared
     
     var body: some View {
         ScrollView {
             if viewMode == .grid {
-                waterfallView
+                standardGridView
             } else {
                 listView
-            }
-        }
-    }
-    
-    private var waterfallView: some View {
-        ScrollView {
-            switch appearanceManager.cardStyle {
-            case .standard:
-                standardGridView
-            case .compact:
-                compactGridView
             }
         }
     }
@@ -45,22 +33,7 @@ struct ItemCollectionView: View {
         }
         .padding(20)
     }
-    
-    private var compactGridView: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 200), spacing: 16)
-        ], spacing: 16) {
-            ForEach(items) { item in
-                if let bookmark = item.asBookmark {
-                    CompactBookmarkCardView(bookmark: bookmark)
-                } else {
-                    // Fallback for non-bookmarks
-                    StandardCardView(item: item)
-                }
-            }
-        }
-        .padding(16)
-    }
+
     
     private var listView: some View {
         LazyVStack(spacing: 8) {

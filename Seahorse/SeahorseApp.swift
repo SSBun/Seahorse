@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AppKit
 import OSLog
 
 @main
@@ -13,10 +14,17 @@ struct SeahorseApp: App {
     // CRITICAL: Initialize StoragePathManager FIRST to establish security-scoped access
     @StateObject private var storagePathManager = StoragePathManager.shared
     @StateObject private var dataStorage = DataStorage.shared
+    @StateObject private var batchParsingService = BatchParsingService(dataStorage: DataStorage.shared)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     // Copy monitoring
     @StateObject private var copyMonitor = CopyMonitor.shared
+    
+    // Status Bar Manager
+    @State private var statusBarManager: StatusBarManager?
+    
+    // Settings
+    // Removed showInDock as it's now dynamic based on window visibility
     
     init() {
         // Ensure storage path manager is initialized before data storage
@@ -26,11 +34,24 @@ struct SeahorseApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(batchParsingService: batchParsingService)
                 .environmentObject(dataStorage)
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
+                }
+                .onAppear {
+                    // Initialize StatusBarManager
+                    if statusBarManager == nil {
+                        statusBarManager = StatusBarManager(batchParsingService: batchParsingService)
+                    }
+                    
+                    // Initial state: Headless
+                    // Hide the window immediately on launch
+                    if let window = NSApp.windows.first {
+                        window.orderOut(nil)
+                    }
+                    NSApplication.shared.setActivationPolicy(.accessory)
                 }
         }
         .defaultSize(width: 1200, height: 800)

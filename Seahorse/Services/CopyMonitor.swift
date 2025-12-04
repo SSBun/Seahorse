@@ -25,7 +25,8 @@ class CopyMonitor: ObservableObject {
     private var lastCopyContent: ClipboardContent?
     
     // Configurable properties
-    @Published var isEnabled: Bool = true {
+    // Configurable properties
+    @AppStorage("copyMonitorEnabled") var isEnabled: Bool = true {
         didSet {
             if isEnabled {
                 startMonitoring()
@@ -35,7 +36,7 @@ class CopyMonitor: ObservableObject {
         }
     }
     
-    @Published var timeWindow: TimeInterval = 5.0 {
+    @AppStorage("copyTimeWindow") var timeWindow: TimeInterval = 5.0 {
         didSet {
             // Clamp between 0.2 and 5 seconds
             let clamped = max(0.2, min(5.0, timeWindow))
@@ -44,6 +45,8 @@ class CopyMonitor: ObservableObject {
             }
         }
     }
+    
+    @AppStorage("enableCopyFeedback") var enableFeedback: Bool = true
     
     let dataStorage: DataStorage
     private lazy var pasteHandler: PasteHandler = PasteHandler(dataStorage: dataStorage)

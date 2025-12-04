@@ -93,6 +93,23 @@ struct AdvancedSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 8)
+                        
+                        // Feedback Setting
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Success Feedback")
+                                    .font(.system(size: 13, weight: .medium))
+                                
+                                Text("Play sound and haptic feedback when an item is saved")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Toggle("", isOn: $copyMonitor.enableFeedback)
+                                .toggleStyle(.switch)
+                        }
                     }
                 }
                 

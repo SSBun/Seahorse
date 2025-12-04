@@ -32,12 +32,6 @@ class AppearanceManager: ObservableObject {
         }
     }
     
-    @Published var cardStyle: CardStyle = .standard {
-        didSet {
-            saveCardStyle()
-        }
-    }
-    
     private init() {
         loadPreferences()
         applyAppearance()
@@ -72,14 +66,6 @@ class AppearanceManager: ObservableObject {
         }
     }
     
-    private func saveCardStyle() {
-        // Save to UserDefaults for fast access
-        UserDefaults.standard.set(cardStyle.rawValue, forKey: "card_style")
-        
-        // Also save to JSON for backup/export
-        try? DataStorage.shared.savePreference(key: "card_style", value: cardStyle.rawValue)
-    }
-    
     private func loadPreferences() {
         // Load appearance mode
         if let modeString = UserDefaults.standard.string(forKey: "appearance_mode"),
@@ -92,12 +78,7 @@ class AppearanceManager: ObservableObject {
            let color = Color(hex: hex) {
             accentColor = color
         }
-        
-        // Load card style
-        if let styleString = UserDefaults.standard.string(forKey: "card_style"),
-           let style = CardStyle(rawValue: styleString) {
-            cardStyle = style
-        }
     }
 }
+
 

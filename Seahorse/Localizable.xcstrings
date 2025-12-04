@@ -800,6 +800,9 @@
         }
       }
     },
+    "Open Graph Data" : {
+
+    },
     "Open Image" : {
 
     },
@@ -859,6 +862,9 @@
 
     },
     "Pause Batch Parsing" : {
+
+    },
+    "Play sound and haptic feedback when an item is saved" : {
 
     },
     "Preference Folder" : {
@@ -1027,6 +1033,9 @@
           }
         }
       }
+    },
+    "Success Feedback" : {
+
     },
     "Successfully imported %lld bookmarks!" : {
 

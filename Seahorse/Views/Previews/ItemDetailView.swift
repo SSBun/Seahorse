@@ -135,6 +135,11 @@ struct ItemDetailView: View {
                     
                     // Metadata
                     metadataSection
+                    
+                    // OGP Info
+                    if bookmark?.metadata != nil {
+                        ogpSection
+                    }
                 }
                 .padding()
             }
@@ -435,6 +440,86 @@ struct ItemDetailView: View {
                 .font(.system(size: 10))
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+    
+
+    
+    private var ogpSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Open Graph Data")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+            
+            if let metadata = bookmark?.metadata {
+                VStack(alignment: .leading, spacing: 12) {
+                    // Image
+                    if let imageURLString = metadata.imageURL, let url = URL(string: imageURLString) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                Rectangle()
+                                    .fill(Color.secondary.opacity(0.1))
+                                    .frame(height: 120)
+                                    .overlay(ProgressView())
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(height: 120)
+                                    .clipped()
+                            case .failure:
+                                Rectangle()
+                                    .fill(Color.secondary.opacity(0.1))
+                                    .frame(height: 120)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundStyle(.secondary)
+                                    )
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                        )
+                    }
+                    
+                    // Fields
+                    Group {
+                        if let title = metadata.title {
+                            ogpRow(label: "Title", value: title)
+                        }
+                        
+                        if let siteName = metadata.siteName {
+                            ogpRow(label: "Site Name", value: siteName)
+                        }
+                        
+                        if let description = metadata.description {
+                            ogpRow(label: "Description", value: description)
+                        }
+                        
+                        if let url = metadata.url {
+                            ogpRow(label: "URL", value: url)
+                        }
+                    }
+                }
+                .textSelection(.enabled) // Make text copyable
+            }
+        }
+    }
+    
+    private func ogpRow(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 11))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
     

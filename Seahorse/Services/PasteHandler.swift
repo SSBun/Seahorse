@@ -213,6 +213,7 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addBookmark(bookmark)
                 Log.info("Created placeholder bookmark, fetching metadata...", category: .paste)
+                NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
                 
                 // Fetch metadata asynchronously
                 Task {
@@ -304,6 +305,7 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addItem(AnyCollectionItem(imageItem))
                 Log.info("Created image item from paste", category: .paste)
+                NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
             } catch {
                 Log.error("Failed to create image item: \(error)", category: .paste)
             }
@@ -332,6 +334,7 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addItem(AnyCollectionItem(imageItem))
                 Log.info("Created image item from remote URL: \(urlString)", category: .paste)
+                NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
             } catch {
                 Log.error("Failed to create image item: \(error)", category: .paste)
             }
@@ -366,6 +369,7 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addItem(AnyCollectionItem(imageItem))
                 Log.info("Created image item from local file: \(filePath)", category: .paste)
+                NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
             } catch {
                 Log.error("Failed to create image item: \(error)", category: .paste)
             }
@@ -392,6 +396,7 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addItem(AnyCollectionItem(textItem))
                 Log.info("Created text item from paste", category: .paste)
+                NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
             } catch {
                 Log.error("Failed to create text item: \(error)", category: .paste)
             }
