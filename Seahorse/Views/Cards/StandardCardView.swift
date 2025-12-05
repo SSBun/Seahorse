@@ -54,6 +54,10 @@ struct StandardCardView: View {
         bookmark?.categoryId ?? imageItem?.categoryId ?? textItem?.categoryId ?? UUID()
     }
     
+    private var tagIds: [UUID] {
+        bookmark?.tagIds ?? imageItem?.tagIds ?? textItem?.tagIds ?? []
+    }
+    
     private var isParsed: Bool {
         bookmark?.isParsed ?? imageItem?.isParsed ?? textItem?.isParsed ?? false
     }
@@ -80,58 +84,61 @@ struct StandardCardView: View {
             switch item.itemType {
             case .bookmark:
                 // Gradient + Icon for bookmarks (or OGP Image)
-                if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL, let url = URL(string: previewURL) {
-                    GeometryReader { geo in
-                        KFImage.url(url)
-                            .placeholder {
-                                // Show subtle background while loading
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.1))
+                VStack(spacing: 0) {
+                    if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL, let url = URL(string: previewURL) {
+                        GeometryReader { geo in
+                            KFImage.url(url)
+                                .placeholder {
+                                    // Show subtle background while loading
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.1))
+                                }
+                                .onFailure { _ in
+                                    // On timeout or error, show blank
+                                }
+                                // Use fixed size for downsampling to avoid re-processing on resize
+                                .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 400, height: 300)))
+                                .loadDiskFileSynchronously()
+                                .cacheMemoryOnly()
+                                .fade(duration: 0.25)
+                                .onSuccess { _ in
+                                    // Image loaded successfully
+                                }
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .clipped()
+                                .contentShape(Rectangle())
+                        }
+                        .onAppear {
+                            // Configure timeout
+                            KingfisherManager.shared.downloader.downloadTimeout = 10.0
+                        }
+                    } else {
+                        // No OGP image - show link icon with blur
+                        ZStack {
+                            Rectangle()
+                                .fill(.ultraThinMaterial)
+                                .overlay(
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.05))
+                                )
+                            
+                            if bookmark != nil {
+                                Image(systemName: "link.circle.fill")
+                                    .font(.system(size: 60))
+                                    .foregroundStyle(.secondary.opacity(0.5))
                             }
-                            .onFailure { _ in
-                                // On timeout or error, show blank
-                            }
-                            // Use fixed size for downsampling to avoid re-processing on resize
-                            .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 400, height: 300)))
-                            .loadDiskFileSynchronously()
-                            .cacheMemoryOnly()
-                            .fade(duration: 0.25)
-                            .onSuccess { _ in
-                                // Image loaded successfully
-                            }
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: geo.size.width, height: geo.size.height)
-                            .clipped()
-                    }
-                    .frame(height: 160)
-                    .onAppear {
-                        // Configure timeout
-                        KingfisherManager.shared.downloader.downloadTimeout = 10.0
-                    }
-                } else {
-                    // No OGP image - show link icon with blur
-                    ZStack {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                Rectangle()
-                                    .fill(Color.gray.opacity(0.05))
-                            )
-                        
-                        if bookmark != nil {
-                            Image(systemName: "link.circle.fill")
-                                .font(.system(size: 60))
-                                .foregroundStyle(.secondary.opacity(0.5))
                         }
                     }
-                    .frame(height: 160)
+                    
+                    // Bottom margin for non-image cards
+                    Spacer()
+                        .frame(height: bottomBarHeight + titleHeight)
                 }
                 
             case .image:
-                // Actual image preview (increased height for image items to match other cards)
-                // Other cards: 160 (preview) + 46 (title) + 40 (bottomBar) = 246
-                // Image cards: 206 (preview) + 40 (bottomBar) = 246 (no title area)
+                // Actual image preview - fills entire card
                 if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
                         // Remote Image
@@ -151,8 +158,8 @@ struct StandardCardView: View {
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geo.size.width, height: geo.size.height)
                                 .clipped()
+                                .contentShape(Rectangle())
                         }
-                        .frame(height: 206)
                         .onAppear {
                             KingfisherManager.shared.downloader.downloadTimeout = 10.0
                         }
@@ -164,8 +171,8 @@ struct StandardCardView: View {
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geo.size.width, height: geo.size.height)
                                 .clipped()
+                                .contentShape(Rectangle())
                         }
-                        .frame(height: 206)
                     } else {
                         // Fallback gradient
                         ZStack {
@@ -180,7 +187,6 @@ struct StandardCardView: View {
                                 .foregroundStyle(.white.opacity(0.8))
                                 .shadow(color: .black.opacity(0.2), radius: 4)
                         }
-                        .frame(height: 206)
                     }
                 } else {
                     // Fallback gradient (empty path)
@@ -196,27 +202,30 @@ struct StandardCardView: View {
                             .foregroundStyle(.white.opacity(0.8))
                             .shadow(color: .black.opacity(0.2), radius: 4)
                     }
-                    .frame(height: 206)
                 }
                 
             case .text:
-                // Text content preview
-                ZStack(alignment: .topLeading) {
-                    Rectangle()
-                        .fill(Color(nsColor: .textBackgroundColor))
-                    
-                    if let textItem = textItem {
-                        Text(textItem.content)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.primary)
-                            .lineLimit(8)
-                            .padding(12)
+                // Text content preview - fills entire card
+                VStack(spacing: 0) {
+                    ZStack(alignment: .topLeading) {
+                        Rectangle()
+                            .fill(Color(nsColor: .textBackgroundColor))
+                        
+                        if let textItem = textItem {
+                            Text(textItem.content)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.primary)
+                                .lineLimit(8)
+                                .padding(12)
+                        }
                     }
+                    
+                    // Bottom margin for non-image cards
+                    Spacer()
+                        .frame(height: bottomBarHeight + titleHeight)
                 }
-                .frame(height: 160)
             }
-        } // Added missing closing brace for Group
-        .clipped()
+        }
     }
     
     // MARK: - Bottom Container
@@ -227,23 +236,23 @@ struct StandardCardView: View {
             // Title Section (Optional)
             if isTitleVisible {
                 Text(displayTitle)
-                    .font(.system(size: 14, weight: .bold))
+                    .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 34, alignment: .top) // Fixed height for text area
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+                    .frame(height: 20, alignment: .top) // Fixed height for text area
+                    .padding(.horizontal, 10)
+                    .padding(.top, 4)
+                    .padding(.bottom, 2)
             }
             
             // Metadata Bar
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 // Favorite Toggle
                 Button(action: toggleFavorite) {
                     Image(systemName: isFavorite ? "star.fill" : "star")
-                        .font(.system(size: 11))
+                        .font(.system(size: 10))
                         .foregroundStyle(isFavorite ? .yellow : .secondary)
                 }
                 .buttonStyle(.plain)
@@ -251,66 +260,92 @@ struct StandardCardView: View {
                 if let category = dataStorage.categories.first(where: { $0.id == categoryId }) {
                     let categoryColor = Color(hex: category.colorHex) ?? .blue
                     Text("#\(category.name.lowercased())")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundStyle(categoryColor)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
                         .background(categoryColor.opacity(0.1))
-                        .cornerRadius(4)
+                        .cornerRadius(3)
+                        .layoutPriority(1000) // Highest priority for category
+                }
+                
+                // Tags - with priority for earlier tags
+                ForEach(Array(tagIds.enumerated()), id: \.element) { index, tagId in
+                    if let tag = dataStorage.tags.first(where: { $0.id == tagId }) {
+                        let tagColor = Color(hex: tag.colorHex) ?? .blue
+                        // Higher priority for earlier tags (decreasing priority)
+                        let priority = Double(tagIds.count - index)
+                        Text("#\(tag.name.lowercased())")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(tagColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(tagColor.opacity(0.1))
+                            .cornerRadius(3)
+                            .layoutPriority(priority)
+                    }
                 }
                 
                 Spacer()
                 
                 // Type badge
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Image(systemName: itemTypeIcon)
-                        .font(.system(size: 9))
+                        .font(.system(size: 8))
                     Text(itemTypeLabel)
-                        .font(.system(size: 9))
+                        .font(.system(size: 8))
                 }
                 .foregroundStyle(.secondary)
             }
-            .padding(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .frame(height: bottomBarHeight)
         }
-        .background(item.itemType == .image ? AnyShapeStyle(.ultraThinMaterial) : AnyShapeStyle(Color(NSColor.controlBackgroundColor)))
+        .background {
+            // Deep blur effect with semi-transparent dark background
+            ZStack {
+                // Semi-transparent dark background for better contrast
+                Rectangle()
+                    .fill(Color.black.opacity(0.4))
+                
+                // Thick material for deeper blur effect
+                Rectangle()
+                    .fill(.thickMaterial)
+            }
+        }
     }
     
     // MARK: - Body
     
-    private let bottomBarHeight: CGFloat = 40
-    private let titleHeight: CGFloat = 46 // 34 + 8 top + 4 bottom
+    private let bottomBarHeight: CGFloat = 28
+    private let titleHeight: CGFloat = 26 // 20 + 4 top + 2 bottom
     
     private var isTitleVisible: Bool {
         item.itemType != .image
     }
     
-    private var reservedBottomHeight: CGFloat {
-        // For image cards: reserve space for bottom bar (40)
-        // For other cards: reserve space for title (46) + bottom bar (40) = 86
-        item.itemType == .image ? bottomBarHeight : (bottomBarHeight + titleHeight)
-    }
-    
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Layer 1: Base content view
-            VStack(alignment: .leading, spacing: 0) {
-                // Preview area with fixed height (no maxHeight to allow fixed height to work)
-                previewArea
-                
-                // Bottom margin spacer
-                // For image cards: reserves space for bottom bar
-                // For other cards: reserves space for title + bottom bar
-                Spacer()
-                    .frame(height: reservedBottomHeight)
-            }
+            // Layer 1: Preview area fills entire card
+            previewArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .contentShape(RoundedRectangle(cornerRadius: 12))
             
-            // Layer 2: Bottom Container (Title + Metadata)
+            // Layer 2: Bottom Container (Title + Metadata) overlays on top
             bottomContainer
                 .zIndex(1)
         }
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(12)
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .contentShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
         .aspectRatio(4/3, contentMode: .fit) // Fixed 4:3 aspect ratio
         .scaleEffect(isHovered ? 1.02 : 1.0)
