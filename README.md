@@ -1,136 +1,107 @@
-# Seahorse - Bookmark Manager
+[English](README_EN.md) | **中文**
 
-A native macOS SwiftUI application for managing bookmarks with a Finder-like interface.
+# Seahorse
 
-## Features
+一个优雅的 macOS 素材收集与管理工具，让保存灵感变得简单自然。
 
-- **Finder-like UI**: Familiar macOS interface with sidebar and detail view
-- **Category Management**: Organize bookmarks by categories
-- **Multiple View Modes**: Switch between grid and list views
-- **Search Functionality**: Quick search across bookmarks
-- **Favorites**: Mark important bookmarks as favorites
-- **Modern Design**: Clean, native macOS design using SwiftUI
+![Seahorse Screenshot](./snapshot.png)
 
-## Project Structure
+## 为什么选择 Seahorse？
 
-```
-Seahorse/
-├── Models/
-│   ├── Category.swift          # Category data model with mock data
-│   └── Bookmark.swift           # Bookmark data model with mock data
-├── Views/
-│   ├── SidebarView.swift        # Left sidebar with categories
-│   ├── ToolbarView.swift        # Top toolbar with actions and search
-│   ├── BookmarkCardView.swift   # Grid view card component
-│   ├── BookmarkListItemView.swift # List view item component
-│   └── BookmarkCollectionView.swift # Main collection view (grid/list)
-├── ContentView.swift            # Main application view
-└── SeahorseApp.swift           # App entry point
-```
+Seahorse 不仅仅是一个书签管理器，它是一个全能的素材收集工具。无论是网页链接、图片、还是文本片段，Seahorse 都能帮你轻松保存和整理。
 
-## UI Components
+## 核心功能
 
-### Sidebar
-- Displays categories with icons and colors
-- Uses native macOS List style
-- Supports category selection
+### 🚀 极速保存
 
-### Toolbar
-- Add/Delete bookmark buttons (UI only)
-- Grid/List view toggle
-- Search field with clear button
+**双击复制自动保存**
+- 快速连续复制两次相同内容，Seahorse 会自动识别并保存
+- 无需打开应用，无需手动操作，灵感瞬间保存
 
-### Content Area
-- **Grid View**: Visual cards with bookmark icons, titles, URLs, and favorite indicators
-- **List View**: Compact rows with all bookmark details
-- Empty state when no bookmarks match criteria
+**窗口内粘贴即保存**
+- 在 Seahorse 窗口内直接粘贴（⌘V），内容自动识别并保存
+- 支持 URL、文本、图片等多种格式智能识别
 
-### Bookmark Display
-- Gradient icon backgrounds
-- Hover effects for better interactivity
-- Favorite star indicators
-- Date information in list view
-- Optional notes display
+### 📦 多类型素材支持
 
-## Mock Data
+**不仅仅是书签**
+- **网页链接**：自动获取标题、图标和预览图
+- **图片素材**：支持本地图片和网络图片
+- **文本片段**：保存代码片段、笔记、想法等任何文本内容
 
-The app currently uses mock data for demonstration:
+### 🗂️ 智能整理
 
-### Categories
-- All Bookmarks
-- Favorites
-- Work
-- Personal
-- Development
-- Reading
-- Videos
-- Research
+**分类管理**
+- 创建自定义分类，用颜色和图标区分
+- 快速切换查看不同分类的内容
 
-### Bookmarks
-18 sample bookmarks distributed across categories including:
-- GitHub, Slack, Jira (Work)
-- Gmail, Google Drive, Netflix (Personal)
-- Stack Overflow, MDN, SwiftUI Docs (Development)
-- Medium, Dev.to, Hacker News (Reading)
-- YouTube, Vimeo (Videos)
-- Google Scholar, ArXiv, ResearchGate (Research)
+**标签系统**
+- 为素材添加多个标签，灵活组织
+- 通过标签快速筛选和查找
 
-## Current Status
+**收藏功能**
+- 标记重要内容为收藏，快速访问
 
-✅ UI Implementation Complete
-- All views created and styled
-- Mock data rendering working
-- Search and filtering working
-- View mode switching working
+### 🔍 强大搜索
 
-⏳ Pending Implementation
-- Actual bookmark persistence (database/storage)
-- Add/Edit/Delete bookmark functionality
-- Import bookmarks from browsers
-- Export functionality
-- Settings and preferences
-- Keyboard shortcuts
-- Drag and drop support
+- 实时搜索所有保存的内容
+- 支持按标题、URL、文本内容搜索
+- 快速定位你需要的素材
 
-## Technical Details
+### 📊 多种视图
 
-- **Platform**: macOS
-- **Framework**: SwiftUI
-- **Minimum Target**: macOS 13.0+
-- **Architecture**: MVVM-ready structure
-- **Navigation**: NavigationSplitView for sidebar layout
+**网格视图**
+- 卡片式展示，直观美观
+- 支持预览图片和图标
 
-## Build and Run
+**列表视图**
+- 紧凑显示，信息密度高
+- 适合快速浏览大量内容
 
-1. Open `Seahorse.xcodeproj` in Xcode
-2. Select a macOS target
-3. Build and run (⌘R)
+### ⚙️ 个性化设置
 
-## Next Steps
+- 自定义存储位置
+- 调整复制检测时间窗口
+- 启用/禁用自动保存功能
+- 多语言支持
 
-After UI completion, the following features should be implemented:
+### 📤 导入导出
 
-1. **Data Persistence**
-   - Core Data or SwiftData integration
-   - Cloud sync support (optional)
+- 从浏览器导入书签
+- 导出为 JSON 格式
+- 批量导入支持
 
-2. **CRUD Operations**
-   - Create new bookmarks
-   - Edit existing bookmarks
-   - Delete bookmarks
-   - Manage categories
+## 使用场景
 
-3. **Import/Export**
-   - Browser bookmark import
-   - JSON/CSV export
+- **设计师**：收集设计灵感、参考图片、配色方案
+- **开发者**：保存技术文档、代码片段、工具链接
+- **研究者**：整理论文链接、研究笔记、数据资料
+- **内容创作者**：收集素材、灵感、参考资料
+- **任何人**：保存任何想要记住的内容
 
-4. **Advanced Features**
-   - Tags support
-   - Smart folders
-   - Quick add with keyboard shortcut
-   - Safari extension integration
+## 系统要求
 
-## License
+- macOS 13.0 或更高版本
 
-[Add your license here]
+## 下载
 
+从 [Releases](https://github.com/SSBun/Seahorse/releases) 页面下载最新版本的 DMG 安装包。
+
+## 开始使用
+
+1. 下载并安装 Seahorse
+2. 打开应用，授予必要的权限
+3. 开始收集你的素材！
+
+**快速上手：**
+- 复制一个链接，快速再复制一次 → 自动保存
+- 在 Seahorse 窗口内粘贴任何内容 → 自动保存
+- 点击工具栏的 ➕ 按钮手动添加内容
+
+## 反馈与支持
+
+如有问题或建议，欢迎在 [GitHub Issues](https://github.com/SSBun/Seahorse/issues) 提出。
+
+---
+
+让收集变得简单，让灵感不再丢失。Seahorse，你的素材收集助手。
