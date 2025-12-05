@@ -80,19 +80,33 @@ struct ContentView: View {
             return []
         }
         
-        // Filter by search text
-        if !searchText.isEmpty {
+        // Filter by search text (title/url/notes + tags)
+        let searchQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !searchQuery.isEmpty {
+            let queryLower = searchQuery.lowercased()
             items = items.filter { item in
+                let tagIds: [UUID] = item.asBookmark?.tagIds ??
+                    item.asImageItem?.tagIds ??
+                    item.asTextItem?.tagIds ??
+                    []
+                
+                let tagMatch = dataStorage.tags.contains { tag in
+                    tagIds.contains(tag.id) && tag.name.lowercased().contains(queryLower)
+                }
+                
                 if let bookmark = item.asBookmark {
-                    return bookmark.title.localizedCaseInsensitiveContains(searchText) ||
-                           bookmark.url.localizedCaseInsensitiveContains(searchText) ||
-                           (bookmark.notes?.localizedCaseInsensitiveContains(searchText) ?? false)
+                    return bookmark.title.lowercased().contains(queryLower) ||
+                           bookmark.url.lowercased().contains(queryLower) ||
+                           (bookmark.notes?.lowercased().contains(queryLower) ?? false) ||
+                           tagMatch
                 } else if let imageItem = item.asImageItem {
-                    return imageItem.imagePath.localizedCaseInsensitiveContains(searchText) ||
-                           (imageItem.notes?.localizedCaseInsensitiveContains(searchText) ?? false)
+                    return imageItem.imagePath.lowercased().contains(queryLower) ||
+                           (imageItem.notes?.lowercased().contains(queryLower) ?? false) ||
+                           tagMatch
                 } else if let textItem = item.asTextItem {
-                    return textItem.content.localizedCaseInsensitiveContains(searchText) ||
-                           (textItem.notes?.localizedCaseInsensitiveContains(searchText) ?? false)
+                    return textItem.content.lowercased().contains(queryLower) ||
+                           (textItem.notes?.lowercased().contains(queryLower) ?? false) ||
+                           tagMatch
                 }
                 return false
             }
