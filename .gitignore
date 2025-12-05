@@ -94,3 +94,7 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
+# Build artifacts
+*.dmg
+*.dmg.sha256
+
