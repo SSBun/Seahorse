@@ -51,7 +51,7 @@ jobs:
       - name: Build and create DMG
         run: |
           chmod +x scripts/create-dmg.sh
-          ./scripts/create-dmg.sh ${{ steps.get_version.outputs.version || steps.set_version.outputs.version || steps.set_default.outputs.version }}
+          NO_SIGN=1 ./scripts/create-dmg.sh ${{ steps.get_version.outputs.version || steps.set_version.outputs.version || steps.set_default.outputs.version }}
       
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

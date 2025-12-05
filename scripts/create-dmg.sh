@@ -9,12 +9,22 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Building Seahorse...${NC}"
 
+# Optional: disable code signing (for CI)
+NO_SIGN=${NO_SIGN:-0}
+if [ "$NO_SIGN" = "1" ]; then
+  echo -e "${YELLOW}Code signing disabled (NO_SIGN=1).${NC}"
+  SIGNING_FLAGS=(CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" DEVELOPMENT_TEAM="")
+else
+  SIGNING_FLAGS=()
+fi
+
 # Build the app
 xcodebuild \
   -scheme Seahorse \
   -configuration Release \
   -derivedDataPath build \
   -destination 'platform=macOS' \
+  "${SIGNING_FLAGS[@]}" \
   clean build
 
 # Find the built app
