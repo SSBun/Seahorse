@@ -25,6 +25,9 @@ struct ContentView: View {
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
     @StateObject private var pasteHandler: PasteHandler
     @FocusState private var isSearchFocused: Bool
+    @State private var isSyncing = false
+    @State private var syncRotation: Double = 0
+    @State private var syncStartTime: Date?
     
     @State private var windowDelegate = MainWindowDelegate()
     
@@ -85,35 +88,51 @@ struct ContentView: View {
         if !searchQuery.isEmpty {
             let queryLower = searchQuery.lowercased()
             items = items.filter { item in
-                let tagIds: [UUID] = item.asBookmark?.tagIds ??
-                    item.asImageItem?.tagIds ??
-                    item.asTextItem?.tagIds ??
-                    []
-                
-                let tagMatch = dataStorage.tags.contains { tag in
-                    tagIds.contains(tag.id) && tag.name.lowercased().contains(queryLower)
-                }
-                
-                if let bookmark = item.asBookmark {
-                    return bookmark.title.lowercased().contains(queryLower) ||
-                           bookmark.url.lowercased().contains(queryLower) ||
-                           (bookmark.notes?.lowercased().contains(queryLower) ?? false) ||
-                           tagMatch
-                } else if let imageItem = item.asImageItem {
-                    return imageItem.imagePath.lowercased().contains(queryLower) ||
-                           (imageItem.notes?.lowercased().contains(queryLower) ?? false) ||
-                           tagMatch
-                } else if let textItem = item.asTextItem {
-                    return textItem.content.lowercased().contains(queryLower) ||
-                           (textItem.notes?.lowercased().contains(queryLower) ?? false) ||
-                           tagMatch
-                }
-                return false
+                let searchable = searchableStrings(for: item)
+                return searchable.contains { $0.contains(queryLower) }
             }
         }
         
         // Apply sorting to all items uniformly
         return sortPreferenceManager.sortOption.sort(items)
+    }
+    
+    private func tagNames(for item: AnyCollectionItem) -> [String] {
+        let tagIds: [UUID] = item.asBookmark?.tagIds ??
+            item.asImageItem?.tagIds ??
+            item.asTextItem?.tagIds ??
+            []
+        
+        guard !tagIds.isEmpty else { return [] }
+        
+        return dataStorage.tags
+            .filter { tagIds.contains($0.id) }
+            .map { $0.name.lowercased() }
+    }
+    
+    private func searchableStrings(for item: AnyCollectionItem) -> [String] {
+        var fields: [String] = []
+        
+        if let bookmark = item.asBookmark {
+            fields.append(bookmark.title.lowercased())
+            fields.append(bookmark.url.lowercased())
+            if let notes = bookmark.notes {
+                fields.append(notes.lowercased())
+            }
+        } else if let imageItem = item.asImageItem {
+            fields.append(imageItem.imagePath.lowercased())
+            if let notes = imageItem.notes {
+                fields.append(notes.lowercased())
+            }
+        } else if let textItem = item.asTextItem {
+            fields.append(textItem.content.lowercased())
+            if let notes = textItem.notes {
+                fields.append(notes.lowercased())
+            }
+        }
+        
+        fields.append(contentsOf: tagNames(for: item))
+        return fields
     }
     
     var body: some View {
@@ -176,6 +195,22 @@ struct ContentView: View {
                     .padding(.vertical, 5)
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(6)
+                    
+                    // Sync button
+                    Button(action: performManualSync) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .rotationEffect(.degrees(syncRotation))
+                            .animation(isSyncing
+                                       ? .linear(duration: 1.0).repeatForever(autoreverses: false)
+                                       : .default,
+                                       value: isSyncing)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(6)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Sync")
                 }
                 
                 ToolbarItemGroup(placement: .automatic) {
@@ -351,6 +386,12 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowAddText"))) { _ in
             showingAddText = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .autoSyncStarted)) { _ in
+            startSyncAnimation()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .autoSyncEnded)) { _ in
+            stopSyncAnimation()
+        }
         .onPasteCommand(of: [.url, .image, .plainText]) { providers in
             pasteHandler.handlePaste(providers: providers)
         }
@@ -374,6 +415,46 @@ struct ContentView: View {
             .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func performManualSync() {
+        guard !isSyncing else { return }
+        startSyncAnimation()
+        
+        Task { @MainActor in
+            // Force save triggers autoSync notifications; we handle animation stop with minimum duration.
+            DataStorage.shared.forceSaveAllData()
+            stopSyncAnimation()
+        }
+    }
+    
+    private func startSyncAnimation() {
+        guard !isSyncing else { return }
+        isSyncing = true
+        syncRotation = 0
+        syncStartTime = Date()
+        syncRotation += 360
+    }
+    
+    private func stopSyncAnimation() {
+        guard let start = syncStartTime else {
+            isSyncing = false
+            syncRotation = 0
+            return
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        let minimumDuration: TimeInterval = 1.0
+        if elapsed >= minimumDuration {
+            isSyncing = false
+            syncRotation = 0
+        } else {
+            let remaining = minimumDuration - elapsed
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                isSyncing = false
+                syncRotation = 0
+            }
+        }
     }
 }
 

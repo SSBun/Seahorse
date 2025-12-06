@@ -118,7 +118,9 @@ class JSONStorage: DatabaseProtocol {
                 Log.info("  ✅ Read \(data.count) bytes from items file", category: .database)
                 
                 let loaded = try JSONDecoder().decode([AnyCollectionItem].self, from: data)
-                items = loaded
+                items = loaded.map { normalizeItemPaths($0) }
+                // Persist normalized paths so future reads stay portable
+                saveItemsToDisk()
                 Log.info("  ✓ Loaded \(items.count) items", category: .database)
             } catch {
                 Log.error("  ❌ Failed to load items: \(error)", category: .database)
@@ -189,7 +191,8 @@ class JSONStorage: DatabaseProtocol {
         queue.async(flags: .barrier) {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            if let data = try? encoder.encode(self.items) {
+            let normalized = self.items.map { self.normalizeItemPaths($0) }
+            if let data = try? encoder.encode(normalized) {
                 try? data.write(to: self.itemsURL)
             }
         }
@@ -223,6 +226,49 @@ class JSONStorage: DatabaseProtocol {
                 try? data.write(to: self.preferencesURL)
             }
         }
+    }
+    
+    // MARK: - Path Normalization
+    
+    /// Ensure image-related paths are portable (filenames only) while leaving remote URLs untouched.
+    private func normalizeItemPaths(_ item: AnyCollectionItem) -> AnyCollectionItem {
+        func normalizePath(_ path: String?) -> String? {
+            guard let path = path, !path.isEmpty else { return path }
+            // Keep remote URLs as-is
+            if let url = URL(string: path),
+               let scheme = url.scheme,
+               (scheme == "http" || scheme == "https") {
+                return path
+            }
+            let resolved = StorageManager.shared.resolveImagePath(path)
+            return StorageManager.shared.relativeImageFilename(from: resolved)
+        }
+        
+        switch item.itemType {
+        case .bookmark:
+            if var bookmark = item.asBookmark {
+                if var metadata = bookmark.metadata {
+                    metadata.imageURL = normalizePath(metadata.imageURL)
+                    bookmark.metadata = metadata
+                }
+                return AnyCollectionItem(bookmark)
+            }
+        case .image:
+            if var imageItem = item.asImageItem {
+                if let normalized = normalizePath(imageItem.imagePath) {
+                    imageItem.imagePath = normalized
+                }
+                if let thumb = imageItem.thumbnailPath,
+                   let normalizedThumb = normalizePath(thumb) {
+                    imageItem.thumbnailPath = normalizedThumb
+                }
+                return AnyCollectionItem(imageItem)
+            }
+        case .text:
+            return item
+        }
+        
+        return item
     }
     
     // MARK: - Bookmark Operations
@@ -295,7 +341,7 @@ class JSONStorage: DatabaseProtocol {
             guard !items.contains(where: { $0.id == item.id }) else {
                 throw DatabaseError.duplicateEntry
             }
-            items.append(item)
+            items.append(normalizeItemPaths(item))
         }
         saveItemsToDisk()
     }
@@ -305,7 +351,7 @@ class JSONStorage: DatabaseProtocol {
             guard let index = items.firstIndex(where: { $0.id == item.id }) else {
                 throw DatabaseError.notFound
             }
-            items[index] = item
+            items[index] = normalizeItemPaths(item)
         }
         saveItemsToDisk()
     }

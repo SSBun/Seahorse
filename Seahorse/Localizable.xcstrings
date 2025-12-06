@@ -292,6 +292,23 @@
     "Automatically save items when you copy the same content twice within the time window" : {
 
     },
+    "Automatically start Seahorse when you log in to macOS" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatically start Seahorse when you log in to macOS"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在登录 macOS 时自动启动 Seahorse"
+          }
+        }
+      }
+    },
     "Basic" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -337,6 +354,9 @@
           }
         }
       }
+    },
+    "Capture snapshot for preview" : {
+
     },
     "Card Style" : {
       "extractionState" : "manual",
@@ -429,6 +449,9 @@
 
     },
     "Choose File..." : {
+
+    },
+    "Click and drag over the page to choose the snapshot rectangle." : {
 
     },
     "Click Parse to generate an AI summary, or write your own..." : {
@@ -548,6 +571,15 @@
     "Double Copy Time Window" : {
 
     },
+    "Drag to select an area" : {
+
+    },
+    "Drop an image here or capture a snapshot to set the preview." : {
+
+    },
+    "Drop an image or capture a snapshot to fill this area." : {
+
+    },
     "Edit" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -593,6 +625,9 @@
 
     },
     "Existing Tags" : {
+
+    },
+    "Exit snapshot mode" : {
 
     },
     "Export" : {
@@ -741,6 +776,23 @@
     "JSON files exported from Seahorse" : {
 
     },
+    "Launch at Login" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Launch at Login"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录时启动"
+          }
+        }
+      }
+    },
     "List" : {
 
     },
@@ -766,6 +818,12 @@
 
     },
     "No image available" : {
+
+    },
+    "No metadata yet. Add a snapshot or drop an image to set a preview." : {
+
+    },
+    "No preview image" : {
 
     },
     "No Results Yet" : {
@@ -799,9 +857,6 @@
           }
         }
       }
-    },
-    "Open Graph Data" : {
-
     },
     "Open Image" : {
 
@@ -884,6 +939,9 @@
         }
       }
     },
+    "Preview Image" : {
+
+    },
     "Primary Color" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -958,6 +1016,9 @@
     "Run diagnostics to check your bookmarks." : {
 
     },
+    "Save" : {
+
+    },
     "Save Changes" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1004,6 +1065,23 @@
     },
     "Start Batch Parsing" : {
 
+    },
+    "Startup" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Startup"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "启动"
+          }
+        }
+      }
     },
     "Stop" : {
 
@@ -1056,6 +1134,9 @@
           }
         }
       }
+    },
+    "Sync" : {
+
     },
     "Tag" : {
       "extractionState" : "manual",

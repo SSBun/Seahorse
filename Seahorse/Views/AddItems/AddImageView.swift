@@ -316,12 +316,7 @@ struct AddImageView: View {
             }
         } else {
             // Handle local file path
-            let localPath: String
-            if path.hasPrefix("file://") {
-                localPath = path.replacingOccurrences(of: "file://", with: "")
-            } else {
-                localPath = path
-            }
+            let localPath = StorageManager.shared.resolveImagePath(path)
             
             // Load local image from file system
             if let image = NSImage(contentsOfFile: localPath) {
@@ -357,7 +352,7 @@ struct AddImageView: View {
         if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
             do {
                 try pngData.write(to: fileURL)
-                return fileURL.path
+                return filename // store filename for portability
             } catch {
                 Log.error("Failed to save image: \(error)", category: .ui)
                 return nil
@@ -386,7 +381,7 @@ struct AddImageView: View {
         do {
             // Copy file directly to preserve format and metadata
             try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            return destinationURL.path
+            return filename // store filename for portability
         } catch {
             Log.error("Failed to copy image: \(error)", category: .ui)
             return nil

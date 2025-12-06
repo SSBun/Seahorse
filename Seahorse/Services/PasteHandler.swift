@@ -416,7 +416,7 @@ class PasteHandler: ObservableObject {
         if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
             do {
                 try pngData.write(to: fileURL)
-                return fileURL.path
+                return filename // store only filename for portability
             } catch {
                 Log.error("Failed to save image: \(error)", category: .paste)
                 return nil
@@ -456,7 +456,7 @@ class PasteHandler: ObservableObject {
         do {
             // Copy file directly to preserve format and metadata
             try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            return destinationURL.path
+            return filename // store only filename for portability
         } catch {
             Log.error("Failed to copy image: \(error)", category: .paste)
             return nil

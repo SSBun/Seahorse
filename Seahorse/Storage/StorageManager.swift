@@ -45,6 +45,50 @@ class StorageManager {
         return getStorageRoot().appendingPathComponent("Images", isDirectory: true)
     }
     
+    /// Convert a stored image path (which may be a filename, absolute path, or remote URL)
+    /// into a usable absolute path for local files. Remote URLs are returned unchanged.
+    func resolveImagePath(_ storedPath: String) -> String {
+        guard !storedPath.isEmpty else { return storedPath }
+        
+        // Remote URL - return as-is
+        if let url = URL(string: storedPath),
+           let scheme = url.scheme,
+           scheme == "http" || scheme == "https" {
+            return storedPath
+        }
+        
+        // File URL string
+        if let url = URL(string: storedPath), url.isFileURL {
+            let path = url.path
+            if FileManager.default.fileExists(atPath: path) {
+                return path
+            }
+            return getImagesDirectory().appendingPathComponent(url.lastPathComponent).path
+        }
+        
+        // Absolute path (legacy)
+        if storedPath.hasPrefix("/") {
+            if FileManager.default.fileExists(atPath: storedPath) {
+                return storedPath
+            }
+            let filename = URL(fileURLWithPath: storedPath).lastPathComponent
+            return getImagesDirectory().appendingPathComponent(filename).path
+        }
+        
+        // Filename (new behavior)
+        return getImagesDirectory().appendingPathComponent(storedPath).path
+    }
+    
+    /// Reduce an absolute image path under the Images directory to just the filename.
+    /// If the path is outside the Images directory, the original string is returned.
+    func relativeImageFilename(from absolutePath: String) -> String {
+        let imagesPath = getImagesDirectory().path
+        if absolutePath.hasPrefix(imagesPath) {
+            return URL(fileURLWithPath: absolutePath).lastPathComponent
+        }
+        return absolutePath
+    }
+    
     /// Get the Backups directory for auto-backups
     func getBackupsDirectory() -> URL {
         return getStorageRoot().appendingPathComponent("Backups", isDirectory: true)

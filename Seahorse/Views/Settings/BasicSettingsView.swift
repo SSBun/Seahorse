@@ -14,6 +14,7 @@ struct BasicSettingsView: View {
     @StateObject private var exportImportManager = ExportImportManager.shared
     @StateObject private var languageManager = LanguageManager.shared
     @StateObject private var aiSettings = AISettings.shared
+    @StateObject private var startupManager = StartupManager.shared
     
     private var colorOptions: [Color] {
         AppConfig.shared.availableColors
@@ -91,6 +92,32 @@ struct BasicSettingsView: View {
                                     appearanceManager.accentColor = color
                                 }
                         }
+                    }
+                }
+                
+                Divider()
+                
+                // Startup Setting
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.startup)
+                        .font(.system(size: 13, weight: .semibold))
+                    
+                    HStack(alignment: .center, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L10n.launchAtLogin)
+                                .font(.system(size: 13, weight: .medium))
+                            
+                            Text(L10n.launchAtLoginHint)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: $startupManager.launchAtLogin)
+                            .toggleStyle(.switch)
+                            .accessibilityLabel(L10n.launchAtLogin)
+                            .accessibilityHint(L10n.launchAtLoginHint)
                     }
                 }
                 

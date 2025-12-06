@@ -20,6 +20,8 @@ struct ImageViewer: View {
             ZStack {
                 Color.black.opacity(0.1)
                 
+                let resolvedPath = StorageManager.shared.resolveImagePath(imagePath)
+                
                 if let url = URL(string: imagePath), (url.scheme == "http" || url.scheme == "https") {
                     // Remote image using Kingfisher
                     KFImage.url(url)
@@ -35,7 +37,7 @@ struct ImageViewer: View {
                         .scaleEffect(scale)
                         .offset(offset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let nsImage = NSImage(contentsOfFile: imagePath) {
+                } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
                     // Local image
                     Image(nsImage: nsImage)
                         .resizable()

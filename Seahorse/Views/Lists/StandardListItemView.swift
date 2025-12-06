@@ -75,13 +75,14 @@ struct StandardListItemView: View {
                         .frame(width: 30, height: 30)
                 } else if let imageItem = imageItem,
                           !imageItem.imagePath.isEmpty {
+                    let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
                         KFImage(url)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
-                    } else if let nsImage = NSImage(contentsOfFile: imageItem.imagePath) {
+                    } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
                         Image(nsImage: nsImage)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -205,8 +206,15 @@ struct StandardListItemView: View {
             }
         case .image:
             if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
-                let imageURL = URL(fileURLWithPath: imageItem.imagePath)
-                NSWorkspace.shared.open(imageURL)
+                if let remoteURL = URL(string: imageItem.imagePath),
+                   let scheme = remoteURL.scheme,
+                   (scheme == "http" || scheme == "https") {
+                    NSWorkspace.shared.open(remoteURL)
+                } else {
+                    let absolutePath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
+                    let imageURL = URL(fileURLWithPath: absolutePath)
+                    NSWorkspace.shared.open(imageURL)
+                }
             }
         case .text:
             // TODO: Edit text

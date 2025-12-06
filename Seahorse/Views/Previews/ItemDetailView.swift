@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreGraphics
 import ImageIO
+import UniformTypeIdentifiers
 
 struct ItemDetailView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -25,11 +26,18 @@ struct ItemDetailView: View {
     @State private var showingDeleteConfirmation = false
     @State private var alertMessage = ""
     @State private var showingAlert = false
+    @State private var isPreviewDropTarget = false
     
     // Extract specific item types
-    private var bookmark: Bookmark? { item.asBookmark }
-    private var imageItem: ImageItem? { item.asImageItem }
-    private var textItem: TextItem? { item.asTextItem }
+    private var bookmark: Bookmark? {
+        dataStorage.bookmarks.first(where: { $0.id == item.id }) ?? item.asBookmark
+    }
+    private var imageItem: ImageItem? {
+        dataStorage.items.first(where: { $0.id == item.id })?.asImageItem ?? item.asImageItem
+    }
+    private var textItem: TextItem? {
+        dataStorage.items.first(where: { $0.id == item.id })?.asTextItem ?? item.asTextItem
+    }
     
     var body: some View {
         HSplitView {
@@ -136,8 +144,8 @@ struct ItemDetailView: View {
                     // Metadata
                     metadataSection
                     
-                    // OGP Info
-                    if bookmark?.metadata != nil {
+                    // Preview image / OGP
+                    if bookmark != nil {
                         ogpSection
                     }
                 }
@@ -417,9 +425,10 @@ struct ItemDetailView: View {
                         metadataRow(label: "File Size", value: fileSize)
                     }
                     // File path (truncated if too long)
-                    let pathDisplay = imageItem.imagePath.count > 50 
-                        ? "..." + String(imageItem.imagePath.suffix(47))
-                        : imageItem.imagePath
+                    let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
+                    let pathDisplay = resolvedPath.count > 50 
+                        ? "..." + String(resolvedPath.suffix(47))
+                        : resolvedPath
                     metadataRow(label: "Path", value: pathDisplay)
                 } else if let textItem = textItem {
                     metadataRow(label: "Characters", value: "\(textItem.content.count)")
@@ -447,46 +456,14 @@ struct ItemDetailView: View {
     
     private var ogpSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Open Graph Data")
+            Text("Preview Image")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
             
+            previewDropArea
+            
             if let metadata = bookmark?.metadata {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Image
-                    if let imageURLString = metadata.imageURL, let url = URL(string: imageURLString) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .empty:
-                                Rectangle()
-                                    .fill(Color.secondary.opacity(0.1))
-                                    .frame(height: 120)
-                                    .overlay(ProgressView())
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(height: 120)
-                                    .clipped()
-                            case .failure:
-                                Rectangle()
-                                    .fill(Color.secondary.opacity(0.1))
-                                    .frame(height: 120)
-                                    .overlay(
-                                        Image(systemName: "photo")
-                                            .foregroundStyle(.secondary)
-                                    )
-                            @unknown default:
-                                EmptyView()
-                            }
-                        }
-                        .cornerRadius(8)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-                        )
-                    }
-                    
                     // Fields
                     Group {
                         if let title = metadata.title {
@@ -507,6 +484,10 @@ struct ItemDetailView: View {
                     }
                 }
                 .textSelection(.enabled) // Make text copyable
+            } else {
+                Text("No metadata yet. Add a snapshot or drop an image to set a preview.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -520,6 +501,173 @@ struct ItemDetailView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.primary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    
+    // MARK: - Preview Image Helpers
+    
+    private var previewImagePath: String? {
+        bookmark?.metadata?.imageURL
+    }
+    
+    private var previewDropArea: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(NSColor.textBackgroundColor))
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isPreviewDropTarget ? Color.accentColor : Color(NSColor.separatorColor),
+                            style: StrokeStyle(lineWidth: 1, dash: [6]))
+                
+                previewImageView(for: previewImagePath)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .frame(height: 160)
+            .onDrop(of: [UTType.image, .fileURL], isTargeted: $isPreviewDropTarget) { providers in
+                handlePreviewDrop(providers)
+            }
+            .animation(.easeInOut(duration: 0.15), value: isPreviewDropTarget)
+            
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down.doc")
+                    .font(.system(size: 12))
+                Text("Drop an image here or capture a snapshot to set the preview.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func previewImageView(for path: String?) -> some View {
+        if let path = path, !path.isEmpty {
+            if let remoteURL = URL(string: path),
+               let scheme = remoteURL.scheme,
+               scheme == "http" || scheme == "https" {
+                AsyncImage(url: remoteURL) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color(NSColor.textBackgroundColor))
+                    case .failure:
+                        placeholderPreview
+                    @unknown default:
+                        placeholderPreview
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                let resolvedPath = StorageManager.shared.resolveImagePath(path)
+                if let image = NSImage(contentsOfFile: resolvedPath) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(NSColor.textBackgroundColor))
+                } else {
+                    placeholderPreview
+                }
+            }
+        } else {
+            placeholderPreview
+        }
+    }
+    
+    private var placeholderPreview: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 24))
+                .foregroundStyle(.secondary)
+            Text("No preview image")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("Drop an image or capture a snapshot to fill this area.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary.opacity(0.8))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(12)
+    }
+    
+    private func handlePreviewDrop(_ providers: [NSItemProvider]) -> Bool {
+        if let imageProvider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(UTType.image.identifier) }) {
+            imageProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                guard let data = data, let image = NSImage(data: data) else { return }
+                persistPreviewImage(image)
+            }
+            return true
+        }
+        
+        if let fileProvider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) {
+            fileProvider.loadObject(ofClass: URL.self) { object, _ in
+                guard let url = object, url.isFileURL else { return }
+                if let image = NSImage(contentsOf: url) {
+                    persistPreviewImage(image)
+                }
+            }
+            return true
+        }
+        
+        return false
+    }
+    
+    private func persistPreviewImage(_ image: NSImage) {
+        DispatchQueue.main.async {
+            guard let path = savePreviewImage(image) else { return }
+            applyPreviewImagePath(path)
+        }
+    }
+    
+    private func savePreviewImage(_ image: NSImage) -> String? {
+        let imagesDir = StorageManager.shared.getImagesDirectory()
+        do {
+            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        } catch {
+            alertMessage = "Failed to prepare image directory."
+            showingAlert = true
+            return nil
+        }
+        
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            alertMessage = "Unable to read dropped image."
+            showingAlert = true
+            return nil
+        }
+        
+        let filename = "preview-\(UUID().uuidString).png"
+        let fileURL = imagesDir.appendingPathComponent(filename)
+        
+        do {
+            try pngData.write(to: fileURL)
+            return filename // store filename for portability
+        } catch {
+            alertMessage = "Failed to save preview image."
+            showingAlert = true
+            return nil
+        }
+    }
+    
+    private func applyPreviewImagePath(_ path: String) {
+        guard var updated = bookmark else { return }
+        if updated.metadata != nil {
+            updated.metadata?.imageURL = path
+        } else {
+            updated.metadata = WebMetadata(imageURL: path, url: updated.url)
+        }
+        
+        do {
+            try dataStorage.updateBookmark(updated)
+        } catch {
+            alertMessage = "Failed to attach preview image to bookmark."
+            showingAlert = true
         }
     }
     
@@ -617,8 +765,10 @@ struct ItemDetailView: View {
             return nil
         }
         
+        let resolvedPath = StorageManager.shared.resolveImagePath(path)
+        
         // For local images
-        guard let imageSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+        guard let imageSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: resolvedPath) as CFURL, nil),
               let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [String: Any],
               let width = imageProperties[kCGImagePropertyPixelWidth as String] as? CGFloat,
               let height = imageProperties[kCGImagePropertyPixelHeight as String] as? CGFloat else {
@@ -650,7 +800,9 @@ struct ItemDetailView: View {
             return nil
         }
         
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+        let resolvedPath = StorageManager.shared.resolveImagePath(path)
+        
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: resolvedPath),
               let fileSize = attributes[.size] as? Int64 else {
             return nil
         }

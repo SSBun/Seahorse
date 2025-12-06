@@ -104,16 +104,17 @@ class DataStorage: ObservableObject {
     }
     
     private func deleteImageFile(at path: String) {
+        let resolvedPath = StorageManager.shared.resolveImagePath(path)
         // Only delete if the file is in our internal storage directory
         let imagesDir = StorageManager.shared.getImagesDirectory().path
-        guard path.hasPrefix(imagesDir) else {
+        guard resolvedPath.hasPrefix(imagesDir) else {
             Log.info("Skipping deletion of external image: \(path)", category: .database)
             return
         }
         
-        let fileURL = URL(fileURLWithPath: path)
+        let fileURL = URL(fileURLWithPath: resolvedPath)
         do {
-            if FileManager.default.fileExists(atPath: path) {
+            if FileManager.default.fileExists(atPath: resolvedPath) {
                 try FileManager.default.removeItem(at: fileURL)
                 Log.info("✅ Deleted image file: \(fileURL.lastPathComponent)", category: .database)
             }
@@ -267,9 +268,16 @@ class DataStorage: ObservableObject {
     
     /// Force save all current data to disk (used before migration)
     func forceSaveAllData() {
+        NotificationCenter.default.post(name: .autoSyncStarted, object: nil)
+        defer { NotificationCenter.default.post(name: .autoSyncEnded, object: nil) }
         database.forceSaveAllData()
     }
     
     // Legacy image migration removed
+}
+
+extension Notification.Name {
+    static let autoSyncStarted = Notification.Name("SeahorseAutoSyncStarted")
+    static let autoSyncEnded = Notification.Name("SeahorseAutoSyncEnded")
 }
 

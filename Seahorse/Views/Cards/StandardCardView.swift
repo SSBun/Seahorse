@@ -85,30 +85,9 @@ struct StandardCardView: View {
             case .bookmark:
                 // Gradient + Icon for bookmarks (or OGP Image)
                 VStack(spacing: 0) {
-                    if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL, let url = URL(string: previewURL) {
+                    if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL {
                         GeometryReader { geo in
-                            KFImage.url(url)
-                                .placeholder {
-                                    // Show subtle background while loading
-                                    Rectangle()
-                                        .fill(Color.gray.opacity(0.1))
-                                }
-                                .onFailure { _ in
-                                    // On timeout or error, show blank
-                                }
-                                // Use fixed size for downsampling to avoid re-processing on resize
-                                .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 400, height: 300)))
-                                .loadDiskFileSynchronously()
-                                .cacheMemoryOnly()
-                                .fade(duration: 0.25)
-                                .onSuccess { _ in
-                                    // Image loaded successfully
-                                }
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: geo.size.width, height: geo.size.height)
-                                .clipped()
-                                .contentShape(Rectangle())
+                            previewImage(for: previewURL, size: geo.size)
                         }
                         .onAppear {
                             // Configure timeout
@@ -140,6 +119,7 @@ struct StandardCardView: View {
             case .image:
                 // Actual image preview - fills entire card
                 if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
+                    let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
                         // Remote Image
                         GeometryReader { geo in
@@ -163,7 +143,7 @@ struct StandardCardView: View {
                         .onAppear {
                             KingfisherManager.shared.downloader.downloadTimeout = 10.0
                         }
-                    } else if let nsImage = NSImage(contentsOfFile: imageItem.imagePath) {
+                    } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
                         // Local Image
                         GeometryReader { geo in
                             Image(nsImage: nsImage)
@@ -406,6 +386,48 @@ struct StandardCardView: View {
         }
     }
     
+    @ViewBuilder
+    private func previewImage(for path: String, size: CGSize) -> some View {
+        if let remoteURL = URL(string: path),
+           let scheme = remoteURL.scheme,
+           scheme == "http" || scheme == "https" {
+            KFImage.url(remoteURL)
+                .placeholder {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.1))
+                }
+                .onFailure { _ in
+                    // fallback handled below
+                }
+                .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
+                .loadDiskFileSynchronously()
+                .cacheMemoryOnly()
+                .fade(duration: 0.25)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .contentShape(Rectangle())
+        } else {
+            let resolvedPath = StorageManager.shared.resolveImagePath(path)
+            if let nsImage = NSImage(contentsOfFile: resolvedPath) {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                    .contentShape(Rectangle())
+            } else {
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.05))
+                    )
+            }
+        }
+    }
+    
     // MARK: - Context Menu
     
     @ViewBuilder
@@ -454,8 +476,15 @@ struct StandardCardView: View {
             if let imageItem = imageItem {
                 Button(action: {
                     if !imageItem.imagePath.isEmpty {
-                        let imageURL = URL(fileURLWithPath: imageItem.imagePath)
-                        NSWorkspace.shared.open(imageURL)
+                        if let remoteURL = URL(string: imageItem.imagePath),
+                           let scheme = remoteURL.scheme,
+                           (scheme == "http" || scheme == "https") {
+                            NSWorkspace.shared.open(remoteURL)
+                        } else {
+                            let absolutePath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
+                            let imageURL = URL(fileURLWithPath: absolutePath)
+                            NSWorkspace.shared.open(imageURL)
+                        }
                     }
                 }) {
                     Label("Open Image", systemImage: "photo")
@@ -463,8 +492,15 @@ struct StandardCardView: View {
                 
                 Button(action: {
                     if !imageItem.imagePath.isEmpty {
-                        let imageURL = URL(fileURLWithPath: imageItem.imagePath)
-                        NSWorkspace.shared.activateFileViewerSelecting([imageURL])
+                        if let remoteURL = URL(string: imageItem.imagePath),
+                           let scheme = remoteURL.scheme,
+                           (scheme == "http" || scheme == "https") {
+                            NSWorkspace.shared.open(remoteURL)
+                        } else {
+                            let absolutePath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
+                            let imageURL = URL(fileURLWithPath: absolutePath)
+                            NSWorkspace.shared.activateFileViewerSelecting([imageURL])
+                        }
                     }
                 }) {
                     Label("Show in Finder", systemImage: "folder")
@@ -515,8 +551,15 @@ struct StandardCardView: View {
             }
         case .image:
             if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
-                let imageURL = URL(fileURLWithPath: imageItem.imagePath)
-                NSWorkspace.shared.open(imageURL)
+                if let remoteURL = URL(string: imageItem.imagePath),
+                   let scheme = remoteURL.scheme,
+                   (scheme == "http" || scheme == "https") {
+                    NSWorkspace.shared.open(remoteURL)
+                } else {
+                    let absolutePath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
+                    let imageURL = URL(fileURLWithPath: absolutePath)
+                    NSWorkspace.shared.open(imageURL)
+                }
             }
         case .text:
             showingEditSheet = true
