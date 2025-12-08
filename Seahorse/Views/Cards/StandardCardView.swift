@@ -337,6 +337,8 @@ struct StandardCardView: View {
             let provider = NSItemProvider(object: item.id.uuidString as NSString)
             provider.suggestedName = displayTitle
             return provider
+        } preview: {
+            dragPreview
         }
         .contextMenu {
             contextMenuContent
@@ -389,6 +391,48 @@ struct StandardCardView: View {
         case .image: return "Image"
         case .text: return "Note"
         }
+    }
+    
+    // MARK: - Drag Preview
+    
+    private var dragPreview: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.accentColor.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                
+                Image(systemName: itemTypeIcon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.accentColor)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayTitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                
+                Text(itemTypeLabel)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(width: 220, height: 56)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.accentColor.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
     
     @ViewBuilder
