@@ -50,6 +50,7 @@ class CopyMonitor: ObservableObject {
     
     let dataStorage: DataStorage
     private lazy var pasteHandler: PasteHandler = PasteHandler(dataStorage: dataStorage)
+    private var hasPromptedForAccessibilityThisSession = false
     
     init(dataStorage: DataStorage) {
         self.dataStorage = dataStorage
@@ -63,11 +64,13 @@ class CopyMonitor: ObservableObject {
         // Check accessibility permission
         guard checkAccessibilityPermission() else {
             Log.warning("Accessibility permission not granted, requesting...", category: .general)
-            requestAccessibilityPermission()
-            // Try again after a delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-                self?.startMonitoring()
+            // Prompt only once per app session to avoid repeated system dialogs
+            if !hasPromptedForAccessibilityThisSession {
+                requestAccessibilityPermission()
+                hasPromptedForAccessibilityThisSession = true
             }
+            // Disable monitoring until user enables permission to avoid loops
+            isEnabled = false
             return
         }
         
