@@ -404,7 +404,7 @@ struct StandardCardView: View {
                 
                 Image(systemName: itemTypeIcon)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
             
             VStack(alignment: .leading, spacing: 4) {
