@@ -333,6 +333,11 @@ struct StandardCardView: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        .onDrag {
+            let provider = NSItemProvider(object: item.id.uuidString as NSString)
+            provider.suggestedName = displayTitle
+            return provider
+        }
         .contextMenu {
             contextMenuContent
         }

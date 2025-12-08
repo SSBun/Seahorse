@@ -127,23 +127,33 @@ struct SidebarView: View {
     private func handleDrop(providers: [NSItemProvider], category: Category) -> Bool {
         guard let provider = providers.first else { return false }
         
-        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { data, error in
+        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { data, _ in
             guard let data = data as? Data,
                   let uuidString = String(data: data, encoding: .utf8),
-                  let bookmarkId = UUID(uuidString: uuidString) else {
+                  let itemId = UUID(uuidString: uuidString) else {
                 return
             }
             
             DispatchQueue.main.async {
-                if let bookmark = dataStorage.bookmarks.first(where: { $0.id == bookmarkId }) {
-                    var updated = bookmark
-                    updated.categoryId = category.id
-                    do {
-                        try dataStorage.updateBookmark(updated)
-                    } catch {
-                        print("Failed to move bookmark: \(error)")
-                    }
+                guard var item = dataStorage.items.first(where: { $0.id == itemId }) else { return }
+                
+                if var bookmark = item.asBookmark {
+                    bookmark.categoryId = category.id
+                    bookmark.modifiedDate = Date()
+                    item = AnyCollectionItem(bookmark)
+                } else if var imageItem = item.asImageItem {
+                    imageItem.categoryId = category.id
+                    imageItem.modifiedDate = Date()
+                    item = AnyCollectionItem(imageItem)
+                } else if var textItem = item.asTextItem {
+                    textItem.categoryId = category.id
+                    textItem.modifiedDate = Date()
+                    item = AnyCollectionItem(textItem)
+                } else {
+                    return
                 }
+                
+                dataStorage.updateItem(item)
             }
         }
         
