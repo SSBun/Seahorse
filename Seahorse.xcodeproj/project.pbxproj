@@ -7,12 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A79823F56A914FFEFD22770F /* Pods_Seahorse.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18E7A1921ECE390AA6BEAE44 /* Pods_Seahorse.framework */; };
 		C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = C404BAF22EC7301C007D7FD4 /* OpenAI */; };
 		C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C4B4298B2EE00D5600EF6DB2 /* Kingfisher */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		18E7A1921ECE390AA6BEAE44 /* Pods_Seahorse.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Seahorse.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		3DCFB21E74EAE507F2254B97 /* Pods-Seahorse.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seahorse.debug.xcconfig"; path = "Target Support Files/Pods-Seahorse/Pods-Seahorse.debug.xcconfig"; sourceTree = "<group>"; };
 		C404BA202EC6C12F007D7FD4 /* Seahorse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Seahorse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		CBC401249550BFF57145509A /* Pods-Seahorse.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Seahorse.release.xcconfig"; path = "Target Support Files/Pods-Seahorse/Pods-Seahorse.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -43,17 +47,29 @@
 			files = (
 				C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */,
 				C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */,
+				A79823F56A914FFEFD22770F /* Pods_Seahorse.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6C1DAC8F9CA2A6DFACB56001 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				3DCFB21E74EAE507F2254B97 /* Pods-Seahorse.debug.xcconfig */,
+				CBC401249550BFF57145509A /* Pods-Seahorse.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		C404BA172EC6C12F007D7FD4 = {
 			isa = PBXGroup;
 			children = (
 				C404BA222EC6C12F007D7FD4 /* Seahorse */,
 				C404BA212EC6C12F007D7FD4 /* Products */,
+				6C1DAC8F9CA2A6DFACB56001 /* Pods */,
+				DE0D97D3608C4B6D77C70138 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -65,6 +81,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		DE0D97D3608C4B6D77C70138 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				18E7A1921ECE390AA6BEAE44 /* Pods_Seahorse.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -72,9 +96,11 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C404BA2F2EC6C130007D7FD4 /* Build configuration list for PBXNativeTarget "Seahorse" */;
 			buildPhases = (
+				D308CD5C64C0451E7291B63D /* [CP] Check Pods Manifest.lock */,
 				C404BA1C2EC6C12F007D7FD4 /* Sources */,
 				C404BA1D2EC6C12F007D7FD4 /* Frameworks */,
 				C404BA1E2EC6C12F007D7FD4 /* Resources */,
+				57B1FE8A0A8486C1AAA2AEBC /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -139,6 +165,48 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		57B1FE8A0A8486C1AAA2AEBC /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Seahorse/Pods-Seahorse-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-Seahorse/Pods-Seahorse-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Seahorse/Pods-Seahorse-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		D308CD5C64C0451E7291B63D /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-Seahorse-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C404BA1C2EC6C12F007D7FD4 /* Sources */ = {
@@ -271,6 +339,7 @@
 		};
 		C404BA302EC6C130007D7FD4 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3DCFB21E74EAE507F2254B97 /* Pods-Seahorse.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -301,6 +370,7 @@
 		};
 		C404BA312EC6C130007D7FD4 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = CBC401249550BFF57145509A /* Pods-Seahorse.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

@@ -94,6 +94,9 @@ iOSInjectionProject/
 # macOS
 .DS_Store
 
+# CocoaPods
+Pods/
+
 # Build artifacts
 *.dmg
 *.dmg.sha256
