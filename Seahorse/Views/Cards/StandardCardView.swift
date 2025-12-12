@@ -343,6 +343,12 @@ struct StandardCardView: View {
         .contextMenu {
             contextMenuContent
         }
+        .onTapGesture(count: 2) {
+            // Cancel single tap task
+            tapTask?.cancel()
+            // Handle double tap
+            handleDoubleTap()
+        }
         .onTapGesture {
             // Cancel any pending single tap
             tapTask?.cancel()
@@ -357,12 +363,6 @@ struct StandardCardView: View {
                     }
                 }
             }
-        }
-        .onTapGesture(count: 2) {
-            // Cancel single tap task
-            tapTask?.cancel()
-            // Handle double tap
-            handleDoubleTap()
         }
         .sheet(isPresented: $showingEditSheet) {
             if let bookmark = bookmark {
