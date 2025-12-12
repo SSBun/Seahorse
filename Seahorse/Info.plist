@@ -9,9 +9,5 @@
 	</dict>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>需要监听复制操作以自动保存内容到收藏夹</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://example.com/appcast.xml</string>
 </dict>
 </plist>

@@ -25,11 +25,6 @@ struct BasicSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Updates
-                UpdateSettingsView()
-                
-                Divider()
-                
                 // App Language Setting
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.appLanguage)
