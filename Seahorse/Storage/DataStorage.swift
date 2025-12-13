@@ -250,6 +250,32 @@ class DataStorage: ObservableObject {
         }
     }
     
+    // MARK: - Reorder Operations
+    
+    func reorderCategories(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var reordered = categories
+        reordered.move(fromOffsets: source, toOffset: destination)
+        
+        do {
+            try database.reorderCategories(reordered)
+            categories = reordered
+        } catch {
+            Log.error("❌ Failed to reorder categories: \(error)", category: .database)
+        }
+    }
+    
+    func reorderTags(fromOffsets source: IndexSet, toOffset destination: Int) {
+        var reordered = tags
+        reordered.move(fromOffsets: source, toOffset: destination)
+        
+        do {
+            try database.reorderTags(reordered)
+            tags = reordered
+        } catch {
+            Log.error("❌ Failed to reorder tags: \(error)", category: .database)
+        }
+    }
+    
     // MARK: - Preferences Operations
     
     func savePreference(key: String, value: String) throws {

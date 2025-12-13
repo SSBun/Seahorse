@@ -134,51 +134,69 @@ struct CategoryManagementView: View {
                 
                 // Existing Categories
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Existing Categories")
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    ForEach(dataStorage.categories) { category in
-                        HStack {
-                            Image(systemName: category.icon)
-                                .foregroundStyle(category.color)
-                                .frame(width: 20)
-                            
-                            Text(category.name)
-                                .font(.system(size: 13))
-                            
-                            if isDefaultCategory(category) {
-                                Text("(Default)")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            if !isDefaultCategory(category) {
-                                Button(action: {
-                                    startEditing(category)
-                                }) {
-                                    Image(systemName: "pencil")
-                                        .font(.system(size: 12))
-                                }
-                                .buttonStyle(.borderless)
-                                
-                                Button(action: {
-                                    categoryToDelete = category
-                                    showingDeleteConfirmation = true
-                                }) {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.red)
-                                }
-                                .buttonStyle(.borderless)
-                            }
-                        }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 8)
-                        .background(editingCategory?.id == category.id ? Color.accentColor.opacity(0.1) : Color.clear)
-                        .cornerRadius(6)
+                    HStack {
+                        Text("Existing Categories")
+                            .font(.system(size: 13, weight: .semibold))
+                        
+                        Spacer()
+                        
+                        Text("Drag to reorder")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     }
+                    
+                    List {
+                        ForEach(dataStorage.categories) { category in
+                            HStack {
+                                Image(systemName: category.icon)
+                                    .foregroundStyle(category.color)
+                                    .frame(width: 20)
+                                
+                                Text(category.name)
+                                    .font(.system(size: 13))
+                                
+                                if isDefaultCategory(category) {
+                                    Text("(Default)")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                                
+                                Spacer()
+                                
+                                if !isDefaultCategory(category) {
+                                    Button(action: {
+                                        startEditing(category)
+                                    }) {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 12))
+                                    }
+                                    .buttonStyle(.borderless)
+                                    
+                                    Button(action: {
+                                        categoryToDelete = category
+                                        showingDeleteConfirmation = true
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.red)
+                                    }
+                                    .buttonStyle(.borderless)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(editingCategory?.id == category.id ? Color.accentColor.opacity(0.1) : Color.clear)
+                        }
+                        .onMove { source, destination in
+                            dataStorage.reorderCategories(fromOffsets: source, toOffset: destination)
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListRowHeight, 32)
+                    .frame(minHeight: 200)
+                    .padding(.horizontal, -8)
                 }
                 
                 Spacer()

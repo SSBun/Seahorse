@@ -37,6 +37,10 @@ protocol DatabaseProtocol {
     func fetchAllTags() throws -> [Tag]
     func tagExists(name: String) throws -> Bool
     
+    // Reorder operations
+    func reorderCategories(_ categories: [Category]) throws
+    func reorderTags(_ tags: [Tag]) throws
+    
     // Preferences operations
     func savePreference(key: String, value: String) throws
     func fetchPreference(key: String) throws -> String?

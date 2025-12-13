@@ -119,6 +119,16 @@ class MockDatabase: DatabaseProtocol {
         tags.contains { $0.name == name }
     }
     
+    // MARK: - Reorder Operations
+    
+    func reorderCategories(_ newCategories: [Category]) throws {
+        categories = newCategories
+    }
+    
+    func reorderTags(_ newTags: [Tag]) throws {
+        tags = newTags
+    }
+    
     // MARK: - Preferences Operations
     
     func savePreference(key: String, value: String) throws {

@@ -462,6 +462,22 @@ class JSONStorage: DatabaseProtocol {
         }
     }
     
+    // MARK: - Reorder Operations
+    
+    func reorderCategories(_ newCategories: [Category]) throws {
+        queue.sync(flags: .barrier) {
+            categories = newCategories
+        }
+        saveCategoriesToDisk()
+    }
+    
+    func reorderTags(_ newTags: [Tag]) throws {
+        queue.sync(flags: .barrier) {
+            tags = newTags
+        }
+        saveTagsToDisk()
+    }
+    
     // MARK: - Preferences Operations
     
     func savePreference(key: String, value: String) throws {

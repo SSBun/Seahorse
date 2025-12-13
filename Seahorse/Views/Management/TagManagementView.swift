@@ -79,8 +79,18 @@ struct TagManagementView: View {
                 
                 // Existing Tags
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Existing Tags")
-                        .font(.system(size: 13, weight: .semibold))
+                    HStack {
+                        Text("Existing Tags")
+                            .font(.system(size: 13, weight: .semibold))
+                        
+                        Spacer()
+                        
+                        if !dataStorage.tags.isEmpty {
+                            Text("Drag to reorder")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                     
                     if dataStorage.tags.isEmpty {
                         Text("No tags yet. Add your first tag above.")
@@ -88,40 +98,50 @@ struct TagManagementView: View {
                             .foregroundStyle(.secondary)
                             .padding(.vertical, 20)
                     } else {
-                        ForEach(dataStorage.tags) { tag in
-                            HStack {
-                                Circle()
-                                    .fill(tag.color)
-                                    .frame(width: 12, height: 12)
-                                
-                                Text(tag.name)
-                                    .font(.system(size: 13))
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    startEditing(tag)
-                                }) {
-                                    Image(systemName: "pencil")
-                                        .font(.system(size: 12))
+                        List {
+                            ForEach(dataStorage.tags) { tag in
+                                HStack {
+                                    Circle()
+                                        .fill(tag.color)
+                                        .frame(width: 12, height: 12)
+                                    
+                                    Text(tag.name)
+                                        .font(.system(size: 13))
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        startEditing(tag)
+                                    }) {
+                                        Image(systemName: "pencil")
+                                            .font(.system(size: 12))
+                                    }
+                                    .buttonStyle(.borderless)
+                                    
+                                    Button(action: {
+                                        tagToDelete = tag
+                                        showingDeleteConfirmation = true
+                                    }) {
+                                        Image(systemName: "trash")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(.red)
+                                    }
+                                    .buttonStyle(.borderless)
                                 }
-                                .buttonStyle(.borderless)
-                                
-                                Button(action: {
-                                    tagToDelete = tag
-                                    showingDeleteConfirmation = true
-                                }) {
-                                    Image(systemName: "trash")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(.red)
-                                }
-                                .buttonStyle(.borderless)
+                                .padding(.vertical, 4)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(editingTag?.id == tag.id ? Color.accentColor.opacity(0.1) : Color.clear)
                             }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 8)
-                            .background(editingTag?.id == tag.id ? Color.accentColor.opacity(0.1) : Color.clear)
-                            .cornerRadius(6)
+                            .onMove { source, destination in
+                                dataStorage.reorderTags(fromOffsets: source, toOffset: destination)
+                            }
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .environment(\.defaultMinListRowHeight, 32)
+                        .frame(minHeight: 200)
+                        .padding(.horizontal, -8)
                     }
                 }
                 
