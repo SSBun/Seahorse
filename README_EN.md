@@ -87,6 +87,27 @@ Seahorse is more than just a bookmark manager—it's a versatile material collec
 
 Download the latest DMG installer from the [Releases](https://github.com/SSBun/Seahorse/releases) page.
 
+## Installation Guide
+
+### Installation Steps
+
+1. Download the latest DMG installer from the [Releases](https://github.com/SSBun/Seahorse/releases) page
+2. Double-click the DMG file to open it
+3. Drag Seahorse.app to the Applications folder
+4. Open the Applications folder and double-click Seahorse.app to launch the application
+
+### Resolving Security Warnings
+
+If you see a warning message like "Seahorse.app cannot be opened because it is from an unidentified developer" or similar security alerts when first opening the application, this is due to macOS Gatekeeper security mechanism. You can resolve this by running the following command:
+
+```bash
+xattr -d com.apple.quarantine /Applications/Seahorse.app
+```
+
+After running this command, you can open the application normally.
+
+**Note:** This command removes the quarantine attribute from the application, which is a security marker macOS applies to applications downloaded from the internet. Seahorse is open-source software, and you can review the source code to verify its safety.
+
 ## Getting Started
 
 1. Download and install Seahorse

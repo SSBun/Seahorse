@@ -87,6 +87,27 @@ Seahorse 不仅仅是一个书签管理器，它是一个全能的素材收集�
 
 从 [Releases](https://github.com/SSBun/Seahorse/releases) 页面下载最新版本的 DMG 安装包。
 
+## 安装指南
+
+### 安装步骤
+
+1. 从 [Releases](https://github.com/SSBun/Seahorse/releases) 页面下载最新版本的 DMG 安装包
+2. 双击 DMG 文件打开
+3. 将 Seahorse.app 拖拽到 Applications 文件夹
+4. 打开 Applications 文件夹，双击 Seahorse.app 启动应用
+
+### 解决安全提示问题
+
+如果首次打开应用时出现"无法打开，因为来自身份不明的开发者"或类似的警告提示，这是因为 macOS 的 Gatekeeper 安全机制。可以通过以下命令解决：
+
+```bash
+xattr -d com.apple.quarantine /Applications/Seahorse.app
+```
+
+执行此命令后，再次打开应用即可正常使用。
+
+**说明：** 此命令会移除应用的隔离属性（quarantine），这是 macOS 对从网络下载的应用的安全标记。Seahorse 是开源软件，你可以查看源代码确认其安全性。
+
 ## 开始使用
 
 1. 下载并安装 Seahorse
