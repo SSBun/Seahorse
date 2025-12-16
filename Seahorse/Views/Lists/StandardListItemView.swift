@@ -77,13 +77,18 @@ struct StandardListItemView: View {
                           !imageItem.imagePath.isEmpty {
                     let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
+                        // Optimized: Use downsampling for remote images
                         KFImage(url)
+                            .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 40, height: 40)))
+                            .cacheMemoryOnly()
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                     } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
-                        Image(nsImage: nsImage)
+                        // Optimized: Create thumbnail for local images
+                        let thumbnail = nsImage.resized(to: CGSize(width: 40, height: 40))
+                        Image(nsImage: thumbnail)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)

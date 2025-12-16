@@ -76,6 +76,20 @@ struct StandardCardView: View {
         bookmark?.isFavorite ?? imageItem?.isFavorite ?? textItem?.isFavorite ?? false
     }
     
+    // MARK: - Cached Lookups (Performance Optimization)
+    
+    /// Cached category lookup to avoid repeated O(n) searches
+    private var category: Category? {
+        dataStorage.categories.first(where: { $0.id == categoryId })
+    }
+    
+    /// Cached tags lookup to avoid repeated O(n) searches
+    private var tags: [Tag] {
+        tagIds.compactMap { tagId in
+            dataStorage.tags.first(where: { $0.id == tagId })
+        }
+    }
+    
     // MARK: - Preview Area
     
     @ViewBuilder
@@ -237,7 +251,8 @@ struct StandardCardView: View {
                 }
                 .buttonStyle(.plain)
                 
-                if let category = dataStorage.categories.first(where: { $0.id == categoryId }) {
+                // Use cached category lookup
+                if let category = category {
                     let categoryColor = Color(hex: category.colorHex) ?? .blue
                     Text("#\(category.name.lowercased())")
                         .font(.system(size: 9, weight: .medium))
@@ -251,23 +266,21 @@ struct StandardCardView: View {
                         .layoutPriority(1000) // Highest priority for category
                 }
                 
-                // Tags - with priority for earlier tags
-                ForEach(Array(tagIds.enumerated()), id: \.element) { index, tagId in
-                    if let tag = dataStorage.tags.first(where: { $0.id == tagId }) {
-                        let tagColor = Color(hex: tag.colorHex) ?? .blue
-                        // Higher priority for earlier tags (decreasing priority)
-                        let priority = Double(tagIds.count - index)
-                        Text("#\(tag.name.lowercased())")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(tagColor)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1.5)
-                            .background(tagColor.opacity(0.1))
-                            .cornerRadius(3)
-                            .layoutPriority(priority)
-                    }
+                // Tags - use cached tags lookup
+                ForEach(Array(tags.enumerated()), id: \.element.id) { index, tag in
+                    let tagColor = Color(hex: tag.colorHex) ?? .blue
+                    // Higher priority for earlier tags (decreasing priority)
+                    let priority = Double(tags.count - index)
+                    Text("#\(tag.name.lowercased())")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(tagColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .background(tagColor.opacity(0.1))
+                        .cornerRadius(3)
+                        .layoutPriority(priority)
                 }
                 
                 Spacer()

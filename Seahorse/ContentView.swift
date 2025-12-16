@@ -31,6 +31,11 @@ struct ContentView: View {
     
     @State private var windowDelegate = MainWindowDelegate()
     
+    // Performance optimization: Memoize filtered items
+    @State private var cachedFilteredItems: [AnyCollectionItem] = []
+    @State private var lastFilterHash: Int = 0
+    @State private var lastItemsCount: Int = 0
+    
     init(batchParsingService: BatchParsingService) {
         let dataStorage = DataStorage.shared
         self.batchParsingService = batchParsingService
@@ -39,6 +44,23 @@ struct ContentView: View {
     }
     
     var filteredItems: [AnyCollectionItem] {
+        // Create a hash of filter criteria
+        let currentHash = hashValue(
+            category: selectedCategory?.id,
+            tag: selectedTag?.id,
+            searchText: searchText,
+            sortOption: sortPreferenceManager.sortOption,
+            itemsCount: dataStorage.items.count
+        )
+        
+        // Return cached if nothing changed
+        if currentHash == lastFilterHash && 
+           dataStorage.items.count == lastItemsCount &&
+           !cachedFilteredItems.isEmpty {
+            return cachedFilteredItems
+        }
+        
+        // Recalculate filtered items
         var items = dataStorage.items
         
         // Filter by category or tag
@@ -80,7 +102,11 @@ struct ContentView: View {
                 return false
             }
         } else {
-            return []
+            let empty: [AnyCollectionItem] = []
+            cachedFilteredItems = empty
+            lastFilterHash = currentHash
+            lastItemsCount = dataStorage.items.count
+            return empty
         }
         
         // Filter by search text (title/url/notes + tags)
@@ -94,7 +120,31 @@ struct ContentView: View {
         }
         
         // Apply sorting to all items uniformly
-        return sortPreferenceManager.sortOption.sort(items)
+        let sorted = sortPreferenceManager.sortOption.sort(items)
+        
+        // Cache the results
+        cachedFilteredItems = sorted
+        lastFilterHash = currentHash
+        lastItemsCount = dataStorage.items.count
+        
+        return sorted
+    }
+    
+    /// Creates a hash value from filter criteria for memoization
+    private func hashValue(
+        category: UUID?,
+        tag: UUID?,
+        searchText: String,
+        sortOption: SortOption,
+        itemsCount: Int
+    ) -> Int {
+        var hasher = Hasher()
+        hasher.combine(category?.uuidString)
+        hasher.combine(tag?.uuidString)
+        hasher.combine(searchText.trimmingCharacters(in: .whitespacesAndNewlines))
+        hasher.combine(sortOption.rawValue)
+        hasher.combine(itemsCount)
+        return hasher.finalize()
     }
     
     private func tagNames(for item: AnyCollectionItem) -> [String] {

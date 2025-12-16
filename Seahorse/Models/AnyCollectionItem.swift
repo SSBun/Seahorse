@@ -99,3 +99,17 @@ struct AnyCollectionItem: Identifiable, Codable {
         return Date()
     }
 }
+
+// MARK: - Equatable & Hashable
+
+extension AnyCollectionItem: Equatable {
+    static func == (lhs: AnyCollectionItem, rhs: AnyCollectionItem) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+extension AnyCollectionItem: Hashable {
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
