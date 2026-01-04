@@ -240,9 +240,20 @@ class CopyMonitor: ObservableObject {
         
         // Use PasteHandler to create bookmark
         await MainActor.run {
-            // Create NSItemProvider from URL
+            // Create NSItemProvider from URL with proper type registration
             if let url = URL(string: urlString) {
-                let provider = NSItemProvider(object: url as NSURL)
+                let provider = NSItemProvider()
+                provider.registerObject(url as NSURL, visibility: .all)
+                // Register URL type identifier
+                provider.registerDataRepresentation(forTypeIdentifier: UTType.url.identifier, visibility: .all) { completion in
+                    completion(url.dataRepresentation, nil)
+                    return nil
+                }
+                // Also register as plain text for compatibility
+                provider.registerDataRepresentation(forTypeIdentifier: UTType.plainText.identifier, visibility: .all) { completion in
+                    completion(urlString.data(using: .utf8), nil)
+                    return nil
+                }
                 pasteHandler.handlePaste(providers: [provider])
             }
         }
@@ -264,7 +275,13 @@ class CopyMonitor: ObservableObject {
         
         // Use PasteHandler to create text item
         await MainActor.run {
-            let provider = NSItemProvider(object: text as NSString)
+            let provider = NSItemProvider()
+            provider.registerObject(text as NSString, visibility: .all)
+            // Register as plain text type identifier
+            provider.registerDataRepresentation(forTypeIdentifier: UTType.plainText.identifier, visibility: .all) { completion in
+                completion(text.data(using: .utf8), nil)
+                return nil
+            }
             pasteHandler.handlePaste(providers: [provider])
         }
     }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -216,6 +217,9 @@ struct ContentView: View {
                 }
             }
             .navigationTitle(selectedCategory?.name ?? "Bookmarks")
+            .onDrop(of: [.url, .image, .plainText, .fileURL], isTargeted: nil) { providers in
+                handleDrop(providers: providers)
+            }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
                     // Search field
@@ -505,6 +509,12 @@ struct ContentView: View {
                 syncRotation = 0
             }
         }
+    }
+    
+    private func handleDrop(providers: [NSItemProvider]) -> Bool {
+        // Use PasteHandler to process dropped items
+        pasteHandler.handlePaste(providers: providers)
+        return true
     }
 }
 
