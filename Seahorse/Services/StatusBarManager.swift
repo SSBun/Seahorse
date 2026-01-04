@@ -26,6 +26,9 @@ class StatusBarManager: NSObject {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem.button {
+            // Enable layer backing for animations
+            button.wantsLayer = true
+            
             // Use custom icon, fallback to system symbol if missing
             if let image = NSImage(named: "seahorse_icon") {
                 image.size = NSSize(width: 18, height: 18)

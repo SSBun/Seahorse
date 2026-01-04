@@ -66,6 +66,12 @@ class DataStorage: ObservableObject {
             if let bookmark = item.asBookmark {
                 bookmarks.append(bookmark)
             }
+            
+            // Post notification for menu icon shaking animation
+            NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
+            
+            // Show system notification if enabled
+            NotificationService.shared.showNotification(for: item)
         } catch {
             Log.error("❌ Failed to save item: \(error)", category: .database)
         }
@@ -128,7 +134,14 @@ class DataStorage: ObservableObject {
     func addBookmark(_ bookmark: Bookmark) throws {
         try database.saveBookmark(bookmark)
         bookmarks.append(bookmark)
-        items.append(AnyCollectionItem(bookmark)) // Also add to items array
+        let item = AnyCollectionItem(bookmark)
+        items.append(item) // Also add to items array
+        
+        // Post notification for menu icon shaking animation
+        NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
+        
+        // Show system notification if enabled
+        NotificationService.shared.showNotification(for: item)
     }
     
     func updateBookmark(_ bookmark: Bookmark) throws {

@@ -11,6 +11,7 @@ import ApplicationServices
 struct AdvancedSettingsView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @StateObject private var copyMonitor = CopyMonitor.shared
+    @AppStorage("enableSystemNotifications") private var isNotificationEnabled: Bool = false
     
     @State private var showingPermissionAlert = false
     
@@ -111,6 +112,36 @@ struct AdvancedSettingsView: View {
                                 .toggleStyle(.switch)
                         }
                     }
+                }
+                
+                Divider()
+                
+                // System Notifications Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("System Notifications")
+                        .font(.system(size: 16, weight: .semibold))
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Show Notification When Saving Items")
+                                .font(.system(size: 13, weight: .medium))
+                            
+                            Text("Display a system notification at the top right when a new item is saved")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: $isNotificationEnabled)
+                            .toggleStyle(.switch)
+                            .onChange(of: isNotificationEnabled) { oldValue, newValue in
+                                if newValue {
+                                    NotificationService.shared.requestAuthorization()
+                                }
+                            }
+                    }
+                    .padding(.vertical, 8)
                 }
                 
                 Divider()

@@ -30,6 +30,10 @@ struct SeahorseApp: App {
         // Ensure storage path manager is initialized before data storage
         // This establishes security-scoped access to custom folders
         _ = StoragePathManager.shared
+        
+        // Initialize NotificationService early to set up delegate
+        // This ensures notifications show as banners when app is in foreground
+        _ = NotificationService.shared
     }
     
     var body: some Scene {
