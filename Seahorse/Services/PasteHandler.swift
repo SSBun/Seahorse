@@ -192,6 +192,11 @@ class PasteHandler: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             
+            // Canonicalize so URL parsing + metadata fetch work even when user pastes "example.com"
+            let canonicalURLString = BookmarkURLNormalizer.normalize(urlString)
+            guard !canonicalURLString.isEmpty else { return }
+            DLog("Paste: create bookmark placeholder url='\(canonicalURLString)'", category: .paste)
+            
             // Get default category (None)
             let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id 
                 ?? self.dataStorage.categories.first?.id 
@@ -200,7 +205,7 @@ class PasteHandler: ObservableObject {
             // Create initial bookmark with minimal info
             let bookmark = Bookmark(
                 title: "Loading...",
-                url: urlString,
+                url: canonicalURLString,
                 icon: "link.circle",
                 categoryId: defaultCategoryId,
                 isFavorite: false,
@@ -212,12 +217,16 @@ class PasteHandler: ObservableObject {
             
             do {
                 try self.dataStorage.addBookmark(bookmark)
+                DLog("Paste: saved placeholder id=\(bookmark.id.uuidString)", category: .paste)
                 Log.info("Created placeholder bookmark, fetching metadata...", category: .paste)
                 
                 // Fetch metadata asynchronously
                 Task {
-                    await self.fetchAndUpdateBookmark(bookmark, urlString: urlString)
+                    await self.fetchAndUpdateBookmark(bookmark, urlString: canonicalURLString)
                 }
+            } catch DatabaseError.duplicateBookmarkURL {
+                DLog("Paste: skipped duplicate url='\(canonicalURLString)'", category: .paste)
+                Log.info("Skipped duplicate bookmark URL: \(urlString)", category: .paste)
             } catch {
                 Log.error("Failed to create bookmark: \(error)", category: .paste)
             }
@@ -225,7 +234,9 @@ class PasteHandler: ObservableObject {
     }
     
     private func fetchAndUpdateBookmark(_ bookmark: Bookmark, urlString: String) async {
-        guard let url = URL(string: urlString) else { return }
+        let canonicalURLString = BookmarkURLNormalizer.normalize(urlString)
+        guard let url = URL(string: canonicalURLString) else { return }
+        DLog("Paste: fetch metadata start id=\(bookmark.id.uuidString) url='\(canonicalURLString)'", category: .paste)
         
         do {
             let metadata = try await OpenGraphService.shared.fetchMetadata(url: url)
@@ -235,7 +246,7 @@ class PasteHandler: ObservableObject {
                 let updatedBookmark = Bookmark(
                     id: bookmark.id,
                     title: metadata.title ?? url.host ?? "Untitled",
-                    url: urlString,
+                    url: canonicalURLString,
                     icon: metadata.faviconURL ?? "link.circle",
                     categoryId: bookmark.categoryId,
                     isFavorite: bookmark.isFavorite,
@@ -248,6 +259,7 @@ class PasteHandler: ObservableObject {
                 
                 do {
                     try self.dataStorage.updateBookmark(updatedBookmark)
+                    DLog("Paste: updated bookmark from metadata id=\(bookmark.id.uuidString) title='\(updatedBookmark.title)'", category: .paste)
                     Log.info("Updated bookmark with metadata", category: .paste)
                 } catch {
                     Log.error("Failed to update bookmark: \(error)", category: .paste)
@@ -259,7 +271,7 @@ class PasteHandler: ObservableObject {
                 let fallbackBookmark = Bookmark(
                     id: bookmark.id,
                     title: url.host ?? urlString,
-                    url: urlString,
+                    url: canonicalURLString,
                     icon: "link.circle",
                     categoryId: bookmark.categoryId,
                     isFavorite: bookmark.isFavorite,
@@ -271,6 +283,7 @@ class PasteHandler: ObservableObject {
                 )
                 
                 try? self.dataStorage.updateBookmark(fallbackBookmark)
+                DLog("Paste: metadata failed, wrote fallback id=\(bookmark.id.uuidString) title='\(fallbackBookmark.title)'", category: .paste)
                 Log.warning("Failed to fetch metadata, using fallback", category: .paste)
             }
         }

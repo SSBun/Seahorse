@@ -274,34 +274,18 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Bookmark Operations
     
     func saveBookmark(_ bookmark: Bookmark) throws {
-        try queue.sync(flags: .barrier) {
-            // Check for duplicate ID
-            guard !items.contains(where: { $0.id == bookmark.id }) else {
-                throw DatabaseError.duplicateEntry
-            }
-            items.append(AnyCollectionItem(bookmark))
-        }
-        saveItemsToDisk()
+        // Delegate to the generic item pipeline so all validation/normalization lives in one place.
+        try saveItem(AnyCollectionItem(bookmark))
     }
     
     func updateBookmark(_ bookmark: Bookmark) throws {
-        try queue.sync(flags: .barrier) {
-            guard let index = items.firstIndex(where: { $0.id == bookmark.id }) else {
-                throw DatabaseError.notFound
-            }
-            items[index] = AnyCollectionItem(bookmark)
-        }
-        saveItemsToDisk()
+        // Delegate to the generic item pipeline so all validation/normalization lives in one place.
+        try updateItem(AnyCollectionItem(bookmark))
     }
     
     func deleteBookmark(_ bookmark: Bookmark) throws {
-        try queue.sync(flags: .barrier) {
-            guard let index = items.firstIndex(where: { $0.id == bookmark.id }) else {
-                throw DatabaseError.notFound
-            }
-            items.remove(at: index)
-        }
-        saveItemsToDisk()
+        // Delegate to the generic item pipeline so all validation/normalization lives in one place.
+        try deleteItem(AnyCollectionItem(bookmark))
     }
     
     func fetchAllBookmarks() throws -> [Bookmark] {
@@ -341,6 +325,14 @@ class JSONStorage: DatabaseProtocol {
             guard !items.contains(where: { $0.id == item.id }) else {
                 throw DatabaseError.duplicateEntry
             }
+            
+            // Enforce duplicate URL rule for bookmark items too
+            if let bookmark = item.asBookmark {
+                let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+                if items.compactMap({ $0.asBookmark }).contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                    throw DatabaseError.duplicateBookmarkURL
+                }
+            }
             items.append(normalizeItemPaths(item))
         }
         saveItemsToDisk()
@@ -350,6 +342,14 @@ class JSONStorage: DatabaseProtocol {
         try queue.sync(flags: .barrier) {
             guard let index = items.firstIndex(where: { $0.id == item.id }) else {
                 throw DatabaseError.notFound
+            }
+            
+            // Enforce duplicate URL rule for bookmark items too (excluding self)
+            if let bookmark = item.asBookmark {
+                let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+                if items.compactMap({ $0.asBookmark }).contains(where: { $0.id != bookmark.id && BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                    throw DatabaseError.duplicateBookmarkURL
+                }
             }
             items[index] = normalizeItemPaths(item)
         }

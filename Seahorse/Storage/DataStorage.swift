@@ -132,10 +132,16 @@ class DataStorage: ObservableObject {
     // MARK: - Bookmark Operations
     
     func addBookmark(_ bookmark: Bookmark) throws {
+        let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+        if bookmarks.contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+            throw DatabaseError.duplicateBookmarkURL
+        }
+        DLog("DataStorage: addBookmark start id=\(bookmark.id.uuidString) url='\(normalizedURL)'", category: .database)
         try database.saveBookmark(bookmark)
         bookmarks.append(bookmark)
         let item = AnyCollectionItem(bookmark)
         items.append(item) // Also add to items array
+        DLog("DataStorage: addBookmark success id=\(bookmark.id.uuidString) bookmarks=\(bookmarks.count) items=\(items.count)", category: .database)
         
         // Post notification for menu icon shaking animation
         NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
@@ -145,6 +151,11 @@ class DataStorage: ObservableObject {
     }
     
     func updateBookmark(_ bookmark: Bookmark) throws {
+        let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+        if bookmarks.contains(where: { $0.id != bookmark.id && BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+            throw DatabaseError.duplicateBookmarkURL
+        }
+        DLog("DataStorage: updateBookmark start id=\(bookmark.id.uuidString) title='\(bookmark.title)'", category: .database)
         try database.updateBookmark(bookmark)
         if let index = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
             bookmarks[index] = bookmark
@@ -153,6 +164,7 @@ class DataStorage: ObservableObject {
         if let itemIndex = items.firstIndex(where: { $0.id == bookmark.id }) {
             items[itemIndex] = AnyCollectionItem(bookmark)
         }
+        DLog("DataStorage: updateBookmark success id=\(bookmark.id.uuidString)", category: .database)
     }
     
     func deleteBookmark(_ bookmark: Bookmark) throws {

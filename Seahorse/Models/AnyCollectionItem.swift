@@ -100,16 +100,6 @@ struct AnyCollectionItem: Identifiable, Codable {
     }
 }
 
-// MARK: - Equatable & Hashable
-
-extension AnyCollectionItem: Equatable {
-    static func == (lhs: AnyCollectionItem, rhs: AnyCollectionItem) -> Bool {
-        lhs.id == rhs.id
-    }
-}
-
-extension AnyCollectionItem: Hashable {
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
+// NOTE:
+// Do NOT add `Equatable`/`Hashable` conformance that only compares `id`.
+// SwiftUI may treat items as "unchanged" and skip view updates when the payload (title/metadata/etc.) changes.

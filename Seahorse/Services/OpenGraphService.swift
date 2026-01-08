@@ -13,6 +13,7 @@ class OpenGraphService {
     private init() {}
     
     func fetchMetadata(url: URL) async throws -> WebMetadata {
+        DLog("OGP: fetch start url='\(url.absoluteString)'", category: .network)
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
         // Use a browser-like User-Agent to avoid being blocked
@@ -22,15 +23,21 @@ class OpenGraphService {
         
         guard let httpResponse = response as? HTTPURLResponse,
               (200...299).contains(httpResponse.statusCode) else {
+            DLog("OGP: bad response", category: .network)
             throw URLError(.badServerResponse)
         }
         
+        DLog("OGP: response ok status=\(httpResponse.statusCode) bytes=\(data.count)", category: .network)
+        
         // Try to decode with UTF-8, fall back to ASCII if needed
         guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii) else {
+            DLog("OGP: failed to decode html", category: .network)
             throw URLError(.cannotDecodeContentData)
         }
         
-        return parseMetadata(html: html, baseURL: url)
+        let metadata = parseMetadata(html: html, baseURL: url)
+        DLog("OGP: parsed title=\(metadata.title ?? "nil") img=\(metadata.imageURL ?? "nil") favicon=\(metadata.faviconURL ?? "nil")", category: .network)
+        return metadata
     }
     
     private func parseMetadata(html: String, baseURL: URL) -> WebMetadata {

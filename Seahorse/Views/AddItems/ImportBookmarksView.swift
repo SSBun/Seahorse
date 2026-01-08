@@ -208,13 +208,16 @@ struct ImportBookmarksView: View {
         guard let fileURL = selectedFileURL else { return }
         
         isImporting = true
+        DLog("Import UI: start import file='\(fileURL.lastPathComponent)'", category: .ui)
         
         Task {
             do {
                 var bookmarks = try await ImportService.importBookmarks(from: fileURL)
+                DLog("Import UI: ImportService returned count=\(bookmarks.count)", category: .ui)
                 
                 // Assign None category to all imported bookmarks
                 if let noneCategory = dataStorage.categories.first(where: { $0.name == "None" }) {
+                    DLog("Import UI: assigning category='None' id=\(noneCategory.id.uuidString) to all imported bookmarks", category: .ui)
                     bookmarks = bookmarks.map { bookmark in
                         Bookmark(
                             id: bookmark.id,
@@ -231,16 +234,30 @@ struct ImportBookmarksView: View {
                 }
                 
                 // Import bookmarks
+                var addedCount = 0
+                var duplicateCount = 0
                 for bookmark in bookmarks {
-                    try? dataStorage.addBookmark(bookmark)
+                    do {
+                        try dataStorage.addBookmark(bookmark)
+                        addedCount += 1
+                    } catch DatabaseError.duplicateBookmarkURL {
+                        // Skip duplicates silently
+                        duplicateCount += 1
+                    } catch {
+                        // Other errors should still surface
+                        throw error
+                    }
                 }
                 
+                DLog("Import UI: finished added=\(addedCount) duplicates=\(duplicateCount)", category: .ui)
+                
                 await MainActor.run {
-                    importCount = bookmarks.count
+                    importCount = addedCount
                     importSuccess = true
                     isImporting = false
                 }
             } catch {
+                DLog("Import UI: failed with error=\(error.localizedDescription)", category: .ui)
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     showingError = true

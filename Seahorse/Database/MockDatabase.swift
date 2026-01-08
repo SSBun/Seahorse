@@ -22,17 +22,15 @@ class MockDatabase: DatabaseProtocol {
     // MARK: - Bookmark Operations
     
     func saveBookmark(_ bookmark: Bookmark) throws {
-        items.append(AnyCollectionItem(bookmark))
+        try saveItem(AnyCollectionItem(bookmark))
     }
     
     func updateBookmark(_ bookmark: Bookmark) throws {
-        if let index = items.firstIndex(where: { $0.id == bookmark.id }) {
-            items[index] = AnyCollectionItem(bookmark)
-        }
+        try updateItem(AnyCollectionItem(bookmark))
     }
     
     func deleteBookmark(_ bookmark: Bookmark) throws {
-        items.removeAll { $0.id == bookmark.id }
+        try deleteItem(AnyCollectionItem(bookmark))
     }
     
     func fetchAllBookmarks() throws -> [Bookmark] {
@@ -58,10 +56,22 @@ class MockDatabase: DatabaseProtocol {
     }
     
     func saveItem(_ item: AnyCollectionItem) throws {
+        if let bookmark = item.asBookmark {
+            let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+            if items.compactMap({ $0.asBookmark }).contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                throw DatabaseError.duplicateBookmarkURL
+            }
+        }
         items.append(item)
     }
     
     func updateItem(_ item: AnyCollectionItem) throws {
+        if let bookmark = item.asBookmark {
+            let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
+            if items.compactMap({ $0.asBookmark }).contains(where: { $0.id != bookmark.id && BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                throw DatabaseError.duplicateBookmarkURL
+            }
+        }
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             items[index] = item
         }

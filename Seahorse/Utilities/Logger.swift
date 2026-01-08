@@ -27,9 +27,18 @@ extension Log {
     // MARK: - Logging Methods
     
     /// Log a debug message (verbose, for development)
+    @inline(__always)
     static func debug(_ message: String, category: Logger = .general, file: String = #file, function: String = #function, line: Int = #line) {
+#if DEBUG
         let fileName = (file as NSString).lastPathComponent
         category.debug("[\(fileName):\(line)] \(function) -> \(message, privacy: .public)")
+#else
+        _ = message
+        _ = category
+        _ = file
+        _ = function
+        _ = line
+#endif
     }
     
     /// Log an informational message (general flow)
@@ -55,4 +64,26 @@ extension Log {
         let fileName = (file as NSString).lastPathComponent
         category.fault("[\(fileName):\(line)] \(function) -> 💥 \(message, privacy: .public)")
     }
+}
+
+/// Global debug logger.
+/// - Prints via system OSLog in DEBUG builds
+/// - Compiles out in RELEASE builds
+@inline(__always)
+func DLog(
+    _ message: @autoclosure () -> String,
+    category: Logger = .general,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+#if DEBUG
+    Log.debug(message(), category: category, file: file, function: function, line: line)
+#else
+    _ = message
+    _ = category
+    _ = file
+    _ = function
+    _ = line
+#endif
 }

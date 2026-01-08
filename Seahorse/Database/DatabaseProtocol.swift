@@ -56,6 +56,7 @@ enum DatabaseError: Error, LocalizedError {
     case deleteFailed
     case fetchFailed
     case duplicateEntry
+    case duplicateBookmarkURL
     case notFound
     
     var errorDescription: String? {
@@ -65,6 +66,7 @@ enum DatabaseError: Error, LocalizedError {
         case .deleteFailed: return "Failed to delete data"
         case .fetchFailed: return "Failed to fetch data"
         case .duplicateEntry: return "Item already exists"
+        case .duplicateBookmarkURL: return "Bookmark with the same link already exists"
         case .notFound: return "Item not found"
         }
     }

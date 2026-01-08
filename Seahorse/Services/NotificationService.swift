@@ -105,7 +105,18 @@ class NotificationService: NSObject, ObservableObject {
     
     private func getItemTitle(for item: AnyCollectionItem) -> String {
         if let bookmark = item.asBookmark {
-            return bookmark.title
+            let trimmedTitle = bookmark.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Avoid showing placeholder titles in notifications
+            if !trimmedTitle.isEmpty && trimmedTitle.lowercased() != "loading..." {
+                return trimmedTitle
+            }
+            
+            // Fallback to domain or full URL
+            let normalizedURLString = BookmarkURLNormalizer.normalize(bookmark.url)
+            if let url = URL(string: normalizedURLString), let host = url.host, !host.isEmpty {
+                return host
+            }
+            return normalizedURLString.isEmpty ? bookmark.url : normalizedURLString
         } else if let imageItem = item.asImageItem {
             // Extract filename from path or use a default
             if let url = URL(string: imageItem.imagePath) {

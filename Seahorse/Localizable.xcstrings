@@ -565,6 +565,9 @@
     "Diagnostic Results" : {
 
     },
+    "Display a system notification at the top right when a new item is saved" : {
+
+    },
     "Done" : {
 
     },
@@ -1063,6 +1066,9 @@
     "Show in Finder" : {
 
     },
+    "Show Notification When Saving Items" : {
+
+    },
     "Sort bookmarks" : {
 
     },
@@ -1139,6 +1145,9 @@
       }
     },
     "Sync" : {
+
+    },
+    "System Notifications" : {
 
     },
     "Tag" : {

@@ -21,18 +21,25 @@ struct ImportService {
     
     /// Import bookmarks from a file
     static func importBookmarks(from url: URL) async throws -> [Bookmark] {
+        DLog("ImportService: reading file '\(url.lastPathComponent)'", category: .storage)
         guard let data = try? Data(contentsOf: url) else {
+            DLog("ImportService: failed to read file data", category: .storage)
             throw ImportError.fileReadError
         }
         
         // Detect format
         let format = detectFormat(from: url, data: data)
+        DLog("ImportService: detected format=\(String(describing: format)) bytes=\(data.count)", category: .storage)
         
         switch format {
         case .json:
-            return try importFromJSON(data: data)
+            let bookmarks = try importFromJSON(data: data)
+            DLog("ImportService: parsed JSON bookmarks count=\(bookmarks.count)", category: .storage)
+            return bookmarks
         case .html:
-            return try importFromHTML(data: data)
+            let bookmarks = try importFromHTML(data: data)
+            DLog("ImportService: parsed HTML bookmarks count=\(bookmarks.count)", category: .storage)
+            return bookmarks
         }
     }
     
@@ -60,12 +67,14 @@ struct ImportService {
             let bookmarks = try decoder.decode([Bookmark].self, from: data)
             return bookmarks
         } catch {
+            DLog("ImportService: JSON decode failed: \(error.localizedDescription)", category: .storage)
             throw ImportError.parsingError("Failed to parse JSON: \(error.localizedDescription)")
         }
     }
     
     private static func importFromHTML(data: Data) throws -> [Bookmark] {
         guard let html = String(data: data, encoding: .utf8) else {
+            DLog("ImportService: HTML decode failed (utf8)", category: .storage)
             throw ImportError.parsingError("Failed to read HTML file")
         }
         
