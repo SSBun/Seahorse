@@ -43,18 +43,38 @@ final class StartupManager: ObservableObject {
     
     private func updateLoginItem(enabled: Bool) {
         do {
+            let currentStatus = SMAppService.mainApp.status
+
             if enabled {
-                guard SMAppService.mainApp.status != .enabled else {
+                // Only register if not already enabled
+                switch currentStatus {
+                case .enabled:
+                    Log.info("Launch at login already enabled", category: .general)
                     return
+                case .notRegistered, .notFound:
+                    try SMAppService.mainApp.register()
+                    Log.info("Launch at login enabled", category: .general)
+                case .requiresApproval:
+                    // Try to register even if requires approval
+                    try SMAppService.mainApp.register()
+                    Log.info("Launch at login enabled (requires approval)", category: .general)
+                @unknown default:
+                    try SMAppService.mainApp.register()
+                    Log.info("Launch at login enabled (unknown status)", category: .general)
                 }
-                try SMAppService.mainApp.register()
-                Log.info("Launch at login enabled", category: .general)
             } else {
-                guard SMAppService.mainApp.status == .enabled || SMAppService.mainApp.status == .requiresApproval else {
+                // Only unregister if currently enabled or requires approval
+                switch currentStatus {
+                case .enabled, .requiresApproval:
+                    try SMAppService.mainApp.unregister()
+                    Log.info("Launch at login disabled", category: .general)
+                case .notRegistered, .notFound:
+                    Log.info("Launch at login already disabled", category: .general)
                     return
+                @unknown default:
+                    try SMAppService.mainApp.unregister()
+                    Log.info("Launch at login disabled (unknown status)", category: .general)
                 }
-                try SMAppService.mainApp.unregister()
-                Log.info("Launch at login disabled", category: .general)
             }
         } catch {
             Log.error("Failed to update launch at login: \(error.localizedDescription)", category: .general)
