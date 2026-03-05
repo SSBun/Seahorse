@@ -12,13 +12,18 @@ import AppKit
 import UniformTypeIdentifiers
 import Kingfisher
 
-struct StandardCardView: View {
+struct StandardCardView: View, Equatable {
     @EnvironmentObject var dataStorage: DataStorage
     @Environment(\.openWindow) var openWindow
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
     @State private var tapTask: Task<Void, Never>?
+
+    // Equatable - only compare item ID to prevent unnecessary re-renders
+    static func == (lhs: StandardCardView, rhs: StandardCardView) -> Bool {
+        lhs.item.id == rhs.item.id
+    }
     
     // Extract specific item types
     private var bookmark: Bookmark? { item.asBookmark }
@@ -110,7 +115,7 @@ struct StandardCardView: View {
                         // No OGP image - show link icon with blur
                         ZStack {
                             Rectangle()
-                                .fill(.ultraThinMaterial)
+                                .fill(Color.gray.opacity(0.1))
                                 .overlay(
                                     Rectangle()
                                         .fill(Color.gray.opacity(0.05))
@@ -295,16 +300,9 @@ struct StandardCardView: View {
             .frame(height: bottomBarHeight)
         }
         .background {
-            // Deep blur effect with semi-transparent dark background
-            ZStack {
-                // Semi-transparent dark background for better contrast
-                Rectangle()
-                    .fill(Color.black.opacity(0.4))
-                
-                // Thick material for deeper blur effect
-                Rectangle()
-                    .fill(.thickMaterial)
-            }
+            // Optimized: Use semi-transparent background instead of expensive .thickMaterial
+            Rectangle()
+                .fill(Color.black.opacity(0.5))
         }
     }
     
@@ -435,7 +433,7 @@ struct StandardCardView: View {
         .frame(width: 220, height: 56)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(.ultraThinMaterial)
+                .fill(Color(NSColor.windowBackgroundColor))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)

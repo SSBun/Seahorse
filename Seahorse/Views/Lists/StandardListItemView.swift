@@ -9,12 +9,17 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Kingfisher
 
-struct StandardListItemView: View {
+struct StandardListItemView: View, Equatable {
     @EnvironmentObject var dataStorage: DataStorage
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
-    
+
+    // Equatable - only compare item ID to prevent unnecessary re-renders
+    static func == (lhs: StandardListItemView, rhs: StandardListItemView) -> Bool {
+        lhs.item.id == rhs.item.id
+    }
+
     // Extract specific item types
     private var bookmark: Bookmark? { item.asBookmark }
     private var imageItem: ImageItem? { item.asImageItem }

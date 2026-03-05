@@ -10,9 +10,9 @@ import SwiftUI
 struct ItemCollectionView: View {
     let items: [AnyCollectionItem]
     let viewMode: ViewMode
-    
+
     @EnvironmentObject var dataStorage: DataStorage
-    
+
     var body: some View {
         ScrollView {
             if viewMode == .grid {
@@ -34,7 +34,7 @@ struct ItemCollectionView: View {
         .padding(20)
     }
 
-    
+
     private var listView: some View {
         LazyVStack(spacing: 8) {
             ForEach(items) { item in

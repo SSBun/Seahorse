@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+import Combine
 
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -16,6 +17,7 @@ struct ContentView: View {
     @State private var selectedTag: Tag?
     @State private var viewMode: ViewMode = .grid
     @State private var searchText = ""
+    @State private var debouncedSearchText = ""  // Debounced search for performance
     @State private var showingAddBookmark = false
     @State private var showingAddImage = false
     @State private var showingAddText = false
@@ -33,6 +35,7 @@ struct ContentView: View {
     // Cached filtered items - only recalculates when filters change
     @State private var cachedItems: [AnyCollectionItem] = []
     @State private var lastFilterHash: Int = 0
+    @State private var searchDebounceTask: Task<Void, Never>?
 
     @State private var windowDelegate = MainWindowDelegate()
     
@@ -48,11 +51,12 @@ struct ContentView: View {
     }
 
     /// Computes a hash of current filter state to detect changes
+    /// Uses debouncedSearchText for filtering to avoid recalculating on every keystroke
     private var filterHash: Int {
         var hasher = Hasher()
         hasher.combine(selectedCategory?.id)
         hasher.combine(selectedTag?.id)
-        hasher.combine(searchText)
+        hasher.combine(debouncedSearchText)  // Use debounced search
         hasher.combine(sortPreferenceManager.sortOption)
         hasher.combine(dataStorage.items.count) // Include item count to detect additions/deletions
         return hasher.finalize()
@@ -104,8 +108,8 @@ struct ContentView: View {
             return
         }
 
-        // Filter by search text (title/url/notes + tags)
-        let searchQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Filter by search text (title/url/notes + tags) - uses debounced search
+        let searchQuery = debouncedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !searchQuery.isEmpty {
             let queryLower = searchQuery.lowercased()
             items = items.filter { item in
@@ -382,13 +386,28 @@ struct ContentView: View {
             // Initial calculation
             recalculateFilteredItems()
         }
+        // Debounce search text changes (300ms delay) - always applies final value
+        .onChange(of: searchText) { _, newValue in
+            // Cancel previous debounce task
+            searchDebounceTask?.cancel()
+
+            // Start new debounce task
+            searchDebounceTask = Task {
+                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        self.debouncedSearchText = newValue
+                    }
+                }
+            }
+        }
         .onChange(of: selectedCategory) { _, _ in
             recalculateFilteredItems()
         }
         .onChange(of: selectedTag) { _, _ in
             recalculateFilteredItems()
         }
-        .onChange(of: searchText) { _, _ in
+        .onChange(of: debouncedSearchText) { _, _ in
             recalculateFilteredItems()
         }
         .onChange(of: sortPreferenceManager.sortOption) { _, _ in
