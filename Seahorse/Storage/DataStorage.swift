@@ -24,9 +24,34 @@ class DataStorage: ObservableObject {
     @Published var bookmarks: [Bookmark] = []
     @Published var categories: [Category] = []
     @Published var tags: [Tag] = []
-    
+
     // New: Collection items supporting multiple types
     @Published var items: [AnyCollectionItem] = []
+
+    // MARK: - Performance Optimization: Lookup Caches (O(1) instead of O(n))
+    private var _categoryCache: [UUID: Category] = [:]
+    private var _tagCache: [UUID: Tag] = [:]
+
+    /// O(1) category lookup by ID
+    func category(for id: UUID) -> Category? {
+        return _categoryCache[id]
+    }
+
+    /// O(1) tag lookup by ID
+    func tag(for id: UUID) -> Tag? {
+        return _tagCache[id]
+    }
+
+    /// O(1) tags lookup by IDs
+    func tags(for ids: [UUID]) -> [Tag] {
+        return ids.compactMap { _tagCache[$0] }
+    }
+
+    /// Rebuild lookup caches - call after data loads or changes
+    private func rebuildCaches() {
+        _categoryCache = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        _tagCache = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
+    }
     
     private init(database: DatabaseProtocol = JSONStorage()) {
         self.database = database
@@ -46,7 +71,10 @@ class DataStorage: ObservableObject {
             
             // Derive bookmarks array
             bookmarks = items.compactMap { $0.asBookmark }
-            
+
+            // Build lookup caches for O(1) access
+            rebuildCaches()
+
             Log.info("✅ Loaded \(items.count) items (\(bookmarks.count) bookmarks)", category: .database)
         } catch {
             Log.error("❌ Failed to load initial data: \(error)", category: .database)
@@ -83,12 +111,15 @@ class DataStorage: ObservableObject {
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item
             }
-            
+
             // Also update type-specific array if it's a bookmark
             if let bookmark = item.asBookmark,
                let bookmarkIndex = bookmarks.firstIndex(where: { $0.id == bookmark.id }) {
                 bookmarks[bookmarkIndex] = bookmark
             }
+
+            // Post notification for UI refresh (e.g., favorite toggle)
+            NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
         } catch {
             Log.error("❌ Failed to update item: \(error)", category: .database)
         }
@@ -220,18 +251,21 @@ class DataStorage: ObservableObject {
         }
         try database.saveCategory(category)
         categories.append(category)
+        rebuildCaches()
     }
-    
+
     func updateCategory(_ category: Category) throws {
         try database.updateCategory(category)
         if let index = categories.firstIndex(where: { $0.id == category.id }) {
             categories[index] = category
         }
+        rebuildCaches()
     }
-    
+
     func deleteCategory(_ category: Category) throws {
         try database.deleteCategory(category)
         categories.removeAll { $0.id == category.id }
+        rebuildCaches()
     }
     
     func categoryExists(name: String, excluding: UUID? = nil) -> Bool {
@@ -252,18 +286,21 @@ class DataStorage: ObservableObject {
         }
         try database.saveTag(tag)
         tags.append(tag)
+        rebuildCaches()
     }
-    
+
     func updateTag(_ tag: Tag) throws {
         try database.updateTag(tag)
         if let index = tags.firstIndex(where: { $0.id == tag.id }) {
             tags[index] = tag
         }
+        rebuildCaches()
     }
-    
+
     func deleteTag(_ tag: Tag) throws {
         try database.deleteTag(tag)
         tags.removeAll { $0.id == tag.id }
+        rebuildCaches()
     }
     
     func tagExists(name: String, excluding: UUID? = nil) -> Bool {

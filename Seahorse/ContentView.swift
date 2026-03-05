@@ -10,7 +10,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
-    
+
     // UI State
     @State private var selectedCategory: Category?
     @State private var selectedTag: Tag?
@@ -29,7 +29,11 @@ struct ContentView: View {
     @State private var isSyncing = false
     @State private var syncRotation: Double = 0
     @State private var syncStartTime: Date?
-    
+
+    // Cached filtered items - only recalculates when filters change
+    @State private var cachedItems: [AnyCollectionItem] = []
+    @State private var lastFilterHash: Int = 0
+
     @State private var windowDelegate = MainWindowDelegate()
     
     init(batchParsingService: BatchParsingService) {
@@ -40,8 +44,23 @@ struct ContentView: View {
     }
     
     var filteredItems: [AnyCollectionItem] {
+        cachedItems
+    }
+
+    /// Computes a hash of current filter state to detect changes
+    private var filterHash: Int {
+        var hasher = Hasher()
+        hasher.combine(selectedCategory?.id)
+        hasher.combine(selectedTag?.id)
+        hasher.combine(searchText)
+        hasher.combine(sortPreferenceManager.sortOption)
+        hasher.combine(dataStorage.items.count) // Include item count to detect additions/deletions
+        return hasher.finalize()
+    }
+
+    private func recalculateFilteredItems() {
         var items = dataStorage.items
-        
+
         // Filter by category or tag
         if let category = selectedCategory {
             if category.name != "All Bookmarks" {
@@ -81,9 +100,10 @@ struct ContentView: View {
                 return false
             }
         } else {
-            return []
+            cachedItems = []
+            return
         }
-        
+
         // Filter by search text (title/url/notes + tags)
         let searchQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !searchQuery.isEmpty {
@@ -93,11 +113,11 @@ struct ContentView: View {
                 return searchable.contains { $0.contains(queryLower) }
             }
         }
-        
+
         // Apply sorting to all items uniformly
         let sorted = sortPreferenceManager.sortOption.sort(items)
-        
-        return sorted
+
+        cachedItems = sorted
     }
     
     private func tagNames(for item: AnyCollectionItem) -> [String] {
@@ -359,6 +379,27 @@ struct ContentView: View {
             if let firstCategory = dataStorage.categories.first {
                 selectedCategory = firstCategory
             }
+            // Initial calculation
+            recalculateFilteredItems()
+        }
+        .onChange(of: selectedCategory) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onChange(of: selectedTag) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onChange(of: searchText) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onChange(of: sortPreferenceManager.sortOption) { _, _ in
+            recalculateFilteredItems()
+        }
+        // Watch for data changes (items added/deleted)
+        .onChange(of: dataStorage.items.count) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DataStorageItemsUpdated"))) { _ in
+            recalculateFilteredItems()
         }
         .sheet(isPresented: $showingAddBookmark) {
             AddBookmarkView()

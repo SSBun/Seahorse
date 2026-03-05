@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 import Kingfisher
 
@@ -77,17 +78,15 @@ struct StandardCardView: View {
     }
     
     // MARK: - Cached Lookups (Performance Optimization)
-    
-    /// Cached category lookup to avoid repeated O(n) searches
+
+    /// O(1) category lookup using DataStorage cache
     private var category: Category? {
-        dataStorage.categories.first(where: { $0.id == categoryId })
+        dataStorage.category(for: categoryId)
     }
-    
-    /// Cached tags lookup to avoid repeated O(n) searches
+
+    /// O(1) tags lookup using DataStorage cache
     private var tags: [Tag] {
-        tagIds.compactMap { tagId in
-            dataStorage.tags.first(where: { $0.id == tagId })
-        }
+        dataStorage.tags(for: tagIds)
     }
     
     // MARK: - Preview Area
@@ -135,7 +134,7 @@ struct StandardCardView: View {
                 if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
                     let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
-                        // Remote Image
+                        // Remote Image - use Kingfisher with disk cache
                         GeometryReader { geo in
                             KFImage.url(url)
                                 .placeholder {
@@ -145,8 +144,8 @@ struct StandardCardView: View {
                                     // Show blank on timeout/error
                                 }
                                 .setProcessor(DownsamplingImageProcessor(size: geo.size))
-                                .loadDiskFileSynchronously()
-                                .cacheMemoryOnly()
+                                .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                                .cacheOriginalImage()
                                 .fade(duration: 0.25)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
@@ -157,29 +156,26 @@ struct StandardCardView: View {
                         .onAppear {
                             KingfisherManager.shared.downloader.downloadTimeout = 10.0
                         }
-                    } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
-                        // Local Image
+                    } else {
+                        // Local Image - use Kingfisher with DownsamplingImageProcessor
                         GeometryReader { geo in
-                            Image(nsImage: nsImage)
+                            let fileURL = URL(fileURLWithPath: resolvedPath)
+                            KFImage.url(fileURL)
+                                .placeholder {
+                                    Color.gray.opacity(0.1)
+                                }
+                                .onFailure { _ in
+                                    // Fallback gradient on error
+                                }
+                                .setProcessor(DownsamplingImageProcessor(size: geo.size))
+                                .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                                .cacheOriginalImage()
+                                .fade(duration: 0.25)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geo.size.width, height: geo.size.height)
                                 .clipped()
                                 .contentShape(Rectangle())
-                        }
-                    } else {
-                        // Fallback gradient
-                        ZStack {
-                            Rectangle()
-                                .fill(LinearGradient(
-                                    colors: [Color.green.opacity(0.6), Color.teal.opacity(0.6)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ))
-                            Image(systemName: "photo.fill")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.white.opacity(0.8))
-                                .shadow(color: .black.opacity(0.2), radius: 4)
                         }
                     }
                 } else {
@@ -453,6 +449,7 @@ struct StandardCardView: View {
         if let remoteURL = URL(string: path),
            let scheme = remoteURL.scheme,
            scheme == "http" || scheme == "https" {
+            // Remote URL - use Kingfisher with disk cache
             KFImage.url(remoteURL)
                 .placeholder {
                     Rectangle()
@@ -462,8 +459,8 @@ struct StandardCardView: View {
                     // fallback handled below
                 }
                 .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
-                .loadDiskFileSynchronously()
-                .cacheMemoryOnly()
+                .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                .cacheOriginalImage()
                 .fade(duration: 0.25)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -471,22 +468,26 @@ struct StandardCardView: View {
                 .clipped()
                 .contentShape(Rectangle())
         } else {
+            // Local file - use Kingfisher with DownsamplingImageProcessor
             let resolvedPath = StorageManager.shared.resolveImagePath(path)
-            if let nsImage = NSImage(contentsOfFile: resolvedPath) {
-                Image(nsImage: nsImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: size.width, height: size.height)
-                    .clipped()
-                    .contentShape(Rectangle())
-            } else {
-                Rectangle()
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.05))
-                    )
-            }
+            let fileURL = URL(fileURLWithPath: resolvedPath)
+            KFImage.url(fileURL)
+                .placeholder {
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.1))
+                }
+                .onFailure { _ in
+                    // fallback handled below
+                }
+                .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
+                .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                .cacheOriginalImage()
+                .fade(duration: 0.25)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .contentShape(Rectangle())
         }
     }
     
