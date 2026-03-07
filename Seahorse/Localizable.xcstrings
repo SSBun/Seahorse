@@ -10,6 +10,16 @@
     "#%@" : {
 
     },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
@@ -435,6 +445,9 @@
         }
       }
     },
+    "Check for Updates" : {
+
+    },
     "Checking %lld of %lld..." : {
       "localizations" : {
         "en" : {
@@ -446,6 +459,9 @@
       }
     },
     "Checking: %@" : {
+
+    },
+    "Checking..." : {
 
     },
     "Choose File..." : {
@@ -502,6 +518,9 @@
 
     },
     "Create Selected" : {
+
+    },
+    "Current Version" : {
 
     },
     "Data Folder" : {
@@ -574,6 +593,9 @@
     "Double Copy Time Window" : {
 
     },
+    "Download" : {
+
+    },
     "Drag to reorder" : {
 
     },
@@ -625,6 +647,9 @@
 
     },
     "Error" : {
+
+    },
+    "Error: %@" : {
 
     },
     "Existing Categories" : {
@@ -1019,6 +1044,9 @@
         }
       }
     },
+    "Retry" : {
+
+    },
     "Run diagnostics to check your bookmarks." : {
 
     },
@@ -1248,6 +1276,12 @@
     "Update" : {
 
     },
+    "Update available: v%@" : {
+
+    },
+    "Updates" : {
+
+    },
     "Updating..." : {
 
     },
@@ -1301,6 +1335,9 @@
 
     },
     "You can import bookmarks from:" : {
+
+    },
+    "You're up to date!" : {
 
     },
     "Your API token will be stored in UserDefaults" : {
