@@ -89,6 +89,16 @@ Download the latest DMG installer from the [Releases](https://github.com/SSBun/S
 
 ## Installation Guide
 
+### Quick Install (Recommended)
+
+Use the following command to download and install the latest version with one click:
+
+```bash
+curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash
+```
+
+### Installation Steps
+
 ### Installation Steps
 
 1. Download the latest DMG installer from the [Releases](https://github.com/SSBun/Seahorse/releases) page
