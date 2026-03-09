@@ -126,6 +126,7 @@ class DataStorage: ObservableObject {
     }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
+        Log.info("Deleting item: \(item.id)", category: .database)
         // Delete physical file if it's an image stored in internal storage
         if let imageItem = item.asImageItem {
             deleteImageFile(at: imageItem.imagePath)
