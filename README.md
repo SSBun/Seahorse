@@ -6,6 +6,8 @@
 
 ![Seahorse Screenshot](./snapshot.png)
 
+**官方网站**: https://ssbun.github.io/Seahorse
+
 ## 为什么选择 Seahorse？
 
 Seahorse 不仅仅是一个书签管理器，它是一个全能的素材收集工具。无论是网页链接、图片、还是文本片段，Seahorse 都能帮你轻松保存和整理。
