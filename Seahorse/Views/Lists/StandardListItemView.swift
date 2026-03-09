@@ -164,7 +164,7 @@ struct StandardListItemView: View, Equatable {
         }
         .contextMenu {
             Button(role: .destructive, action: {
-                try? dataStorage.deleteItem(item)
+                do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: (error)", category: .ui) }
             }) {
                 Label("Delete", systemImage: "trash")
             }
