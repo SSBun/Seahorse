@@ -1,0 +1,15 @@
+title: Seahorse
+description: An elegant macOS material collection and management tool
+baseurl: "/Seahorse"
+url: "https://ssbun.github.io"
+
+# Build settings
+markdown: kramdown
+
+# Exclude unnecessary files
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/
+  - .git/
