@@ -149,6 +149,11 @@ description: An elegant macOS material collection and management tool. Save link
     align-items: center;
     gap: 16px;
     margin-top: 24px;
+    transition: border-color 0.3s;
+}
+
+.install-box:hover {
+    border-color: var(--border-light);
 }
 
 .install-box code {
@@ -161,16 +166,25 @@ description: An elegant macOS material collection and management tool. Save link
     background: var(--surface-elevated);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 8px 12px;
+    padding: 8px 14px;
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
     font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
 }
 
 .install-box .copy-btn:hover {
     background: var(--surface-hover);
     color: var(--text);
+    border-color: var(--border-light);
+}
+
+.install-box .copy-btn.copied {
+    background: var(--primary);
+    color: var(--background);
+    border-color: var(--primary);
 }
 
 @keyframes fadeInUp {
@@ -273,6 +287,7 @@ description: An elegant macOS material collection and management tool. Save link
     transform: translateY(-4px);
     border-color: var(--border-light);
     background: var(--surface-elevated);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3);
 }
 
 .feature-card:hover::before {
@@ -291,6 +306,11 @@ description: An elegant macOS material collection and management tool. Save link
     justify-content: center;
     font-size: 22px;
     margin-bottom: 24px;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feature-card:hover .feature-icon {
+    transform: scale(1.1) rotate(3deg);
 }
 
 .feature-card h3 {
@@ -564,9 +584,9 @@ description: An elegant macOS material collection and management tool. Save link
 <section class="hero">
     <div class="container">
         <div class="hero-content">
-            <div class="hero-badge">
+<div class="hero-badge" id="greeting-badge">
                 <span class="dot"></span>
-                Open Source & Free Forever
+                <span id="greeting-text">Open Source & Free Forever</span>
             </div>
             <h1>Collect materials<br><em>effortlessly</em></h1>
             <p>An elegant macOS app for saving links, images, and text. Your personal library for inspiration and ideas.</p>
@@ -604,7 +624,7 @@ description: An elegant macOS material collection and management tool. Save link
 
             <div class="install-box">
                 <code>curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash</code>
-                <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash')">Copy</button>
+                <button class="copy-btn" onclick="copyInstallCmd(this)">Copy</button>
             </div>
         </div>
 
@@ -843,3 +863,32 @@ description: An elegant macOS material collection and management tool. Save link
         </div>
     </div>
 </section>
+
+<script>
+    // Time-based greeting
+    (function() {
+        const hour = new Date().getHours();
+        let greeting = 'Open Source & Free Forever';
+        if (hour >= 5 && hour < 12) greeting = 'Good morning';
+        else if (hour >= 12 && hour < 18) greeting = 'Good afternoon';
+        else if (hour >= 18 && hour < 22) greeting = 'Good evening';
+        else greeting = 'Night owl? Nice';
+
+        const greetingEl = document.getElementById('greeting-text');
+        if (greetingEl) greetingEl.textContent = greeting;
+    })();
+
+    // Copy install command with feedback
+    function copyInstallCmd(btn) {
+        const cmd = 'curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash';
+        navigator.clipboard.writeText(cmd).then(() => {
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+</script>

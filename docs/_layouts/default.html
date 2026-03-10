@@ -200,11 +200,16 @@
             font-weight: 600;
             font-size: 14px;
             text-decoration: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
             font-family: inherit;
             letter-spacing: -0.01em;
+            position: relative;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
         }
 
         .btn-primary {
@@ -215,6 +220,14 @@
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 30px rgba(232, 255, 107, 0.3);
+        }
+
+        .btn-primary svg {
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary:hover svg {
+            transform: translateY(-1px);
         }
 
         .btn-secondary {
@@ -370,6 +383,30 @@
                 }
             `;
             document.head.appendChild(style);
+
+            // Easter egg: Konami code for a surprise
+            const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+            let konamiIndex = 0;
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === konamiCode[konamiIndex]) {
+                    konamiIndex++;
+                    if (konamiIndex === konamiCode.length) {
+                        // Trigger surprise!
+                        document.body.style.transition = 'transform 0.5s';
+                        document.body.style.transform = 'rotate(1deg)';
+                        setTimeout(() => {
+                            document.body.style.transform = 'rotate(-1deg)';
+                            setTimeout(() => {
+                                document.body.style.transform = '';
+                            }, 200);
+                        }, 200);
+                        konamiIndex = 0;
+                    }
+                } else {
+                    konamiIndex = 0;
+                }
+            });
         });
     </script>
 </body>
