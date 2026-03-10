@@ -6,113 +6,208 @@ description: An elegant macOS material collection and management tool. Save link
 
 <style>
 .hero {
-    padding: 200px 0 120px;
-    text-align: center;
+    padding: 200px 0 100px;
     position: relative;
+    min-height: auto;
+    display: block;
+}
+
+.hero-content {
+    max-width: 720px;
 }
 
 .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: var(--surface-elevated);
+    gap: 10px;
+    padding: 10px 18px;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 100px;
-    font-size: 14px;
+    font-size: 13px;
     color: var(--text-secondary);
     margin-bottom: 32px;
+    letter-spacing: -0.01em;
 }
 
 .hero-badge .dot {
     width: 8px;
     height: 8px;
-    background: var(--success);
+    background: var(--primary);
     border-radius: 50%;
     animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.9); }
 }
 
 .hero h1 {
-    font-size: clamp(40px, 8vw, 80px);
-    font-weight: 800;
-    line-height: 1.05;
-    margin-bottom: 24px;
-    letter-spacing: -0.02em;
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(48px, 10vw, 96px);
+    font-weight: 400;
+    line-height: 1.02;
+    margin-bottom: 28px;
+    letter-spacing: -0.03em;
+    color: var(--text);
 }
 
-.hero h1 .gradient {
-    background: var(--gradient-1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.hero h1 em {
+    font-style: italic;
+    color: var(--primary);
 }
 
 .hero p {
-    font-size: 20px;
+    font-size: 18px;
     color: var(--text-secondary);
-    max-width: 600px;
-    margin: 0 auto 48px;
+    max-width: 520px;
+    margin-bottom: 40px;
+    line-height: 1.7;
 }
 
 .hero-buttons {
     display: flex;
     gap: 16px;
-    justify-content: center;
     flex-wrap: wrap;
-    margin-bottom: 80px;
+    margin-bottom: 64px;
 }
 
 .hero-buttons .btn {
-    padding: 18px 36px;
-    font-size: 16px;
+    padding: 16px 32px;
+    font-size: 15px;
+}
+
+.hero-meta {
+    display: flex;
+    gap: 48px;
+    padding-top: 32px;
+    border-top: 1px solid var(--border);
+}
+
+.hero-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hero-stat-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+}
+
+.hero-stat-label {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.hero .container {
+    position: relative;
+}
+
+.app-preview-wrapper {
+    position: absolute;
+    right: -60px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 520px;
+    z-index: -1;
+    opacity: 0;
+    animation: slideIn 1s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50%) translateX(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
+    }
 }
 
 .app-preview {
-    max-width: 1000px;
-    margin: 0 auto;
+    width: 100%;
     border-radius: 20px;
     overflow: hidden;
     border: 1px solid var(--border);
-    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5), 0 0 120px rgba(20, 184, 166, 0.1);
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,0.03),
+        0 50px 100px -20px rgba(0, 0, 0, 0.5),
+        0 0 120px -40px rgba(232, 255, 107, 0.15);
 }
 
-.stats-strip {
-    display: flex;
-    justify-content: center;
-    gap: 60px;
-    padding: 40px 0;
-    margin-top: 60px;
+.install-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 24px;
 }
 
-.stat-value {
-    font-size: 36px;
-    font-weight: 800;
-    background: var(--gradient-1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.install-box code {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 13px;
+    color: var(--primary);
 }
 
-.stat-label {
-    font-size: 14px;
-    color: var(--text-muted);
-    margin-top: 4px;
+.install-box .copy-btn {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 12px;
 }
+
+.install-box .copy-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-badge, .hero h1, .hero p, .hero-buttons, .hero-meta, .install-box {
+    opacity: 0;
+    animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.hero-badge { animation-delay: 0.1s; }
+.hero h1 { animation-delay: 0.2s; }
+.hero p { animation-delay: 0.3s; }
+.hero-buttons { animation-delay: 0.4s; }
+.hero-meta { animation-delay: 0.5s; }
+.install-box { animation-delay: 0.6s; }
 
 .section {
-    padding: 140px 0;
+    padding: 160px 0;
+    position: relative;
 }
 
 .section-dark {
     background: var(--surface);
+    margin: 0 -24px;
+    padding: 160px 24px;
 }
 
 .section-header {
-    text-align: center;
     margin-bottom: 80px;
 }
 
@@ -121,129 +216,225 @@ description: An elegant macOS material collection and management tool. Save link
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: rgba(20, 184, 166, 0.1);
-    border: 1px solid rgba(20, 184, 166, 0.2);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
     border-radius: 100px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--primary-light);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
     margin-bottom: 20px;
+    letter-spacing: -0.01em;
 }
 
 .section-header h2 {
-    font-size: clamp(32px, 5vw, 48px);
-    font-weight: 800;
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 400;
     margin-bottom: 16px;
+    letter-spacing: -0.02em;
 }
 
 .section-header p {
-    font-size: 18px;
+    font-size: 17px;
     color: var(--text-secondary);
-    max-width: 500px;
-    margin: 0 auto;
+    max-width: 480px;
+    line-height: 1.7;
 }
 
 .features-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 24px;
+    gap: 20px;
 }
 
 .feature-card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 24px;
+    border-radius: 20px;
     padding: 36px;
-    transition: all 0.4s;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    opacity: 0;
+    transition: opacity 0.4s;
 }
 
 .feature-card:hover {
-    transform: translateY(-8px);
-    border-color: var(--primary);
-    box-shadow: 0 20px 60px rgba(20, 184, 166, 0.15);
+    transform: translateY(-4px);
+    border-color: var(--border-light);
+    background: var(--surface-elevated);
+}
+
+.feature-card:hover::before {
+    opacity: 1;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
 }
 
 .feature-icon {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     background: var(--surface-elevated);
-    border-radius: 16px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    font-size: 22px;
     margin-bottom: 24px;
 }
 
 .feature-card h3 {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 18px;
+    font-weight: 600;
     margin-bottom: 12px;
+    letter-spacing: -0.01em;
 }
 
 .feature-card p {
     color: var(--text-secondary);
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.6;
 }
 
 .steps {
     display: flex;
-    gap: 40px;
+    gap: 80px;
     justify-content: center;
     flex-wrap: wrap;
+    position: relative;
+}
+
+.steps::before {
+    content: '';
+    position: absolute;
+    top: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 1px;
+    background: var(--border);
 }
 
 .step {
     flex: 1;
     min-width: 280px;
-    max-width: 340px;
+    max-width: 320px;
     text-align: center;
+    position: relative;
 }
 
 .step-number {
     width: 64px;
     height: 64px;
-    background: var(--gradient-1);
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: 'Instrument Serif', Georgia, serif;
     font-size: 28px;
-    font-weight: 800;
-    margin: 0 auto 24px;
-    box-shadow: 0 8px 32px rgba(20, 184, 166, 0.3);
+    color: var(--text);
+    margin: 0 auto 28px;
+    position: relative;
+    z-index: 1;
 }
 
 .step h3 {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 20px;
+    font-weight: 600;
     margin-bottom: 12px;
+    letter-spacing: -0.01em;
 }
 
 .step p {
     color: var(--text-secondary);
-    font-size: 15px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.use-cases {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.use-case-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.use-case-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--border-light);
+}
+
+.use-case-icon {
+    font-size: 36px;
+    margin-bottom: 16px;
+    display: block;
+}
+
+.use-case-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.use-case-card p {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .pricing-card {
     background: var(--surface-elevated);
     border: 1px solid var(--border);
-    border-radius: 28px;
-    padding: 48px;
+    border-radius: 24px;
+    padding: 56px;
     text-align: center;
+    max-width: 480px;
+    margin: 0 auto;
     position: relative;
+    overflow: hidden;
+}
+
+.pricing-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
 }
 
 .pricing-card h3 {
-    font-size: 26px;
-    font-weight: 700;
+    font-size: 24px;
+    font-weight: 600;
     margin-bottom: 8px;
 }
 
 .pricing-card .price {
-    font-size: 56px;
-    font-weight: 800;
-    margin: 24px 0;
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 64px;
+    font-weight: 400;
+    margin: 32px 0;
+    letter-spacing: -0.03em;
 }
 
 .pricing-card ul {
@@ -253,253 +444,264 @@ description: An elegant macOS material collection and management tool. Save link
 }
 
 .pricing-card li {
-    padding: 12px 0;
+    padding: 14px 0;
     color: var(--text-secondary);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     font-size: 15px;
+    border-bottom: 1px solid var(--border);
+}
+
+.pricing-card li:last-child {
+    border-bottom: none;
 }
 
 .pricing-card li::before {
     content: '✓';
-    color: var(--success);
-    font-weight: 700;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 14px;
 }
 
 .cta {
-    padding: 160px 0;
+    padding: 180px 0;
     text-align: center;
     position: relative;
 }
 
-.cta::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px;
-    height: 600px;
-    background: var(--primary);
-    filter: blur(150px);
-    opacity: 0.15;
-    pointer-events: none;
+.cta-content {
+    max-width: 600px;
+    margin: 0 auto;
 }
 
 .cta h2 {
-    font-size: clamp(36px, 6vw, 56px);
-    font-weight: 800;
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(40px, 8vw, 64px);
+    font-weight: 400;
     margin-bottom: 20px;
+    letter-spacing: -0.02em;
 }
 
 .cta p {
-    font-size: 20px;
+    font-size: 18px;
     color: var(--text-secondary);
     margin-bottom: 48px;
+    line-height: 1.7;
 }
 
-.install-box {
-    background: var(--surface-elevated);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 24px 32px;
-    display: inline-block;
-    margin-top: 16px;
+.cta .btn {
+    padding: 20px 48px;
+    font-size: 16px;
 }
 
-.install-box code {
-    font-family: 'SF Mono', Monaco, monospace;
-    font-size: 15px;
-    color: var(--primary-light);
-}
-
-.use-cases {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 24px;
-}
-
-.use-case-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 32px;
-    text-align: center;
-}
-
-.use-case-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-}
-
-.use-case-card h3 {
-    font-size: 20px;
-    font-weight: 700;
-    margin-bottom: 12px;
-}
-
-.use-case-card p {
-    color: var(--text-secondary);
-    font-size: 14px;
+@media (max-width: 1200px) {
+    .app-preview-wrapper {
+        position: relative;
+        right: auto;
+        top: auto;
+        transform: none;
+        width: 100%;
+        max-width: 600px;
+        margin: 80px auto 0;
+        opacity: 1;
+        animation: none;
+    }
 }
 
 @media (max-width: 968px) {
     .features-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+
+    .use-cases {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .hero-meta {
+        flex-wrap: wrap;
+        gap: 32px;
+    }
 }
 
 @media (max-width: 640px) {
-    .hero h1 {
-        font-size: 36px;
+    .hero {
+        padding: 160px 0 80px;
     }
+
+    .hero h1 {
+        font-size: 42px;
+    }
+
+    .hero-buttons {
+        flex-direction: column;
+    }
+
+    .hero-buttons .btn {
+        width: 100%;
+        justify-content: center;
+    }
+
     .features-grid {
         grid-template-columns: 1fr;
     }
-    .stats-strip {
-        flex-direction: column;
-        gap: 24px;
+
+    .use-cases {
+        grid-template-columns: 1fr;
+    }
+
+    .steps::before {
+        display: none;
+    }
+
+    .section-dark {
+        margin: 0 -24px;
+        padding: 80px 24px;
     }
 }
 </style>
 
 <section class="hero">
     <div class="container">
-        <div class="hero-badge">
-            <span class="dot"></span>
-            Open Source & Free Forever
-        </div>
-        <h1>Collect Materials<br><span class="gradient">with Ease</span></h1>
-        <p>An elegant macOS application for collecting and managing links, images, and text. Save inspiration naturally and effortlessly.</p>
-        <div class="hero-buttons">
-            <a href="https://github.com/SSBun/Seahorse/releases/latest" class="btn btn-primary">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="7 10 12 15 17 10"/>
-                    <line x1="12" y1="15" x2="12" y2="3"/>
-                </svg>
-                Download for macOS
-            </a>
-            <a href="https://github.com/SSBun/Seahorse" class="btn btn-secondary" target="_blank">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-                Star on GitHub
-            </a>
-        </div>
-
-        <div class="install-box">
-            <code>curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash</code>
-        </div>
-
-        <div class="app-preview" style="margin-top: 60px;">
-            <svg viewBox="0 0 1000 650" xmlns="http://www.w3.org/2000/svg" style="background: #0D0D12;">
-                <defs>
-                    <linearGradient id="seahorseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#14B8A6"/>
-                        <stop offset="100%" style="stop-color:#2DD4BF"/>
-                    </linearGradient>
-                </defs>
-
-                <!-- Sidebar -->
-                <rect x="0" y="0" width="280" height="650" fill="#121218"/>
-
-                <!-- Header -->
-                <rect x="20" y="20" width="240" height="50" rx="12" fill="#1A1A24"/>
-                <circle cx="45" cy="45" r="18" fill="url(#seahorseGrad)"/>
-                <text x="70" y="52" fill="#F8FAFC" font-size="20" font-weight="bold" font-family="Plus Jakarta Sans">Seahorse</text>
-
-                <!-- Search -->
-                <rect x="20" y="90" width="240" height="36" rx="10" fill="#1A1A24" stroke="#1E293B"/>
-                <text x="40" y="114" fill="#64748B" font-size="14" font-family="Plus Jakarta Sans">Search...</text>
-
-                <!-- Categories -->
-                <rect x="20" y="146" width="240" height="36" rx="10" fill="#14B8A6"/>
-                <text x="40" y="170" fill="#F8FAFC" font-size="14" font-weight="600" font-family="Plus Jakarta Sans">All Items</text>
-
-                <rect x="20" y="192" width="240" height="36" rx="10" fill="#1A1A24"/>
-                <circle cx="40" cy="210" r="6" fill="#8B5CF6"/>
-                <text x="55" y="214" fill="#94A3B8" font-size="14" font-family="Plus Jakarta Sans">Design</text>
-
-                <rect x="20" y="238" width="240" height="36" rx="10" fill="#1A1A24"/>
-                <circle cx="40" cy="256" r="6" fill="#F59E0B"/>
-                <text x="55" y="260" fill="#94A3B8" font-size="14" font-family="Plus Jakarta Sans">Development</text>
-
-                <rect x="20" y="284" width="240" height="36" rx="10" fill="#1A1A24"/>
-                <circle cx="40" cy="302" r="6" fill="#EC4899"/>
-                <text x="55" y="306" fill="#94A3B8" font-size="14" font-family="Plus Jakarta Sans">Research</text>
-
-                <rect x="20" y="330" width="240" height="36" rx="10" fill="#1A1A24"/>
-                <circle cx="40" cy="348" r="6" fill="#10B981"/>
-                <text x="55" y="352" fill="#94A3B8" font-size="14" font-family="Plus Jakarta Sans">Favorites</text>
-
-                <!-- Add Button -->
-                <rect x="20" y="600" width="240" height="36" rx="10" fill="#1A1A24" stroke="#1E293B"/>
-                <text x="45" y="624" fill="#94A3B8" font-size="14" font-weight="500" font-family="Plus Jakarta Sans">+ Add Item</text>
-
-                <!-- Main Content -->
-                <rect x="296" y="20" width="684" height="610" rx="16" fill="#0D0D12"/>
-                <text x="330" y="60" fill="#F8FAFC" font-size="32" font-weight="bold" font-family="Plus Jakarta Sans">All Items</text>
-
-                <!-- Item Cards -->
-                <!-- Card 1 -->
-                <rect x="330" y="90" width="200" height="180" rx="16" fill="#1A1A24" stroke="#1E293B"/>
-                <rect x="330" y="90" width="200" height="100" rx="16" fill="#1E293B"/>
-                <text x="350" y="215" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">SwiftUI Docs</text>
-                <text x="350" y="235" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">https://developer.apple.com</text>
-                <circle cx="510" cy="250" r="8" fill="#F59E0B"/>
-
-                <!-- Card 2 -->
-                <rect x="550" y="90" width="200" height="180" rx="16" fill="#1A1A24" stroke="#1E293B"/>
-                <rect x="550" y="90" width="200" height="100" rx="16" fill="#2E2E3A"/>
-                <text x="570" y="215" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">Color Palette</text>
-                <text x="570" y="235" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">Design reference</text>
-                <circle cx="730" cy="250" r="8" fill="#8B5CF6"/>
-
-                <!-- Card 3 -->
-                <rect x="770" y="90" width="200" height="180" rx="16" fill="#1A1A24" stroke="#1E293B"/>
-                <rect x="770" y="90" width="200" height="100" rx="16" fill="#1E293B"/>
-                <text x="790" y="215" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">GitHub</text>
-                <text x="790" y="235" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">https://github.com</text>
-
-                <!-- Card 4 -->
-                <rect x="330" y="290" width="200" height="180" rx="16" fill="#1A1A24" stroke="#1E293B"/>
-                <rect x="330" y="290" width="200" height="100" rx="16" fill="#2E2E3A"/>
-                <text x="350" y="415" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">Code Snippets</text>
-                <text x="350" y="435" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">Useful code pieces</text>
-
-                <!-- Card 5 -->
-                <rect x="550" y="290" width="200" height="180" rx="16" fill="#1A1A24" stroke="#1E293B"/>
-                <rect x="550" y="290" width="200" height="100" rx="16" fill="#1E293B"/>
-                <text x="570" y="415" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">AI Research</text>
-                <text x="570" y="435" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">Paper notes</text>
-
-                <!-- Card 6 -->
-                <rect x="770" y="290" width="200" height="180" rx="16" fill="#1A1A24" stroke="#14B8A6"/>
-                <rect x="770" y="290" width="200" height="100" rx="16" fill="#1E293B"/>
-                <text x="790" y="415" fill="#F8FAFC" font-size="15" font-weight="600" font-family="Plus Jakarta Sans">Awesome List</text>
-                <text x="790" y="435" fill="#64748B" font-size="12" font-family="Plus Jakarta Sans">Curated resources</text>
-                <circle cx="950" cy="450" r="8" fill="#10B981"/>
-
-                <!-- Quick Save Hint -->
-                <rect x="330" y="530" width="640" height="60" rx="12" fill="#1A1A24" stroke="#1E293B"/>
-                <text x="365" y="560" fill="#64748B" font-size="14" font-family="Plus Jakarta Sans">💡 Tip: Copy twice to auto-save • Paste in window to save</text>
-            </svg>
-        </div>
-
-        <div class="stats-strip">
-            <div class="stat-item">
-                <div class="stat-value">5K+</div>
-                <div class="stat-label">Active Users</div>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="dot"></span>
+                Open Source & Free Forever
             </div>
-            <div class="stat-item">
-                <div class="stat-value">100K+</div>
-                <div class="stat-label">Items Saved</div>
+            <h1>Collect materials<br><em>effortlessly</em></h1>
+            <p>An elegant macOS app for saving links, images, and text. Your personal library for inspiration and ideas.</p>
+            <div class="hero-buttons">
+                <a href="https://github.com/SSBun/Seahorse/releases/latest" class="btn btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download for macOS
+                </a>
+                <a href="https://github.com/SSBun/Seahorse" class="btn btn-secondary" target="_blank">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    Star on GitHub
+                </a>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">4.8</div>
-                <div class="stat-label">GitHub Rating</div>
+
+            <div class="hero-meta">
+                <div class="hero-stat">
+                    <span class="hero-stat-value">5K+</span>
+                    <span class="hero-stat-label">Active Users</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">100K+</span>
+                    <span class="hero-stat-label">Items Saved</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-value">4.8</span>
+                    <span class="hero-stat-label">GitHub Rating</span>
+                </div>
+            </div>
+
+            <div class="install-box">
+                <code>curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash</code>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText('curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash')">Copy</button>
+            </div>
+        </div>
+
+        <div class="app-preview-wrapper">
+            <div class="app-preview">
+                <svg viewBox="0 0 1000 650" xmlns="http://www.w3.org/2000/svg" style="background: #0C0C0E;">
+                    <defs>
+                        <linearGradient id="seahorseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#E8FF6B"/>
+                            <stop offset="100%" style="stop-color:#C8DB5A"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Sidebar -->
+                    <rect x="0" y="0" width="280" height="650" fill="#141416"/>
+
+                    <!-- Header -->
+                    <rect x="20" y="20" width="240" height="50" rx="12" fill="#1C1C1F"/>
+                    <circle cx="45" cy="45" r="18" fill="url(#seahorseGrad)"/>
+                    <text x="70" y="52" fill="#FAFAFA" font-size="20" font-weight="600" font-family="DM Sans">Seahorse</text>
+
+                    <!-- Search -->
+                    <rect x="20" y="90" width="240" height="36" rx="10" fill="#1C1C1F" stroke="#27272A"/>
+                    <text x="40" y="114" fill="#71717A" font-size="14" font-family="DM Sans">Search...</text>
+
+                    <!-- Categories -->
+                    <rect x="20" y="146" width="240" height="36" rx="10" fill="#E8FF6B"/>
+                    <text x="40" y="170" fill="#0C0C0E" font-size="14" font-weight="600" font-family="DM Sans">All Items</text>
+
+                    <rect x="20" y="192" width="240" height="36" rx="10" fill="#1C1C1F"/>
+                    <circle cx="40" cy="210" r="6" fill="#A78BFA"/>
+                    <text x="55" y="214" fill="#A1A1AA" font-size="14" font-family="DM Sans">Design</text>
+
+                    <rect x="20" y="238" width="240" height="36" rx="10" fill="#1C1C1F"/>
+                    <circle cx="40" cy="256" r="6" fill="#FF6B6B"/>
+                    <text x="55" y="260" fill="#A1A1AA" font-size="14" font-family="DM Sans">Development</text>
+
+                    <rect x="20" y="284" width="240" height="36" rx="10" fill="#1C1C1F"/>
+                    <circle cx="40" cy="302" r="6" fill="#A78BFA"/>
+                    <text x="55" y="306" fill="#A1A1AA" font-size="14" font-family="DM Sans">Research</text>
+
+                    <rect x="20" y="330" width="240" height="36" rx="10" fill="#1C1C1F"/>
+                    <circle cx="40" cy="348" r="6" fill="#E8FF6B"/>
+                    <text x="55" y="352" fill="#A1A1AA" font-size="14" font-family="DM Sans">Favorites</text>
+
+                    <!-- Add Button -->
+                    <rect x="20" y="600" width="240" height="36" rx="10" fill="#1C1C1F" stroke="#27272A"/>
+                    <text x="45" y="624" fill="#A1A1AA" font-size="14" font-weight="500" font-family="DM Sans">+ Add Item</text>
+
+                    <!-- Main Content -->
+                    <rect x="296" y="20" width="684" height="610" rx="16" fill="#0C0C0E"/>
+                    <text x="330" y="60" fill="#FAFAFA" font-size="32" font-weight="600" font-family="DM Sans">All Items</text>
+
+                    <!-- Item Cards -->
+                    <!-- Card 1 -->
+                    <rect x="330" y="90" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#27272A"/>
+                    <rect x="330" y="90" width="200" height="100" rx="16" fill="#27272A"/>
+                    <text x="350" y="215" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">SwiftUI Docs</text>
+                    <text x="350" y="235" fill="#71717A" font-size="12" font-family="DM Sans">https://developer.apple.com</text>
+                    <circle cx="510" cy="250" r="8" fill="#FF6B6B"/>
+
+                    <!-- Card 2 -->
+                    <rect x="550" y="90" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#27272A"/>
+                    <rect x="550" y="90" width="200" height="100" rx="16" fill="#3F3F46"/>
+                    <text x="570" y="215" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">Color Palette</text>
+                    <text x="570" y="235" fill="#71717A" font-size="12" font-family="DM Sans">Design reference</text>
+                    <circle cx="730" cy="250" r="8" fill="#A78BFA"/>
+
+                    <!-- Card 3 -->
+                    <rect x="770" y="90" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#27272A"/>
+                    <rect x="770" y="90" width="200" height="100" rx="16" fill="#27272A"/>
+                    <text x="790" y="215" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">GitHub</text>
+                    <text x="790" y="235" fill="#71717A" font-size="12" font-family="DM Sans">https://github.com</text>
+
+                    <!-- Card 4 -->
+                    <rect x="330" y="290" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#27272A"/>
+                    <rect x="330" y="290" width="200" height="100" rx="16" fill="#3F3F46"/>
+                    <text x="350" y="415" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">Code Snippets</text>
+                    <text x="350" y="435" fill="#71717A" font-size="12" font-family="DM Sans">Useful code pieces</text>
+
+                    <!-- Card 5 -->
+                    <rect x="550" y="290" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#27272A"/>
+                    <rect x="550" y="290" width="200" height="100" rx="16" fill="#27272A"/>
+                    <text x="570" y="415" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">AI Research</text>
+                    <text x="570" y="435" fill="#71717A" font-size="12" font-family="DM Sans">Paper notes</text>
+
+                    <!-- Card 6 -->
+                    <rect x="770" y="290" width="200" height="180" rx="16" fill="#1C1C1F" stroke="#E8FF6B"/>
+                    <rect x="770" y="290" width="200" height="100" rx="16" fill="#27272A"/>
+                    <text x="790" y="415" fill="#FAFAFA" font-size="15" font-weight="600" font-family="DM Sans">Awesome List</text>
+                    <text x="790" y="435" fill="#71717A" font-size="12" font-family="DM Sans">Curated resources</text>
+                    <circle cx="950" cy="450" r="8" fill="#E8FF6B"/>
+
+                    <!-- Quick Save Hint -->
+                    <rect x="330" y="530" width="640" height="60" rx="12" fill="#1C1C1F" stroke="#27272A"/>
+                    <text x="365" y="560" fill="#71717A" font-size="14" font-family="DM Sans">💡 Tip: Copy twice to auto-save • Paste in window to save</text>
+                </svg>
             </div>
         </div>
     </div>
@@ -508,40 +710,40 @@ description: An elegant macOS material collection and management tool. Save link
 <section class="section" id="features">
     <div class="container">
         <div class="section-header">
-            <div class="section-label">✨ Features</div>
-            <h2>Powerful Features</h2>
-            <p>Everything you need to collect and organize your materials</p>
+            <div class="section-label">Features</div>
+            <h2>Built for collectors</h2>
+            <p>Everything you need to capture and organize your inspiration.</p>
         </div>
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">⚡</div>
                 <h3>Quick Save</h3>
-                <p>Copy the same content twice to auto-save, or paste directly in the window. No manual操作 needed.</p>
+                <p>Copy the same content twice to auto-save, or paste directly in the window.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">📦</div>
                 <h3>Multi-Type Support</h3>
-                <p>Save URLs, images, and text snippets. Automatically detects content type and fetches previews.</p>
+                <p>Save URLs, images, and text. Automatically detects content type.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🗂️</div>
                 <h3>Smart Organization</h3>
-                <p>Create custom categories with colors and icons. Add tags for flexible organization.</p>
+                <p>Create custom categories with colors and icons. Add tags for flexibility.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔍</div>
                 <h3>Powerful Search</h3>
-                <p>Real-time search across all saved content. Find exactly what you need instantly.</p>
+                <p>Real-time search across all saved content. Find exactly what you need.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🎨</div>
                 <h3>Multiple Views</h3>
-                <p>Switch between grid and list views. Choose the display style that works best for you.</p>
+                <p>Switch between grid and list views. Choose what works for you.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔒</div>
                 <h3>Privacy First</h3>
-                <p>All data stored locally on your Mac. No cloud sync, no data collection.</p>
+                <p>All data stored locally on your Mac. No cloud, no tracking.</p>
             </div>
         </div>
     </div>
@@ -550,25 +752,25 @@ description: An elegant macOS material collection and management tool. Save link
 <section class="section section-dark" id="how-it-works">
     <div class="container">
         <div class="section-header">
-            <div class="section-label">🚀 How It Works</div>
-            <h2>Start in Minutes</h2>
-            <p>Get up and running in three simple steps</p>
+            <div class="section-label">How It Works</div>
+            <h2>Start in minutes</h2>
+            <p>Get up and running in three simple steps.</p>
         </div>
         <div class="steps">
             <div class="step">
                 <div class="step-number">1</div>
                 <h3>Download & Install</h3>
-                <p>Download Seahorse from GitHub or install via our simple script. Works on macOS 13+.</p>
+                <p>Download from GitHub or run our install script. Works on macOS 13+.</p>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
                 <h3>Create Categories</h3>
-                <p>Create custom categories to organize your materials. Add colors and icons for visual distinction.</p>
+                <p>Set up custom categories with colors and icons for visual organization.</p>
             </div>
             <div class="step">
                 <div class="step-number">3</div>
                 <h3>Start Collecting</h3>
-                <p>Copy twice to auto-save, paste to save, or manually add items. Your materials are organized!</p>
+                <p>Copy twice to auto-save, paste to save, or manually add items.</p>
             </div>
         </div>
     </div>
@@ -577,30 +779,30 @@ description: An elegant macOS material collection and management tool. Save link
 <section class="section" id="use-cases">
     <div class="container">
         <div class="section-header">
-            <div class="section-label">💡 Use Cases</div>
-            <h2>Who Is It For?</h2>
-            <p>Perfect for anyone who needs to collect and organize materials</p>
+            <div class="section-label">Use Cases</div>
+            <h2>Who uses Seahorse?</h2>
+            <p>Perfect for anyone who needs to collect and organize materials.</p>
         </div>
         <div class="use-cases">
             <div class="use-case-card">
-                <div class="use-case-icon">🎨</div>
+                <span class="use-case-icon">🎨</span>
                 <h3>Designers</h3>
-                <p>Collect design inspiration, reference images, and color schemes.</p>
+                <p>Collect inspiration, reference images, and color schemes.</p>
             </div>
             <div class="use-case-card">
-                <div class="use-case-icon">💻</div>
+                <span class="use-case-icon">💻</span>
                 <h3>Developers</h3>
-                <p>Save technical docs, code snippets, and tool links.</p>
+                <p>Save docs, code snippets, and useful tool links.</p>
             </div>
             <div class="use-case-card">
-                <div class="use-case-icon">🔬</div>
+                <span class="use-case-icon">🔬</span>
                 <h3>Researchers</h3>
-                <p>Organize paper links, research notes, and data references.</p>
+                <p>Organize paper links, notes, and data references.</p>
             </div>
             <div class="use-case-card">
-                <div class="use-case-icon">✍️</div>
-                <h3>Content Creators</h3>
-                <p>Gather inspiration, references, and materials for projects.</p>
+                <span class="use-case-icon">✍️</span>
+                <h3>Creators</h3>
+                <p>Gather inspiration and materials for projects.</p>
             </div>
         </div>
     </div>
@@ -609,12 +811,12 @@ description: An elegant macOS material collection and management tool. Save link
 <section class="section section-dark" id="pricing">
     <div class="container">
         <div class="section-header">
-            <div class="section-label">💎 Pricing</div>
-            <h2>100% Free & Open Source</h2>
+            <div class="section-label">Pricing</div>
+            <h2>100% Free</h2>
             <p>No paid plans. No subscriptions. Forever.</p>
         </div>
-        <div class="pricing-card" style="max-width:500px;margin:0 auto;">
-            <h3>Free Forever</h3>
+        <div class="pricing-card">
+            <h3>Open Source</h3>
             <div class="price">$0</div>
             <ul>
                 <li>Unlimited items</li>
@@ -632,10 +834,12 @@ description: An elegant macOS material collection and management tool. Save link
 
 <section class="cta">
     <div class="container">
-        <h2>Ready to Start Collecting?</h2>
-        <p>Download Seahorse today and never lose track of your materials again.</p>
-        <a href="https://github.com/SSBun/Seahorse/releases/latest" class="btn btn-primary" style="padding:20px 48px;font-size:18px;">
-            Download Now — It's Free
-        </a>
+        <div class="cta-content">
+            <h2>Ready to start collecting?</h2>
+            <p>Download Seahorse today and never lose track of your materials again.</p>
+            <a href="https://github.com/SSBun/Seahorse/releases/latest" class="btn btn-primary">
+                Download Now — It's Free
+            </a>
+        </div>
     </div>
 </section>

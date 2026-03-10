@@ -7,26 +7,23 @@
     <meta name="description" content="{{ page.description | default: 'An elegant macOS material collection and management tool.' }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #14B8A6;
-            --primary-light: #2DD4BF;
-            --primary-dark: #0D9488;
-            --secondary: #F59E0B;
-            --accent: #8B5CF6;
-            --success: #10B981;
-            --warning: #F59E0B;
-            --background: #0A0A0F;
-            --surface: #121218;
-            --surface-elevated: #1A1A24;
-            --surface-hover: #22222E;
-            --text: #F8FAFC;
-            --text-secondary: #94A3B8;
-            --text-muted: #64748B;
-            --border: #1E293B;
-            --gradient-1: linear-gradient(135deg, #14B8A6 0%, #2DD4BF 100%);
-            --gradient-2: linear-gradient(135deg, #F59E0B 0%, #14B8A6 100%);
+            --primary: #E8FF6B;
+            --primary-dim: #C8DB5A;
+            --secondary: #FF6B6B;
+            --accent: #A78BFA;
+            --background: #0C0C0E;
+            --surface: #141416;
+            --surface-elevated: #1C1C1F;
+            --surface-hover: #242428;
+            --text: #FAFAFA;
+            --text-secondary: #A1A1AA;
+            --text-muted: #71717A;
+            --border: #27272A;
+            --border-light: #3F3F46;
+            --highlight: #FAFAFA;
         }
 
         * {
@@ -40,7 +37,7 @@
         }
 
         body {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--background);
             color: var(--text);
             line-height: 1.6;
@@ -58,57 +55,47 @@
             overflow: hidden;
         }
 
-        .bg-orb {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: 0.4;
-            animation: float 20s ease-in-out infinite;
-        }
-
-        .bg-orb-1 {
-            width: 600px;
-            height: 600px;
-            background: var(--primary);
-            top: -200px;
-            left: -200px;
-        }
-
-        .bg-orb-2 {
-            width: 500px;
-            height: 500px;
-            background: var(--secondary);
-            top: 50%;
-            right: -150px;
-            animation-delay: -5s;
-        }
-
-        .bg-orb-3 {
-            width: 400px;
-            height: 400px;
-            background: var(--accent);
-            bottom: -100px;
-            left: 30%;
-            animation-delay: -10s;
-        }
-
-        .bg-grid {
+        .bg-noise {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-image:
-                linear-gradient(rgba(20, 184, 166, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(20, 184, 166, 0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        .bg-gradient {
+            position: absolute;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(232, 255, 107, 0.08) 0%, transparent 70%);
+            top: -300px;
+            right: -200px;
+            animation: drift 30s ease-in-out infinite;
+        }
+
+        .bg-gradient-2 {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 107, 107, 0.06) 0%, transparent 70%);
+            bottom: -200px;
+            left: -100px;
+            animation: drift 25s ease-in-out infinite reverse;
+        }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(30px, -30px) rotate(5deg); }
+            66% { transform: translate(-20px, 20px) rotate(-3deg); }
         }
 
         @keyframes float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            25% { transform: translate(30px, -30px) scale(1.05); }
-            50% { transform: translate(-20px, 20px) scale(0.95); }
-            75% { transform: translate(-30px, -20px) scale(1.02); }
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         .container {
@@ -126,10 +113,14 @@
             left: 0;
             right: 0;
             z-index: 1000;
-            transition: all 0.3s ease;
-            background: rgba(10, 10, 15, 0.9);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(12, 12, 14, 0.8);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid transparent;
+        }
+
+        header.scrolled {
+            border-bottom-color: var(--border);
         }
 
         header .container {
@@ -142,22 +133,42 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 24px;
-            font-weight: 800;
+            font-size: 22px;
+            font-weight: 600;
             color: var(--text);
             text-decoration: none;
+            letter-spacing: -0.02em;
         }
 
         .logo-icon {
-            width: 44px;
-            height: 44px;
-            background: var(--gradient-1);
-            border-radius: 14px;
+            width: 40px;
+            height: 40px;
+            background: var(--text);
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 22px;
-            box-shadow: 0 8px 32px rgba(20, 184, 166, 0.3);
+            font-size: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .logo:hover .logo-icon::before {
+            opacity: 1;
+        }
+
+        .logo-icon span {
+            position: relative;
+            z-index: 1;
         }
 
         nav {
@@ -170,9 +181,10 @@
             color: var(--text-secondary);
             text-decoration: none;
             font-weight: 500;
-            font-size: 15px;
+            font-size: 14px;
             transition: color 0.2s;
             position: relative;
+            letter-spacing: -0.01em;
         }
 
         nav a:hover {
@@ -183,26 +195,26 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 14px 28px;
-            border-radius: 14px;
+            padding: 12px 24px;
+            border-radius: 12px;
             font-weight: 600;
-            font-size: 15px;
+            font-size: 14px;
             text-decoration: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             border: none;
             font-family: inherit;
+            letter-spacing: -0.01em;
         }
 
         .btn-primary {
-            background: var(--gradient-1);
-            color: white;
-            box-shadow: 0 4px 24px rgba(20, 184, 166, 0.4);
+            background: var(--primary);
+            color: var(--background);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 40px rgba(20, 184, 166, 0.5);
+            box-shadow: 0 8px 30px rgba(232, 255, 107, 0.3);
         }
 
         .btn-secondary {
@@ -213,13 +225,14 @@
 
         .btn-secondary:hover {
             background: var(--surface-hover);
+            border-color: var(--border-light);
         }
 
         footer {
-            padding: 60px 0;
+            padding: 80px 0;
             border-top: 1px solid var(--border);
-            text-align: center;
             background: var(--surface);
+            margin-top: 120px;
         }
 
         footer .container {
@@ -250,7 +263,7 @@
             gap: 32px;
         }
 
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
             nav {
                 display: none;
             }
@@ -264,16 +277,15 @@
 </head>
 <body>
     <div class="bg-effects">
-        <div class="bg-orb bg-orb-1"></div>
-        <div class="bg-orb bg-orb-2"></div>
-        <div class="bg-orb bg-orb-3"></div>
-        <div class="bg-grid"></div>
+        <div class="bg-noise"></div>
+        <div class="bg-gradient"></div>
+        <div class="bg-gradient-2"></div>
     </div>
 
     <header>
         <div class="container">
             <a href="{{ '/' | relative_url }}" class="logo">
-                <div class="logo-icon">🐴</div>
+                <div class="logo-icon"><span>🐴</span></div>
                 Seahorse
             </a>
             <nav>
@@ -281,7 +293,7 @@
                 <a href="#how-it-works">How It Works</a>
                 <a href="#installation">Installation</a>
                 <a href="https://github.com/SSBun/Seahorse" target="_blank">GitHub</a>
-                <a href="https://github.com/SSBun/Seahorse/releases" class="btn btn-primary" style="padding: 12px 24px;">
+                <a href="https://github.com/SSBun/Seahorse/releases" class="btn btn-primary">
                     Download
                 </a>
             </nav>
@@ -293,7 +305,7 @@
     <footer>
         <div class="container">
             <a href="{{ '/' | relative_url }}" class="logo">
-                <div class="logo-icon" style="width:36px;height:36px;font-size:18px;">🐴</div>
+                <div class="logo-icon"><span style="font-size:18px;">🐴</span></div>
                 Seahorse
             </a>
             <div class="footer-links">
@@ -301,20 +313,22 @@
                 <a href="https://github.com/SSBun/Seahorse/releases">Releases</a>
                 <a href="https://github.com/SSBun/Seahorse/issues">Support</a>
             </div>
-            <p>© 2024 Seahorse. Built with ❤️ for the community.</p>
+            <p>&copy; 2024 Seahorse. Open source, forever free.</p>
         </div>
     </footer>
 
     <script>
-        document.addEventListener('mousemove', (e) => {
-            const x = (e.clientX / window.innerWidth - 0.5) * 20;
-            const y = (e.clientY / window.innerHeight - 0.5) * 20;
-            document.querySelectorAll('.bg-orb').forEach((orb, index) => {
-                const speed = (index + 1) * 0.5;
-                orb.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
-            });
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+            const header = document.querySelector('header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
         });
 
+        // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -323,6 +337,39 @@
                     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             });
+        });
+
+        // Intersection Observer for scroll animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('animate-in');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .step, .use-case-card, .stat-item').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            observer.observe(el);
+        });
+
+        // Add animate-in class styles
+        document.addEventListener('DOMContentLoaded', () => {
+            const style = document.createElement('style');
+            style.textContent = `
+                .animate-in {
+                    opacity: 1 !important;
+                    transform: translateY(0) !important;
+                }
+            `;
+            document.head.appendChild(style);
         });
     </script>
 </body>
