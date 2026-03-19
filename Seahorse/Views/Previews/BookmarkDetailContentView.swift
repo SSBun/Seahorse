@@ -321,7 +321,7 @@ private struct SnapshotSelectionOverlay: View {
     @State private var dragStart: CGPoint?
     
     var body: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .bottomLeading) {
             Color.black.opacity(0.12)
                 .contentShape(Rectangle())
                 .gesture(dragGesture)

@@ -28,6 +28,9 @@ class DataStorage: ObservableObject {
     // New: Collection items supporting multiple types
     @Published var items: [AnyCollectionItem] = []
 
+    /// Incremented whenever items are modified (update) so views can refresh
+    @Published var itemsVersion: Int = 0
+
     // MARK: - Performance Optimization: Lookup Caches (O(1) instead of O(n))
     private var _categoryCache: [UUID: Category] = [:]
     private var _tagCache: [UUID: Tag] = [:]
@@ -196,6 +199,8 @@ class DataStorage: ObservableObject {
         if let itemIndex = items.firstIndex(where: { $0.id == bookmark.id }) {
             items[itemIndex] = AnyCollectionItem(bookmark)
         }
+        // Increment version to notify views of in-place update
+        itemsVersion += 1
         DLog("DataStorage: updateBookmark success id=\(bookmark.id.uuidString)", category: .database)
     }
     

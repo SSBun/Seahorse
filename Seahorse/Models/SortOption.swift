@@ -10,8 +10,8 @@ import Foundation
 enum SortOption: String, CaseIterable, Identifiable {
     case none = "None"
     case nameAscending = "Name"
-    case newestFirst = "Date Added (Newest First)"
-    case oldestFirst = "Date Added (Oldest First)"
+    case newestFirst = "Newest"
+    case oldestFirst = "Oldest"
     case groupBySite = "Group by Site"
     
     var id: String { rawValue }

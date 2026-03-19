@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import Kingfisher
+import AppKit
 
 struct AddBookmarkView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -107,7 +109,21 @@ struct AddBookmarkView: View {
                     }
                     
                     Divider()
-                    
+
+                    // Poster Preview
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Preview")
+                            .font(.system(size: 13, weight: .semibold))
+
+                        HStack {
+                            Spacer()
+                            posterPreview
+                            Spacer()
+                        }
+                    }
+
+                    Divider()
+
                     // Icon & Title
                     HStack(alignment: .top, spacing: 16) {
                         // Icon Preview
@@ -279,6 +295,20 @@ struct AddBookmarkView: View {
                 }
             }
         }
+        // Refresh fields when snapshot tool or AI parse updates the bookmark
+        .onChange(of: dataStorage.itemsVersion) { [editingBookmark] _, _ in
+            if let id = editingBookmark?.id,
+               let latest = dataStorage.bookmarks.first(where: { $0.id == id }) {
+                urlString = latest.url
+                title = latest.title
+                summary = latest.notes ?? ""
+                selectedCategoryId = latest.categoryId
+                selectedTagIds = Set(latest.tagIds)
+                isFavorite = latest.isFavorite
+                iconURL = latest.icon
+                webMetadata = latest.metadata
+            }
+        }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -304,7 +334,154 @@ struct AddBookmarkView: View {
         }
         .toast(isPresented: $showingToast, message: toastMessage, icon: "checkmark.circle.fill")
     }
-    
+
+    // MARK: - Poster Preview
+
+    /// Mirrors the actual StandardCardView appearance exactly.
+    /// Reads imageURL live from dataStorage to reflect snapshot/crop changes.
+    @ViewBuilder
+    private var posterPreview: some View {
+        let displayTitle = title.isEmpty ? "Untitled" : title
+        let resolvedIcon: String = iconURL ?? "link.circle.fill"
+        let categoryName = dataStorage.categories.first(where: { $0.id == selectedCategoryId })?.name
+        let categoryColorHex = dataStorage.categories.first(where: { $0.id == selectedCategoryId })?.colorHex
+        let categoryColor = categoryColorHex.flatMap { Color(hex: $0) } ?? .blue
+        let tags = dataStorage.tags.filter { selectedTagIds.contains($0.id) }
+
+        // Read imageURL live from dataStorage so snapshot changes are reflected
+        let imageURL: String? = {
+            guard let id = editingBookmark?.id else { return webMetadata?.imageURL }
+            return dataStorage.bookmarks.first(where: { $0.id == id })?.metadata?.imageURL
+        }()
+
+        ZStack(alignment: .bottom) {
+            // Layer 1: OGP poster image if available, otherwise gradient + icon (matching StandardCardView previewArea)
+            ZStack {
+                // Fallback gradient + icon (same as StandardCardView)
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.5), Color.purple.opacity(0.5)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+
+                Image(systemName: "link.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundStyle(.secondary.opacity(0.5))
+
+                // Overlay the poster image if available (handles both HTTP URLs and local snapshot paths)
+                if let imageURL = imageURL {
+                    if let url = URL(string: imageURL),
+                       url.scheme == "http" || url.scheme == "https" {
+                        // Remote URL
+                        KFImage.url(url)
+                            .placeholder { Color.clear }
+                            .onFailure { _ in }
+                            .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 400, height: 300)))
+                            .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                            .cacheOriginalImage()
+                            .fade(duration: 0.25)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                    } else {
+                        // Local snapshot path - resolve via StorageManager
+                        let resolvedPath = StorageManager.shared.resolveImagePath(imageURL)
+                        KFImage.url(URL(fileURLWithPath: resolvedPath))
+                            .placeholder { Color.clear }
+                            .onFailure { _ in }
+                            .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 400, height: 300)))
+                            .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                            .cacheOriginalImage()
+                            .fade(duration: 0.25)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .clipped()
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            // Layer 2: Bottom overlay (matching StandardCardView bottomContainer)
+            VStack(spacing: 0) {
+                // Title - left-aligned, matching StandardCardView
+                Text(displayTitle)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 20, alignment: .top)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 4)
+                    .padding(.bottom, 2)
+
+                // Metadata bar
+                HStack(spacing: 5) {
+                    // Favorite star
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.system(size: 10))
+                        .foregroundStyle(isFavorite ? .yellow : .secondary)
+
+                    // Category tag
+                    if let name = categoryName, name != "All Bookmarks", name != "Favorites" {
+                        Text("#\(name.lowercased())")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(categoryColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(categoryColor.opacity(0.1))
+                            .cornerRadius(3)
+                    }
+
+                    // Tags
+                    ForEach(Array(tags.prefix(2).enumerated()), id: \.element.id) { index, tag in
+                        let tagColor = Color(hex: tag.colorHex) ?? .blue
+                        Text("#\(tag.name.lowercased())")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(tagColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(tagColor.opacity(0.1))
+                            .cornerRadius(3)
+                    }
+
+                    Spacer()
+
+                    // Type badge
+                    HStack(spacing: 3) {
+                        Image(systemName: "link")
+                            .font(.system(size: 8))
+                        Text("Link")
+                            .font(.system(size: 8))
+                    }
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .frame(height: 28)
+            }
+            .background {
+                Rectangle()
+                    .fill(Color.black.opacity(0.5))
+            }
+        }
+        .background {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(NSColor.controlBackgroundColor))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+        .aspectRatio(4/3, contentMode: .fit)
+        .frame(width: 200)
+    }
+
     private func parseURL() {
         isParsing = true
         hasParseCompleted = false

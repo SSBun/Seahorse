@@ -336,6 +336,9 @@
         }
       }
     },
+    "Batch Operation" : {
+
+    },
     "Bookmark" : {
 
     },
@@ -427,6 +430,9 @@
           }
         }
       }
+    },
+    "Check broken bookmarks" : {
+
     },
     "Check for Broken Bookmarks" : {
       "extractionState" : "manual",
@@ -824,6 +830,9 @@
         }
       }
     },
+    "Link" : {
+
+    },
     "List" : {
 
     },
@@ -842,6 +851,9 @@
     "No Bookmarks" : {
 
     },
+    "No bookmarks in None category" : {
+
+    },
     "No bookmarks match your search" : {
 
     },
@@ -849,6 +861,9 @@
 
     },
     "No image available" : {
+
+    },
+    "No matching bookmarks" : {
 
     },
     "No metadata yet. Add a snapshot or drop an image to set a preview." : {
@@ -935,6 +950,9 @@
     "Page Summary Prompt" : {
 
     },
+    "Parse (%lld)" : {
+
+    },
     "Parsing: %@" : {
 
     },
@@ -970,6 +988,9 @@
         }
       }
     },
+    "Preview" : {
+
+    },
     "Preview Image" : {
 
     },
@@ -991,6 +1012,9 @@
       }
     },
     "Refresh" : {
+
+    },
+    "Refresh Info" : {
 
     },
     "Reset" : {
@@ -1079,6 +1103,9 @@
     "Search" : {
 
     },
+    "Search bookmarks..." : {
+
+    },
     "Select a category" : {
 
     },
@@ -1097,7 +1124,7 @@
     "Show Notification When Saving Items" : {
 
     },
-    "Sort bookmarks" : {
+    "Sort" : {
 
     },
     "Start Batch Parsing" : {

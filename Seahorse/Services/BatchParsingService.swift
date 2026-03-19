@@ -29,38 +29,61 @@ class BatchParsingService: ObservableObject {
     
     func start() {
         guard !isRunning, let dataStorage = dataStorage else { return }
-        
+
         // Get unparsed bookmarks
         let unparsedBookmarks = dataStorage.bookmarks.filter { !$0.isParsed }
         guard !unparsedBookmarks.isEmpty else { return }
-        
+
         isRunning = true
         totalCount = unparsedBookmarks.count
         completedCount = 0
         progress = 0
-        
+
         Log.info("🚀 Starting concurrent bookmark parsing", category: .parsing)
         Log.info("  📊 Unparsed bookmarks: \(unparsedBookmarks.count)", category: .parsing)
         Log.info("  ⚡️ Concurrent workers: 5", category: .parsing)
-        
+
         let startTime = Date()
-        
+
         task = Task {
             await performConcurrentParsing(bookmarks: unparsedBookmarks, dataStorage: dataStorage)
-            
-            let duration = Date().timeIntervalSince(startTime)
-            Log.info("✅ Batch parsing complete", category: .parsing)
-            Log.info("  ⏱️ Duration: \(String(format: "%.2f", duration)) seconds", category: .parsing)
-            Log.info("  📈 Speed: \(String(format: "%.1f", Double(unparsedBookmarks.count) / duration)) bookmarks/second", category: .parsing)
-            Log.info("  ✨ Successfully parsed: \(self.completedCount)/\(self.totalCount)", category: .parsing)
-            
-            await MainActor.run {
-                self.isRunning = false
-                self.currentBookmark = nil
-            }
+            finishTask(startTime: startTime, originalCount: unparsedBookmarks.count)
         }
     }
-    
+
+    /// Start batch parsing with a specific set of bookmarks
+    func start(bookmarks: [Bookmark]) {
+        guard !isRunning, let dataStorage = dataStorage else { return }
+        guard !bookmarks.isEmpty else { return }
+
+        isRunning = true
+        totalCount = bookmarks.count
+        completedCount = 0
+        progress = 0
+
+        Log.info("🚀 Starting batch operation", category: .parsing)
+        Log.info("  📊 Selected bookmarks: \(bookmarks.count)", category: .parsing)
+
+        let startTime = Date()
+
+        task = Task {
+            await performConcurrentParsing(bookmarks: bookmarks, dataStorage: dataStorage)
+            finishTask(startTime: startTime, originalCount: bookmarks.count)
+        }
+    }
+
+    private func finishTask(startTime: Date, originalCount: Int) {
+        let duration = Date().timeIntervalSince(startTime)
+        Log.info("✅ Batch operation complete", category: .parsing)
+        Log.info("  ⏱️ Duration: \(String(format: "%.2f", duration)) seconds", category: .parsing)
+        Log.info("  ✨ Successfully parsed: \(self.completedCount)/\(self.totalCount)", category: .parsing)
+
+        Task { @MainActor in
+            self.isRunning = false
+            self.currentBookmark = nil
+        }
+    }
+
     /// Perform concurrent parsing using TaskGroup with 5 parallel workers
     private func performConcurrentParsing(bookmarks: [Bookmark], dataStorage: DataStorage) async {
         let maxConcurrentTasks = 5

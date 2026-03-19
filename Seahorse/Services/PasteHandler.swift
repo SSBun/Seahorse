@@ -20,6 +20,11 @@ class PasteHandler: ObservableObject {
         Log.info("handlePaste called with \(providers.count) providers", category: .paste)
         for provider in providers {
             Log.info("Checking provider: \(provider)", category: .paste)
+            // Priority 0: Reject internal Seahorse item UUID drops (prevents duplicate card creation)
+            if provider.hasItemConformingToTypeIdentifier(UTType.seahorseItemUUID.identifier) {
+                Log.info("Rejected internal Seahorse item drop", category: .paste)
+                return
+            }
             // Priority 1: Check for URL
             if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                 Log.info("Provider has URL type", category: .paste)

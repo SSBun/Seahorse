@@ -120,7 +120,7 @@ struct RectangleBookmarkCardView: View {
             Button(action: {
                 showingEditSheet = true
             }) {
-                Label(L10n.edit, systemImage: "pencil")
+                Label("AI Parse", systemImage: "pencil")
             }
             
             Divider()
@@ -153,7 +153,7 @@ struct RectangleBookmarkCardView: View {
                 .environmentObject(dataStorage)
         }
         .onDrag {
-            let provider = NSItemProvider(object: bookmark.id.uuidString as NSString)
+            let provider = NSItemProvider(item: bookmark.id.uuidString as NSString, typeIdentifier: UTType.seahorseItemUUID.identifier)
             provider.suggestedName = bookmark.title
             return provider
         } preview: {

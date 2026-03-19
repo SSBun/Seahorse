@@ -9,6 +9,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Combine
 
+extension UTType {
+    static let seahorseItemUUID = UTType(exportedAs: "com.csl.cool.Seahorse.item-uuid")
+}
+
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
 
@@ -23,6 +27,7 @@ struct ContentView: View {
     @State private var showingAddText = false
     @State private var showingImportDialog = false
     @State private var showingDiagnosticResults = false
+    @State private var showingBatchOperation = false
     @ObservedObject var batchParsingService: BatchParsingService
     @StateObject private var diagnosticService: DiagnosticService
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
@@ -193,7 +198,7 @@ struct ContentView: View {
                 }
             }
             .navigationTitle(selectedCategory?.name ?? "Bookmarks")
-            .onDrop(of: [.url, .image, .plainText, .fileURL], isTargeted: nil) { providers in
+            .onDrop(of: [.url, .image, .plainText, .fileURL, .seahorseItemUUID], isTargeted: nil) { providers in
                 handleDrop(providers: providers)
             }
             .toolbar {
@@ -228,7 +233,7 @@ struct ContentView: View {
                     
                     // Sync button
                     Button(action: performManualSync) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Label("Sync", systemImage: "arrow.triangle.2.circlepath")
                             .rotationEffect(.degrees(syncRotation))
                             .animation(isSyncing
                                        ? .linear(duration: 1.0).repeatForever(autoreverses: false)
@@ -244,59 +249,24 @@ struct ContentView: View {
                 }
                 
                 ToolbarItemGroup(placement: .automatic) {
-                    // Sort menu (Finder-style)
-                    Menu {
-                        ForEach(SortOption.allCases) { option in
-                            Button(action: {
-                                sortPreferenceManager.sortOption = option
-                            }) {
-                                HStack {
-                                    Text(option.rawValue)
-                                    Spacer()
-                                    if sortPreferenceManager.sortOption == option {
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 8))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .help("Sort bookmarks")
-                    
+                    // Sort menu
+                    SortMenuButton(sortPreferenceManager: sortPreferenceManager)
+
                     // Batch parsing button
                     Button(action: {
-                        if batchParsingService.isRunning {
-                            batchParsingService.pause()
-                        } else {
-                            batchParsingService.start()
-                        }
+                        showingBatchOperation = true
                     }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: batchParsingService.isRunning ? "pause.fill" : "play.fill")
-                                .foregroundStyle(batchParsingService.isRunning ? .orange : .blue)
-                            
-                            if batchParsingService.isRunning {
-                                Text("\(batchParsingService.completedCount)/\(batchParsingService.totalCount)")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        Image(systemName: batchParsingService.isRunning ? "pause.fill" : "play.fill")
+                            .foregroundStyle(batchParsingService.isRunning ? .orange : .blue)
                     }
-                    .help(batchParsingService.isRunning ? "Pause Batch Parsing" : "Start Batch Parsing")
-                    
+                    .help("Batch Operation")
+
                     // Parsing progress indicator
                     if batchParsingService.isRunning, let current = batchParsingService.currentBookmark {
                         HStack(spacing: 4) {
                             ProgressView()
                                 .scaleEffect(0.6)
-                            
+
                             Text("Parsing: \(current.title)")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
@@ -307,31 +277,27 @@ struct ContentView: View {
                     
                     // Diagnostic button
                     Button(action: {
-                        // Always open the diagnostic view
                         showingDiagnosticResults = true
-                        // Start diagnostic if not already running
                         if !diagnosticService.isRunning {
                             diagnosticService.start()
                         }
                     }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope")
-                                .foregroundStyle(diagnosticService.isRunning ? .orange : .green)
-                                .symbolEffect(.pulse, isActive: diagnosticService.isRunning)
-                            
-                            if diagnosticService.isRunning {
-                                Text("\(diagnosticService.checkedCount)/\(diagnosticService.totalCount)")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.secondary)
-                            } else if !diagnosticService.brokenBookmarks.isEmpty {
-                                Text("\(diagnosticService.brokenBookmarks.count)")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(.red)
-                            }
+                        Image(systemName: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope")
+                            .foregroundStyle(diagnosticService.isRunning ? .orange : .green)
+                            .symbolEffect(.pulse, isActive: diagnosticService.isRunning)
+                    }
+                    .help("Check broken bookmarks")
+                    .overlay(alignment: .topTrailing) {
+                        if !diagnosticService.isRunning && !diagnosticService.brokenBookmarks.isEmpty {
+                            Text("\(diagnosticService.brokenBookmarks.count)")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(2)
+                                .background(Color.red)
+                                .clipShape(Circle())
+                                .offset(x: 4, y: -4)
                         }
                     }
-                    .help(diagnosticService.isRunning ? L10n.viewDiagnosticProgress : L10n.checkBrokenBookmarks)
-                    .accessibilityLabel(diagnosticService.isRunning ? L10n.viewDiagnosticProgress : L10n.checkBrokenBookmarks)
                     
                     Divider()
                     
@@ -413,8 +379,11 @@ struct ContentView: View {
         .onChange(of: sortPreferenceManager.sortOption) { _, _ in
             recalculateFilteredItems()
         }
-        // Watch for data changes (items added/deleted)
+        // Watch for data changes (items added/deleted or updated in-place)
         .onChange(of: dataStorage.items.count) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onChange(of: dataStorage.itemsVersion) { _, _ in
             recalculateFilteredItems()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DataStorageItemsUpdated"))) { _ in
@@ -438,6 +407,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingDiagnosticResults) {
             DiagnosticResultsView(diagnosticService: diagnosticService)
+                .environmentObject(dataStorage)
+        }
+        .sheet(isPresented: $showingBatchOperation) {
+            BatchOperationView(batchParsingService: batchParsingService)
                 .environmentObject(dataStorage)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowImportDialog"))) { _ in

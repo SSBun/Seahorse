@@ -25,10 +25,10 @@ struct StandardCardView: View, Equatable {
         lhs.item.id == rhs.item.id
     }
     
-    // Extract specific item types
-    private var bookmark: Bookmark? { item.asBookmark }
-    private var imageItem: ImageItem? { item.asImageItem }
-    private var textItem: TextItem? { item.asTextItem }
+    // Extract specific item types - always read from dataStorage for live updates
+    private var bookmark: Bookmark? { dataStorage.bookmarks.first(where: { $0.id == item.id }) }
+    private var imageItem: ImageItem? { dataStorage.items.first(where: { $0.id == item.id })?.asImageItem }
+    private var textItem: TextItem? { dataStorage.items.first(where: { $0.id == item.id })?.asTextItem }
     
     // MARK: - Computed Properties
     
@@ -341,7 +341,7 @@ struct StandardCardView: View, Equatable {
             isHovered = hovering
         }
         .onDrag {
-            let provider = NSItemProvider(object: item.id.uuidString as NSString)
+            let provider = NSItemProvider(item: item.id.uuidString as NSString, typeIdentifier: UTType.seahorseItemUUID.identifier)
             provider.suggestedName = displayTitle
             return provider
         } preview: {
@@ -506,7 +506,7 @@ struct StandardCardView: View, Equatable {
                 Button(action: {
                     showingEditSheet = true
                 }) {
-                    Label("Edit", systemImage: "pencil")
+                    Label("AI Parse", systemImage: "pencil")
                 }
                 
                 Button(action: {
@@ -580,7 +580,7 @@ struct StandardCardView: View, Equatable {
             Button(action: {
                 showingEditSheet = true
             }) {
-                Label("Edit", systemImage: "pencil")
+                Label("AI Parse", systemImage: "pencil")
             }
             
             if let textItem = textItem {

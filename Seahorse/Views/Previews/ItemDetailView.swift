@@ -27,6 +27,7 @@ struct ItemDetailView: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
     @State private var isPreviewDropTarget = false
+    @State private var showingEditSheet = false
     
     // Extract specific item types
     private var bookmark: Bookmark? {
@@ -72,6 +73,11 @@ struct ItemDetailView: View {
             Button("OK", role: .cancel) { }
         } message: {
             Text(alertMessage)
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            if let bookmark = bookmark {
+                AddBookmarkView(editingBookmark: bookmark)
+            }
         }
     }
     
@@ -120,6 +126,16 @@ struct ItemDetailView: View {
                 Text("Details")
                     .font(.system(size: 16, weight: .semibold))
                 Spacer()
+                if bookmark != nil {
+                    Button(action: {
+                        showingEditSheet = true
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh Info")
+                }
             }
             .padding()
             
