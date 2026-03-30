@@ -73,8 +73,7 @@ struct StandardListItemView: View, Equatable {
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ))
-                    .frame(width: 40, height: 40)
-                
+
                 if let bookmark = bookmark {
                     BookmarkIconView(iconString: bookmark.icon, size: 20)
                         .frame(width: 30, height: 30)
@@ -89,7 +88,6 @@ struct StandardListItemView: View, Equatable {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
                         // Optimized: Create thumbnail for local images
                         let thumbnail = nsImage.resized(to: CGSize(width: 40, height: 40))
@@ -97,7 +95,6 @@ struct StandardListItemView: View, Equatable {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
                 } else {
                     Image(systemName: itemTypeIcon)
@@ -105,6 +102,8 @@ struct StandardListItemView: View, Equatable {
                         .foregroundStyle(.white)
                 }
             }
+            .frame(width: 40, height: 40)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             
             // Content
             VStack(alignment: .leading, spacing: 4) {

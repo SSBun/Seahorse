@@ -299,6 +299,15 @@
     "Are you sure you want to delete %lld broken bookmark(s)? This action cannot be undone." : {
 
     },
+    "Aspect ratio of cards in grid view" : {
+
+    },
+    "Auto:" : {
+
+    },
+    "Automatically adjust columns based on window size" : {
+
+    },
     "Automatically save items when you copy the same content twice within the time window" : {
 
     },
@@ -369,6 +378,9 @@
       }
     },
     "Capture snapshot for preview" : {
+
+    },
+    "Card Aspect Ratio" : {
 
     },
     "Card Style" : {
@@ -483,6 +495,9 @@
 
     },
     "Color" : {
+
+    },
+    "Columns:" : {
 
     },
     "Connection Test" : {
@@ -739,6 +754,9 @@
     "Grid" : {
 
     },
+    "Grid Column Count" : {
+
+    },
     "HTML bookmark files from Chrome, Firefox, Safari, etc." : {
 
     },
@@ -801,10 +819,7 @@
     "Invalid URL" : {
 
     },
-    "Item ID: %@" : {
-
-    },
-    "Item not found" : {
+    "Item Detail" : {
 
     },
     "Items will be saved when you copy the same content twice within this time window" : {
@@ -837,6 +852,9 @@
 
     },
     "Metadata" : {
+
+    },
+    "Min Card Width:" : {
 
     },
     "Model" : {
@@ -885,6 +903,9 @@
 
     },
     "Notes" : {
+
+    },
+    "Number of columns in grid view" : {
 
     },
     "OK" : {
@@ -943,6 +964,9 @@
           }
         }
       }
+    },
+    "Optimal width: 280pt" : {
+
     },
     "Or enter path/URL" : {
 
@@ -1010,6 +1034,9 @@
           }
         }
       }
+    },
+    "pt" : {
+
     },
     "Refresh" : {
 
@@ -1100,6 +1127,9 @@
     "Scanning..." : {
 
     },
+    "Seahorse" : {
+
+    },
     "Search" : {
 
     },
@@ -1113,6 +1143,9 @@
 
     },
     "Select All in Category" : {
+
+    },
+    "Select an item to view details" : {
 
     },
     "Select File" : {

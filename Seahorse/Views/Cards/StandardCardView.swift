@@ -14,7 +14,9 @@ import Kingfisher
 
 struct StandardCardView: View, Equatable {
     @EnvironmentObject var dataStorage: DataStorage
+    @EnvironmentObject var itemDetailState: ItemDetailState
     @Environment(\.openWindow) var openWindow
+    @StateObject private var appearanceManager = AppearanceManager.shared
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
@@ -334,7 +336,7 @@ struct StandardCardView: View, Equatable {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .contentShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
-        .aspectRatio(4/3, contentMode: .fit) // Fixed 4:3 aspect ratio
+        .aspectRatio(appearanceManager.cardAspectRatio.value ?? (4/3), contentMode: .fit)
         .scaleEffect(isHovered ? 1.02 : 1.0)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isHovered)
         .onHover { hovering in
@@ -365,8 +367,9 @@ struct StandardCardView: View, Equatable {
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200ms delay
                 if !Task.isCancelled {
                     await MainActor.run {
-                        // Open detail window with item ID
-                        openWindow(id: "item-detail", value: item.id)
+                        // Set current item and open detail window
+                        itemDetailState.showItem(item.id)
+                        openWindow(id: "item-detail")
                     }
                 }
             }

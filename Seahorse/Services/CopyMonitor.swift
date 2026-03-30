@@ -15,17 +15,19 @@ import Carbon
 @MainActor
 class CopyMonitor: ObservableObject {
     static let shared = CopyMonitor(dataStorage: DataStorage.shared)
-    
+
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isMonitoring = false
-    
+    private var permissionCheckTimer: Timer?
+
     // Double-copy detection state
     private var lastCopyTime: Date?
     private var lastCopyContent: ClipboardContent?
-    
+
     // Configurable properties
-    // Configurable properties
+    @Published var hasAccessibilityPermission: Bool = false
+
     @AppStorage("copyMonitorEnabled") var isEnabled: Bool = true {
         didSet {
             if isEnabled {
@@ -54,8 +56,39 @@ class CopyMonitor: ObservableObject {
     
     init(dataStorage: DataStorage) {
         self.dataStorage = dataStorage
+        // Initial permission check
+        updateAccessibilityPermission()
+        // Start periodic permission checking to detect changes
+        startPermissionMonitoring()
     }
-    
+
+    // MARK: - Permission Monitoring
+
+    private func startPermissionMonitoring() {
+        // Check permission every 2 seconds to detect changes when user returns from System Settings
+        // Since CopyMonitor is @MainActor, Timer callbacks execute on main thread automatically
+        permissionCheckTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.updateAccessibilityPermission()
+        }
+    }
+
+    private func stopPermissionMonitoring() {
+        permissionCheckTimer?.invalidate()
+        permissionCheckTimer = nil
+    }
+
+    private func updateAccessibilityPermission() {
+        let hadPermission = hasAccessibilityPermission
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
+        hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
+
+        // If permission was just granted, try to start monitoring
+        if !hadPermission && hasAccessibilityPermission && isEnabled {
+            Log.info("Accessibility permission granted, starting copy monitoring...", category: .general)
+            startMonitoring()
+        }
+    }
+
     // MARK: - Monitoring Control
     
     func startMonitoring() {
@@ -328,6 +361,7 @@ class CopyMonitor: ObservableObject {
     
     deinit {
         // Clean up resources synchronously
+        permissionCheckTimer?.invalidate()
         if let runLoopSource = runLoopSource {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         }

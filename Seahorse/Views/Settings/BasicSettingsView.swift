@@ -127,7 +127,7 @@ struct BasicSettingsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.appearance)
                         .font(.system(size: 13, weight: .semibold))
-                    
+
                     Picker("", selection: $appearanceManager.selectedMode) {
                         ForEach(AppearanceMode.allCases, id: \.self) { mode in
                             Text(mode.rawValue).tag(mode)
@@ -138,9 +138,94 @@ struct BasicSettingsView: View {
                     .frame(maxWidth: 300)
                     .accessibilityLabel(L10n.appearance)
                 }
-                
+
                 Divider()
-                
+
+                // Grid Column Count Setting
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Grid Column Count")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    // Auto toggle
+                    HStack(spacing: 12) {
+                        Text("Auto:")
+                            .font(.system(size: 13))
+
+                        Toggle("", isOn: $appearanceManager.isAutoColumnCount)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                    }
+
+                    // Manual column count picker (only visible when auto is off)
+                    if !appearanceManager.isAutoColumnCount {
+                        HStack(spacing: 12) {
+                            Text("Columns:")
+                                .font(.system(size: 13))
+
+                            Picker("", selection: $appearanceManager.gridColumnCount) {
+                                ForEach(2...6, id: \.self) { count in
+                                    Text("\(count)").tag(count)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .frame(maxWidth: 200)
+                        }
+                    }
+
+                    // Minimum card width (only visible when auto is on)
+                    if appearanceManager.isAutoColumnCount {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Text("Min Card Width:")
+                                    .font(.system(size: 13))
+
+                                TextField("", value: Binding(
+                                    get: { Int(appearanceManager.cardMinWidth) },
+                                    set: { appearanceManager.cardMinWidth = CGFloat($0) }
+                                ), format: .number)
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(width: 70)
+                                    .multilineTextAlignment(.trailing)
+
+                                Text("pt")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Text("Optimal width: 280pt")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Text(appearanceManager.isAutoColumnCount
+                         ? "Automatically adjust columns based on window size"
+                         : "Number of columns in grid view")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                // Card Aspect Ratio Setting
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Card Aspect Ratio")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    HStack(spacing: 12) {
+                        ForEach(CardAspectRatio.allCases, id: \.self) { ratio in
+                            aspectRatioButton(ratio: ratio)
+                        }
+                    }
+
+                    Text("Aspect ratio of cards in grid view")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
                 // Preference Folder
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.preferenceFolder)
@@ -235,6 +320,36 @@ struct BasicSettingsView: View {
             Button(L10n.ok, role: .cancel) { }
         } message: {
             Text(L10n.restartMessage)
+        }
+    }
+
+    @ViewBuilder
+    private func aspectRatioButton(ratio: CardAspectRatio) -> some View {
+        let isSelected = appearanceManager.cardAspectRatio == ratio
+        VStack(spacing: 4) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(isSelected ? Color.accentColor : Color.secondary, lineWidth: 2)
+                    .frame(width: 40, height: 30)
+
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+                    .frame(width: 36, height: 26)
+            }
+
+            Text(ratio.rawValue)
+                .font(.system(size: 10))
+                .foregroundStyle(isSelected ? .primary : .secondary)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            appearanceManager.cardAspectRatio = ratio
         }
     }
 }

@@ -12,6 +12,7 @@ struct ItemCollectionView: View {
     let viewMode: ViewMode
 
     @EnvironmentObject var dataStorage: DataStorage
+    @StateObject private var appearanceManager = AppearanceManager.shared
 
     var body: some View {
         ScrollView {
@@ -22,16 +23,39 @@ struct ItemCollectionView: View {
             }
         }
     }
-    
+
     private var standardGridView: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 240), spacing: 20)
-        ], spacing: 20) {
+        GeometryReader { geometry in
+            gridContent(containerWidth: geometry.size.width)
+        }
+    }
+
+    @ViewBuilder
+    private func gridContent(containerWidth: CGFloat) -> some View {
+        let columnCount = calculateColumnCount(containerWidth: containerWidth)
+        // Use fixed column count with flexible items, spacing adapts automatically
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: columnCount)
+
+        LazyVGrid(columns: columns, spacing: 0) {
             ForEach(items) { item in
                 StandardCardView(item: item)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 10)
             }
         }
-        .padding(20)
+        .padding(.horizontal, 10)
+    }
+
+    private func calculateColumnCount(containerWidth: CGFloat) -> Int {
+        if appearanceManager.isAutoColumnCount {
+            // Calculate optimal column count based on container width and minimum card width
+            let padding: CGFloat = 20  // .padding(.horizontal, 10) on each side
+            let availableWidth = containerWidth - padding
+            let calculatedCount = Int(availableWidth / appearanceManager.cardMinWidth)
+            return max(2, min(6, calculatedCount))
+        } else {
+            return appearanceManager.gridColumnCount
+        }
     }
 
 

@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import ApplicationServices
 
 struct AdvancedSettingsView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -15,11 +14,6 @@ struct AdvancedSettingsView: View {
     @AppStorage("enableSystemNotifications") private var isNotificationEnabled: Bool = false
 
     @State private var showingPermissionAlert = false
-
-    private var hasAccessibilityPermission: Bool {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-        return AXIsProcessTrustedWithOptions(options as CFDictionary)
-    }
 
     var body: some View {
         ScrollView {
@@ -44,12 +38,12 @@ struct AdvancedSettingsView: View {
 
                         Toggle("", isOn: $copyMonitor.isEnabled)
                             .toggleStyle(.switch)
-                            .disabled(!hasAccessibilityPermission)
+                            .disabled(!copyMonitor.hasAccessibilityPermission)
                     }
                     .padding(.vertical, 8)
 
                     // Permission Status
-                    if !hasAccessibilityPermission {
+                    if !copyMonitor.hasAccessibilityPermission {
                         permissionWarningView
                     } else {
                         permissionGrantedView
@@ -58,7 +52,7 @@ struct AdvancedSettingsView: View {
                     Divider()
 
                     // Time Window Slider
-                    if copyMonitor.isEnabled && hasAccessibilityPermission {
+                    if copyMonitor.isEnabled && copyMonitor.hasAccessibilityPermission {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Text("Double Copy Time Window")

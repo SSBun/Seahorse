@@ -115,21 +115,20 @@ class StatusBarManager: NSObject {
         // Activate app and set policy to regular (Dock icon visible)
         NSApplication.shared.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        
-        // Find the main window and show it
-        // We look for a window that is not a panel/sheet/status item
-        // Since we only have one main window, taking the first one that responds to makeKeyAndOrderFront is usually safe
-        // or we can rely on the fact that we hid it.
-        
-        if let window = NSApp.windows.first(where: { $0.canBecomeKey }) {
-            window.makeKeyAndOrderFront(nil)
-        } else {
-            // Fallback: if no window found (unlikely if we just hid it), try to unhide all
-            NSApp.unhide(nil)
-            if let window = NSApp.windows.first {
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
+
+        // Find the main window
+        guard let window = NSApp.windows.first(where: { $0.canBecomeKey }) else { return }
+
+        // Show and activate the window
+        window.makeKeyAndOrderFront(nil)
+
+        // Force the window to the front of all other applications
+        // This is more aggressive than makeKeyAndOrderFront
+        window.orderFrontRegardless()
+
+        // Also ensure the window level is correct (normal window level)
+        window.level = .floating
+        window.level = .normal
     }
     
     private func showMenu() {
@@ -192,9 +191,12 @@ class StatusBarManager: NSObject {
     
     @objc private func openApp() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first {
-            window.makeKeyAndOrderFront(nil)
-        }
+
+        guard let window = NSApp.windows.first(where: { $0.canBecomeKey }) else { return }
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
+        window.level = .floating
+        window.level = .normal
     }
     
     @objc private func openSettings() {

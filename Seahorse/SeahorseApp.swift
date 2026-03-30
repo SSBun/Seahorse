@@ -23,6 +23,9 @@ struct SeahorseApp: App {
     // Status Bar Manager
     @State private var statusBarManager: StatusBarManager?
     
+    // Item Detail Window State - shared across the single window instance
+    @StateObject private var itemDetailState = ItemDetailState()
+    
     // Settings
     // Removed showInDock as it's now dynamic based on window visibility
     
@@ -37,9 +40,11 @@ struct SeahorseApp: App {
     }
     
     var body: some Scene {
-        WindowGroup {
+        // Main Window - Single window only (no tabs, no multiple windows)
+        Window("Seahorse", id: "main") {
             ContentView(batchParsingService: batchParsingService)
                 .environmentObject(dataStorage)
+                .environmentObject(itemDetailState)
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
@@ -49,13 +54,6 @@ struct SeahorseApp: App {
                     if statusBarManager == nil {
                         statusBarManager = StatusBarManager(batchParsingService: batchParsingService)
                     }
-                    
-                    // Initial state: Headless
-                    // Hide the window immediately on launch
-                    if let window = NSApp.windows.first {
-                        window.orderOut(nil)
-                    }
-                    NSApplication.shared.setActivationPolicy(.accessory)
                 }
         }
         .defaultSize(width: 1200, height: 800)
@@ -72,12 +70,11 @@ struct SeahorseApp: App {
             }
         }
         
-        // Item Detail Window - supports multiple windows based on item ID
-        WindowGroup(id: "item-detail", for: UUID.self) { itemId in
-            ItemDetailWindowView(itemId: itemId.wrappedValue)
+        // Item Detail Window - Single window only
+        Window("Item Detail", id: "item-detail") {
+            ItemDetailWindowView()
                 .environmentObject(dataStorage)
-        } defaultValue: {
-            UUID()
+                .environmentObject(itemDetailState)
         }
         .defaultSize(width: 1600, height: 1000)
         .defaultPosition(.center)
@@ -94,22 +91,33 @@ struct SeahorseApp: App {
 
 struct ItemDetailWindowView: View {
     @EnvironmentObject var dataStorage: DataStorage
-    let itemId: UUID
+    @EnvironmentObject var itemDetailState: ItemDetailState
     
     var body: some View {
         Group {
-            if let item = dataStorage.items.first(where: { $0.id == itemId }) {
+            if let itemId = itemDetailState.currentItemId,
+               let item = dataStorage.items.first(where: { $0.id == itemId }) {
                 ItemDetailView(item: item)
             } else {
                 VStack {
-                    Text("Item not found")
+                    Text("Select an item to view details")
                         .foregroundStyle(.secondary)
-                    Text("Item ID: \(itemId.uuidString)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
                 }
             }
         }
+    }
+}
+
+// MARK: - Item Detail State
+
+/// Shared state for the single item detail window
+/// Ensures only one item detail window can exist and tracks the current item
+@MainActor
+final class ItemDetailState: ObservableObject {
+    @Published var currentItemId: UUID?
+    
+    func showItem(_ itemId: UUID) {
+        currentItemId = itemId
     }
 }
 

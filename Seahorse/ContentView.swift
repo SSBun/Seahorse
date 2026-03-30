@@ -15,6 +15,7 @@ extension UTType {
 
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
+    @EnvironmentObject var itemDetailState: ItemDetailState
 
     // UI State
     @State private var selectedCategory: Category?
