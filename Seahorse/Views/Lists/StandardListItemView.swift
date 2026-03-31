@@ -11,9 +11,12 @@ import Kingfisher
 
 struct StandardListItemView: View, Equatable {
     @EnvironmentObject var dataStorage: DataStorage
+    @EnvironmentObject var itemDetailState: ItemDetailState
+    @Environment(\.openWindow) var openWindow
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
+    @State private var tapTask: Task<Void, Never>?
 
     // Equatable - only compare item ID to prevent unnecessary re-renders
     static func == (lhs: StandardListItemView, rhs: StandardListItemView) -> Bool {
@@ -159,7 +162,24 @@ struct StandardListItemView: View, Equatable {
             isHovered = hovering
         }
         .onTapGesture(count: 2) {
+            // Cancel single tap task
+            tapTask?.cancel()
             handleDoubleTap()
+        }
+        .onTapGesture {
+            // Cancel any pending single tap
+            tapTask?.cancel()
+
+            // Schedule single tap action with delay to allow double tap detection
+            tapTask = Task {
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
+                if !Task.isCancelled {
+                    await MainActor.run {
+                        itemDetailState.showItem(item.id)
+                        openWindow(id: "item-detail")
+                    }
+                }
+            }
         }
         .contextMenu {
             Button(role: .destructive, action: {
