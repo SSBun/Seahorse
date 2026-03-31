@@ -299,6 +299,9 @@
     "Are you sure you want to delete %lld broken bookmark(s)? This action cannot be undone." : {
 
     },
+    "Auto" : {
+
+    },
     "Automatically save items when you copy the same content twice within the time window" : {
 
     },
@@ -369,6 +372,9 @@
       }
     },
     "Capture snapshot for preview" : {
+
+    },
+    "Card Aspect Ratio" : {
 
     },
     "Card Style" : {
@@ -739,6 +745,9 @@
     "Grid" : {
 
     },
+    "Grid Column Count" : {
+
+    },
     "HTML bookmark files from Chrome, Firefox, Safari, etc." : {
 
     },
@@ -837,6 +846,9 @@
 
     },
     "Metadata" : {
+
+    },
+    "Min Card Width" : {
 
     },
     "Model" : {
@@ -1010,6 +1022,9 @@
           }
         }
       }
+    },
+    "pt" : {
+
     },
     "Refresh" : {
 

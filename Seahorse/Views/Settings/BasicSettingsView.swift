@@ -140,7 +140,73 @@ struct BasicSettingsView: View {
                 }
                 
                 Divider()
-                
+
+                // Card Style Setting
+                VStack(alignment: .leading, spacing: 16) {
+                    Text(L10n.cardStyle)
+                        .font(.system(size: 13, weight: .semibold))
+
+                    // Grid Column Count
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Grid Column Count")
+                            .font(.system(size: 12, weight: .medium))
+
+                        HStack(spacing: 12) {
+                            Toggle("Auto", isOn: $appearanceManager.isAutoColumnCount)
+                                .toggleStyle(.switch)
+
+                            if !appearanceManager.isAutoColumnCount {
+                                Picker("", selection: $appearanceManager.gridColumnCount) {
+                                    ForEach(2...6, id: \.self) { count in
+                                        Text("\(count)").tag(count)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            }
+                        }
+                    }
+
+                    // Minimum Card Width (only when Auto is on)
+                    if appearanceManager.isAutoColumnCount {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Min Card Width")
+                                .font(.system(size: 12, weight: .medium))
+
+                            HStack(spacing: 8) {
+                                TextField("", value: Binding(
+                                    get: { Int(appearanceManager.cardMinWidth) },
+                                    set: { appearanceManager.cardMinWidth = CGFloat($0) }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .multilineTextAlignment(.trailing)
+
+                                Text("pt")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    // Card Aspect Ratio
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Card Aspect Ratio")
+                            .font(.system(size: 12, weight: .medium))
+
+                        Picker("", selection: $appearanceManager.cardAspectRatio) {
+                            ForEach(CardAspectRatio.allCases, id: \.self) { ratio in
+                                Text(ratio.rawValue).tag(ratio)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+                }
+
+                Divider()
+
                 // Preference Folder
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.preferenceFolder)
@@ -237,6 +303,7 @@ struct BasicSettingsView: View {
             Text(L10n.restartMessage)
         }
     }
+
 }
 
 #Preview {

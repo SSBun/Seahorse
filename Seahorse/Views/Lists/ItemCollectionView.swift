@@ -12,6 +12,7 @@ struct ItemCollectionView: View {
     let viewMode: ViewMode
 
     @EnvironmentObject var dataStorage: DataStorage
+    @StateObject private var appearanceManager = AppearanceManager.shared
 
     var body: some View {
         ScrollView {
@@ -22,16 +23,22 @@ struct ItemCollectionView: View {
             }
         }
     }
-    
+
+    private var gridColumns: [GridItem] {
+        if appearanceManager.isAutoColumnCount {
+            return [GridItem(.adaptive(minimum: appearanceManager.cardMinWidth), spacing: 20)]
+        } else {
+            return Array(repeating: GridItem(.flexible(), spacing: 16), count: appearanceManager.gridColumnCount)
+        }
+    }
+
     private var standardGridView: some View {
-        LazyVGrid(columns: [
-            GridItem(.adaptive(minimum: 240), spacing: 20)
-        ], spacing: 20) {
+        LazyVGrid(columns: gridColumns, spacing: appearanceManager.isAutoColumnCount ? 20 : 16) {
             ForEach(items) { item in
                 StandardCardView(item: item)
             }
         }
-        .padding(20)
+        .padding(appearanceManager.isAutoColumnCount ? 20 : 16)
     }
 
 
