@@ -26,21 +26,21 @@ struct ItemCollectionView: View {
 
     private var gridColumns: [GridItem] {
         if appearanceManager.isAutoColumnCount {
-            return [GridItem(.adaptive(minimum: appearanceManager.cardMinWidth), spacing: 20)]
+            return [GridItem(.adaptive(minimum: appearanceManager.cardMinWidth), spacing: appearanceManager.cardPadding)]
         } else {
             return Array(repeating: GridItem(.flexible(), spacing: 16), count: appearanceManager.gridColumnCount)
         }
     }
 
     private var standardGridView: some View {
-        LazyVGrid(columns: gridColumns, spacing: appearanceManager.isAutoColumnCount ? 20 : 16) {
+        LazyVGrid(columns: gridColumns, spacing: appearanceManager.isAutoColumnCount ? appearanceManager.cardPadding : 16) {
             ForEach(items) { item in
                 StandardCardView(item: item)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, appearanceManager.isAutoColumnCount ? appearanceManager.cardPadding / 2 : 10)
+                    .padding(.vertical, appearanceManager.isAutoColumnCount ? appearanceManager.cardPadding / 2 : 10)
             }
         }
-        .padding(appearanceManager.isAutoColumnCount ? 20 : 16)
+        .padding(appearanceManager.isAutoColumnCount ? appearanceManager.cardPadding : 16)
     }
 
 

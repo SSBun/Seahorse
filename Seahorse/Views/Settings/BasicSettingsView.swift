@@ -186,6 +186,25 @@ struct BasicSettingsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Card Spacing")
+                                .font(.system(size: 12, weight: .medium))
+
+                            HStack(spacing: 8) {
+                                TextField("", value: Binding(
+                                    get: { Int(appearanceManager.cardPadding) },
+                                    set: { appearanceManager.cardPadding = CGFloat($0) }
+                                ), format: .number)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 70)
+                                .multilineTextAlignment(.trailing)
+
+                                Text("pt")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                     }
 
                     Divider()

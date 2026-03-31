@@ -68,6 +68,13 @@ class AppearanceManager: ObservableObject {
         }
     }
 
+    // Card padding/margin in Auto mode (in points)
+    @Published var cardPadding: CGFloat = 20 {
+        didSet {
+            saveCardPadding()
+        }
+    }
+
     @Published var cardAspectRatio: CardAspectRatio = .fourThree {
         didSet {
             saveCardAspectRatio()
@@ -141,6 +148,12 @@ class AppearanceManager: ObservableObject {
         if savedMinWidth >= 120 && savedMinWidth <= 400 {
             cardMinWidth = CGFloat(savedMinWidth)
         }
+
+        // Load card padding
+        let savedPadding = UserDefaults.standard.double(forKey: "card_padding")
+        if savedPadding >= 8 && savedPadding <= 40 {
+            cardPadding = CGFloat(savedPadding)
+        }
     }
 
     private func saveGridColumnCount() {
@@ -161,6 +174,10 @@ class AppearanceManager: ObservableObject {
 
     private func saveCardMinWidth() {
         UserDefaults.standard.set(Double(cardMinWidth), forKey: "card_min_width")
+    }
+
+    private func saveCardPadding() {
+        UserDefaults.standard.set(Double(cardPadding), forKey: "card_padding")
     }
 
     private func saveCardAspectRatio() {
