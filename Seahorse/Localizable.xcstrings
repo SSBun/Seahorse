@@ -299,13 +299,7 @@
     "Are you sure you want to delete %lld broken bookmark(s)? This action cannot be undone." : {
 
     },
-    "Aspect ratio of cards in grid view" : {
-
-    },
-    "Auto:" : {
-
-    },
-    "Automatically adjust columns based on window size" : {
+    "Auto" : {
 
     },
     "Automatically save items when you copy the same content twice within the time window" : {
@@ -854,7 +848,7 @@
     "Metadata" : {
 
     },
-    "Min Card Width:" : {
+    "Min Card Width" : {
 
     },
     "Model" : {

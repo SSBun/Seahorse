@@ -24,38 +24,23 @@ struct ItemCollectionView: View {
         }
     }
 
-    private var standardGridView: some View {
-        GeometryReader { geometry in
-            gridContent(containerWidth: geometry.size.width)
+    private var gridColumns: [GridItem] {
+        if appearanceManager.isAutoColumnCount {
+            return [GridItem(.adaptive(minimum: appearanceManager.cardMinWidth), spacing: 20)]
+        } else {
+            return Array(repeating: GridItem(.flexible(), spacing: 16), count: appearanceManager.gridColumnCount)
         }
     }
 
-    @ViewBuilder
-    private func gridContent(containerWidth: CGFloat) -> some View {
-        let columnCount = calculateColumnCount(containerWidth: containerWidth)
-        // Use fixed column count with flexible items, spacing adapts automatically
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: columnCount)
-
-        LazyVGrid(columns: columns, spacing: 0) {
+    private var standardGridView: some View {
+        LazyVGrid(columns: gridColumns, spacing: appearanceManager.isAutoColumnCount ? 20 : 16) {
             ForEach(items) { item in
                 StandardCardView(item: item)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 10)
             }
         }
-        .padding(.horizontal, 10)
-    }
-
-    private func calculateColumnCount(containerWidth: CGFloat) -> Int {
-        if appearanceManager.isAutoColumnCount {
-            // Calculate optimal column count based on container width and minimum card width
-            let padding: CGFloat = 20  // .padding(.horizontal, 10) on each side
-            let availableWidth = containerWidth - padding
-            let calculatedCount = Int(availableWidth / appearanceManager.cardMinWidth)
-            return max(2, min(6, calculatedCount))
-        } else {
-            return appearanceManager.gridColumnCount
-        }
+        .padding(appearanceManager.isAutoColumnCount ? 20 : 16)
     }
 
 
