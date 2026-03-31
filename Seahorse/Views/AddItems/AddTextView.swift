@@ -58,6 +58,10 @@ struct AddTextView: View {
                             .font(.system(size: 13, weight: .semibold))
                         
                         ZStack(alignment: .topLeading) {
+                            // Background with rounded corners to mask TextEditor's sharp corners
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.controlBackgroundColor))
+
                             if content.isEmpty {
                                 Text("Enter your text content here...")
                                     .font(.system(size: 13))
@@ -65,18 +69,18 @@ struct AddTextView: View {
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 10)
                             }
-                            
+
                             TextEditor(text: $content)
                                 .font(.system(size: 13))
                                 .frame(minHeight: 200)
                                 .scrollContentBackground(.hidden)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(6)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-                                )
+                                .background(Color.clear)
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                        )
                     }
                     
                     // Notes (optional metadata)
@@ -85,6 +89,10 @@ struct AddTextView: View {
                             .font(.system(size: 13, weight: .semibold))
                         
                         ZStack(alignment: .topLeading) {
+                            // Background with rounded corners to mask TextEditor's sharp corners
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(NSColor.controlBackgroundColor))
+
                             if notes.isEmpty {
                                 Text("Add additional notes or metadata...")
                                     .font(.system(size: 13))
@@ -92,18 +100,18 @@ struct AddTextView: View {
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 10)
                             }
-                            
+
                             TextEditor(text: $notes)
                                 .font(.system(size: 13))
                                 .frame(minHeight: 80)
                                 .scrollContentBackground(.hidden)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(6)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-                                )
+                                .background(Color.clear)
                         }
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+                        )
                     }
                     
                     Divider()

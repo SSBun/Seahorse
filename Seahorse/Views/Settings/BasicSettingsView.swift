@@ -15,11 +15,7 @@ struct BasicSettingsView: View {
     @StateObject private var languageManager = LanguageManager.shared
     @StateObject private var aiSettings = AISettings.shared
     @StateObject private var startupManager = StartupManager.shared
-    
-    private var colorOptions: [Color] {
-        AppConfig.shared.availableColors
-    }
-    
+
     @State private var showRestartAlert = false
     
     var body: some View {
@@ -71,32 +67,9 @@ struct BasicSettingsView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
-                
+
                 Divider()
-                
-                // Primary Color Setting
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(L10n.primaryColor)
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    HStack(spacing: 12) {
-                        ForEach(colorOptions, id: \.self) { color in
-                            Circle()
-                                .fill(color)
-                                .frame(width: 32, height: 32)
-                                .overlay(
-                                    Circle()
-                                        .stroke(Color.primary, lineWidth: appearanceManager.accentColor == color ? 3 : 0)
-                                )
-                                .onTapGesture {
-                                    appearanceManager.accentColor = color
-                                }
-                        }
-                    }
-                }
-                
-                Divider()
-                
+
                 // Startup Setting
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.startup)

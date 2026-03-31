@@ -364,7 +364,7 @@ struct StandardCardView: View, Equatable {
             
             // Schedule single tap action with delay to allow double tap detection
             tapTask = Task {
-                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms delay
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
                 if !Task.isCancelled {
                     await MainActor.run {
                         // Set current item and open detail window
