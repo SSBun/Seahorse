@@ -485,6 +485,9 @@
     "Choose File..." : {
 
     },
+    "Choose Icon" : {
+
+    },
     "Click and drag over the page to choose the snapshot rectangle." : {
 
     },
@@ -875,6 +878,9 @@
     "No broken bookmarks found yet" : {
 
     },
+    "No Icons Found" : {
+
+    },
     "No image available" : {
 
     },
@@ -1133,6 +1139,9 @@
     "Search bookmarks..." : {
 
     },
+    "Search icons..." : {
+
+    },
     "Select a category" : {
 
     },
@@ -1146,6 +1155,9 @@
 
     },
     "Select File" : {
+
+    },
+    "Selected Icon" : {
 
     },
     "Show in Finder" : {
@@ -1323,6 +1335,9 @@
           }
         }
       }
+    },
+    "Try a different search term" : {
+
     },
     "Type to add tag..." : {
 

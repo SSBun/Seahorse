@@ -18,7 +18,8 @@ struct CategoryManagementView: View {
     @State private var editingCategory: Category?
     @State private var categoryToDelete: Category?
     @State private var showingDeleteConfirmation = false
-    
+    @State private var showingIconPicker = false
+
     // Default categories that cannot be edited or deleted
     private let defaultCategoryNames = ["All Bookmarks", "Favorites", "None"]
     
@@ -30,16 +31,12 @@ struct CategoryManagementView: View {
         dataStorage.categories.first(where: { $0.name == "None" })
     }
     
-    private var availableIcons: [String] {
-        SFSymbolManager.shared.allIcons
-    }
-    
-    private var iconsByCategory: [String: [String]] {
-        SFSymbolManager.shared.iconsByCategory()
-    }
-    
     private var availableColors: [Color] {
         AppConfig.shared.availableColors
+    }
+
+    private var iconsByCategory: [String: [String]] {
+        SFSymbolManager.shared.iconsByCategory()
     }
     
     var body: some View {
@@ -77,34 +74,40 @@ struct CategoryManagementView: View {
                         Text("Icon")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
-                        
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ForEach(Array(iconsByCategory.keys.sorted()), id: \.self) { category in
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        Text(category)
-                                            .font(.system(size: 9, weight: .semibold))
-                                            .foregroundStyle(.tertiary)
-                                        
-                                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 36))], spacing: 6) {
-                                            ForEach(iconsByCategory[category] ?? [], id: \.self) { icon in
-                                                Button(action: {
-                                                    selectedIcon = icon
-                                                }) {
-                                                    Image(systemName: icon)
-                                                        .font(.system(size: 14))
-                                                        .frame(width: 32, height: 32)
-                                                        .background(selectedIcon == icon ? Color.accentColor.opacity(0.2) : Color(NSColor.controlBackgroundColor))
-                                                        .cornerRadius(6)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        }
-                                    }
+
+                        Button(action: {
+                            showingIconPicker = true
+                        }) {
+                            HStack(spacing: 12) {
+                                Image(systemName: selectedIcon)
+                                    .font(.system(size: 24))
+                                    .frame(width: 48, height: 48)
+                                    .background(Color(NSColor.controlBackgroundColor))
+                                    .cornerRadius(8)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Selected Icon")
+                                        .font(.system(size: 12, weight: .medium))
+                                    Text(selectedIcon)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
                                 }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
                             }
+                            .padding(12)
+                            .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
+                            .cornerRadius(8)
                         }
-                        .frame(height: 180)
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingIconPicker, arrowEdge: .bottom) {
+                            IconPickerPopover(selectedIcon: $selectedIcon)
+                        }
                     }
                     
                     // Color Picker
