@@ -121,6 +121,9 @@
     "Add your first bookmark to get started" : {
 
     },
+    "Add your first note to get started" : {
+
+    },
     "Added" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -879,6 +882,12 @@
 
     },
     "No metadata yet. Add a snapshot or drop an image to set a preview." : {
+
+    },
+    "No Notes" : {
+
+    },
+    "No notes match your search" : {
 
     },
     "No preview image" : {

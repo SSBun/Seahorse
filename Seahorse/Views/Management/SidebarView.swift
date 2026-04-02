@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 enum SidebarItem: Hashable, Identifiable {
     case category(Category)
     case tag(Tag)
-    
+
     var id: UUID {
         switch self {
         case .category(let category):
@@ -28,10 +28,10 @@ struct SidebarView: View {
     let tags: [Tag]
     @Binding var selectedCategory: Category?
     @Binding var selectedTag: Tag?
-    
+
     @State private var selectedItem: SidebarItem?
     @State private var dropTargetCategory: UUID?
-    
+
     var body: some View {
         List(selection: $selectedItem) {
             Section {
@@ -48,16 +48,16 @@ struct SidebarView: View {
                             )) { providers in
                                 handleDrop(providers: providers, category: category)
                             }
-                        
+
                         // Visible label
                         HStack(spacing: 6) {
                             Image(systemName: category.icon)
                                 .foregroundStyle(category.color)
                                 .frame(width: 16, height: 16)
-                            
+
                             Text(category.name)
                                 .font(.system(size: 13))
-                            
+
                             Spacer()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -77,17 +77,17 @@ struct SidebarView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
-            
+
             Section {
                 ForEach(tags) { tag in
                     HStack(spacing: 6) {
                         Circle()
                             .fill(tag.color)
                             .frame(width: 10, height: 10)
-                        
+
                         Text(tag.name)
                             .font(.system(size: 13))
-                        
+
                         Spacer()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -123,20 +123,20 @@ struct SidebarView: View {
             }
         }
     }
-    
+
     private func handleDrop(providers: [NSItemProvider], category: Category) -> Bool {
         guard let provider = providers.first else { return false }
-        
+
         provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { data, _ in
             guard let data = data as? Data,
                   let uuidString = String(data: data, encoding: .utf8),
                   let itemId = UUID(uuidString: uuidString) else {
                 return
             }
-            
+
             DispatchQueue.main.async {
                 guard var item = dataStorage.items.first(where: { $0.id == itemId }) else { return }
-                
+
                 if var bookmark = item.asBookmark {
                     bookmark.categoryId = category.id
                     bookmark.modifiedDate = Date()
@@ -152,18 +152,18 @@ struct SidebarView: View {
                 } else {
                     return
                 }
-                
+
                 dataStorage.updateItem(item)
             }
         }
-        
+
         return true
     }
 }
 
 #Preview {
     let dataStorage = DataStorage.shared
-    
+
     NavigationSplitView {
         SidebarView(
             categories: dataStorage.categories,
@@ -176,4 +176,3 @@ struct SidebarView: View {
         Text("Detail View")
     }
 }
-

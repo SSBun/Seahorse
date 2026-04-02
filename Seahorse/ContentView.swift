@@ -13,6 +13,22 @@ extension UTType {
     static let seahorseItemUUID = UTType(exportedAs: "com.csl.cool.Seahorse.item-uuid")
 }
 
+enum ItemKind: String, CaseIterable {
+    case all = "All"
+    case bookmark = "Bookmark"
+    case image = "Image"
+    case note = "Note"
+
+    var icon: String {
+        switch self {
+        case .all: return "square.grid.2x2"
+        case .bookmark: return "link"
+        case .image: return "photo"
+        case .note: return "doc.text"
+        }
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
@@ -21,6 +37,7 @@ struct ContentView: View {
     @State private var selectedCategory: Category?
     @State private var selectedTag: Tag?
     @State private var viewMode: ViewMode = .grid
+    @AppStorage("selectedItemKind") private var selectedKind: ItemKind = .all
     @State private var searchText = ""
     @State private var debouncedSearchText = ""  // Debounced search for performance
     @State private var showingAddBookmark = false
@@ -56,12 +73,17 @@ struct ContentView: View {
         cachedItems
     }
 
+    var navigationTitle: String {
+        selectedCategory?.name ?? selectedTag?.name ?? "Bookmarks"
+    }
+
     /// Computes a hash of current filter state to detect changes
     /// Uses debouncedSearchText for filtering to avoid recalculating on every keystroke
     private var filterHash: Int {
         var hasher = Hasher()
         hasher.combine(selectedCategory?.id)
         hasher.combine(selectedTag?.id)
+        hasher.combine(selectedKind)
         hasher.combine(debouncedSearchText)  // Use debounced search
         hasher.combine(sortPreferenceManager.sortOption)
         hasher.combine(dataStorage.items.count) // Include item count to detect additions/deletions
@@ -70,6 +92,18 @@ struct ContentView: View {
 
     private func recalculateFilteredItems() {
         var items = dataStorage.items
+
+        // Filter by kind
+        switch selectedKind {
+        case .all:
+            break // Show all items
+        case .bookmark:
+            items = items.filter { $0.asBookmark != nil }
+        case .image:
+            items = items.filter { $0.asImageItem != nil }
+        case .note:
+            items = items.filter { $0.asTextItem != nil }
+        }
 
         // Filter by category or tag
         if let category = selectedCategory {
@@ -198,24 +232,56 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .navigationTitle(selectedCategory?.name ?? "Bookmarks")
+            .navigationTitle(navigationTitle)
             .onDrop(of: [.url, .image, .plainText, .fileURL, .seahorseItemUUID], isTargeted: nil) { providers in
                 handleDrop(providers: providers)
             }
             .toolbar {
                 ToolbarItemGroup(placement: .primaryAction) {
+                    // Kind filter dropdown
+                    Menu {
+                        ForEach(ItemKind.allCases, id: \.self) { kind in
+                            Button(action: {
+                                selectedKind = kind
+                            }) {
+                                HStack {
+                                    Image(systemName: kind.icon)
+                                    Text(kind.rawValue)
+                                    if selectedKind == kind {
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: selectedKind.icon)
+                                .font(.system(size: 12))
+                            Text(selectedKind.rawValue)
+                                .font(.system(size: 13))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 10))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color(NSColor.controlBackgroundColor))
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.borderless)
+
                     // Search field
                     HStack(spacing: 6) {
                         Image(systemName: "magnifyingglass")
                             .foregroundStyle(.secondary)
                             .font(.system(size: 12))
-                        
+
                         TextField("Search", text: $searchText)
                             .textFieldStyle(.plain)
                             .font(.system(size: 13))
                             .focused($isSearchFocused)
                             .frame(width: 180)
-                        
+
                         if !searchText.isEmpty {
                             Button(action: {
                                 searchText = ""
@@ -231,7 +297,7 @@ struct ContentView: View {
                     .padding(.vertical, 5)
                     .background(Color(NSColor.controlBackgroundColor))
                     .cornerRadius(6)
-                    
+
                     // Sync button
                     Button(action: performManualSync) {
                         Label("Sync", systemImage: "arrow.triangle.2.circlepath")
@@ -374,6 +440,9 @@ struct ContentView: View {
         .onChange(of: selectedTag) { _, _ in
             recalculateFilteredItems()
         }
+        .onChange(of: selectedKind) { _, _ in
+            recalculateFilteredItems()
+        }
         .onChange(of: debouncedSearchText) { _, _ in
             recalculateFilteredItems()
         }
@@ -439,17 +508,17 @@ struct ContentView: View {
     
     private var emptyStateView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "bookmark.slash")
+            Image(systemName: selectedKind == .note ? "doc.text" : "bookmark.slash")
                 .font(.system(size: 64))
                 .foregroundStyle(.secondary)
-            
-            Text("No Bookmarks")
+
+            Text(selectedKind == .note ? "No Notes" : "No Bookmarks")
                 .font(.title2)
                 .fontWeight(.semibold)
-            
-            Text(searchText.isEmpty ? 
-                "Add your first bookmark to get started" :
-                "No bookmarks match your search"
+
+            Text(searchText.isEmpty ?
+                (selectedKind == .note ? "Add your first note to get started" : "Add your first bookmark to get started") :
+                (selectedKind == .note ? "No notes match your search" : "No bookmarks match your search")
             )
             .font(.body)
             .foregroundStyle(.secondary)
