@@ -6,13 +6,22 @@
 //
 
 import Foundation
+import SwiftUI
 
 class SFSymbolManager {
     static let shared = SFSymbolManager()
 
     private init() {}
 
-    // MARK: - All Icons (800+ SF Symbols)
+    // MARK: - Available Icons (filtered by system availability)
+
+    /// Returns all icons that are actually available on the current system
+    var availableIcons: [String] {
+        // Filter to only include symbols that exist on this macOS version
+        return allIcons.filter { icon in
+            NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+        }
+    }
 
     let allIcons: [String] = Array(Set([
         // MARK: - Arrows & Navigation (60+)
@@ -1537,9 +1546,26 @@ class SFSymbolManager {
         "car.rear.temporary"
     ])).sorted()
 
-    // MARK: - Categorized Icons
+    // MARK: - Categorized Icons (filtered by availability)
 
     func iconsByCategory() -> [String: [String]] {
+        let allCategories = getAllCategories()
+
+        // Filter each category to only include available icons
+        var filtered: [String: [String]] = [:]
+        for (category, icons) in allCategories {
+            let available = icons.filter { icon in
+                NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+            }
+            if !available.isEmpty {
+                filtered[category] = available
+            }
+        }
+        return filtered
+    }
+
+    /// Returns all categories without filtering - used for async loading
+    func getAllCategories() -> [String: [String]] {
         return [
             // MARK: Arrows & Navigation
             "Arrows": [
@@ -1794,16 +1820,16 @@ class SFSymbolManager {
     // MARK: - Helper Methods
 
     func randomIcon() -> String {
-        allIcons.randomElement() ?? "folder.fill"
+        availableIcons.randomElement() ?? "folder.fill"
     }
 
     func isValidSymbol(_ name: String) -> Bool {
-        allIcons.contains(name)
+        availableIcons.contains(name)
     }
 
     func searchIcons(query: String) -> [String] {
         let lowerQuery = query.lowercased()
-        return allIcons.filter { icon in
+        return availableIcons.filter { icon in
             icon.lowercased().contains(lowerQuery)
         }
     }

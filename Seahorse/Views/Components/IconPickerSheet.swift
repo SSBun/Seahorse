@@ -16,6 +16,9 @@ struct IconPickerSheet: View {
     @State private var selectedCategory: String = "All"
     @State private var recentIcons: [String] = []
     @State private var windowSize: CGSize = CGSize(width: 360, height: 480)
+    @State private var availableIcons: [String] = []
+    @State private var categorizedIcons: [String: [String]] = [:]
+    @State private var isLoading = true
 
     private var gridColumns: [GridItem] {
         let iconSize: CGFloat = 40
@@ -26,7 +29,7 @@ struct IconPickerSheet: View {
     }
 
     private var allCategories: [String] {
-        var categories = Array(SFSymbolManager.shared.iconsByCategory().keys.sorted())
+        var categories = Array(categorizedIcons.keys.sorted())
         categories.insert("All", at: 0)
         categories.insert("Recent", at: 0)
         return categories
@@ -36,13 +39,14 @@ struct IconPickerSheet: View {
         let icons: [String]
 
         if !searchText.isEmpty {
-            icons = SFSymbolManager.shared.searchIcons(query: searchText)
+            let lowerQuery = searchText.lowercased()
+            icons = availableIcons.filter { $0.lowercased().contains(lowerQuery) }
         } else if selectedCategory == "Recent" {
             icons = recentIcons.isEmpty ? ["folder.fill"] : recentIcons
         } else if selectedCategory == "All" {
-            icons = SFSymbolManager.shared.allIcons
+            icons = availableIcons
         } else {
-            icons = SFSymbolManager.shared.iconsByCategory()[selectedCategory] ?? []
+            icons = categorizedIcons[selectedCategory] ?? []
         }
 
         return icons
@@ -120,26 +124,39 @@ struct IconPickerSheet: View {
                 }
 
                 // Icon grid - takes remaining space with 3:4 ratio
-                ScrollView {
-                    if filteredIcons.isEmpty {
-                        ContentUnavailableView {
-                            Label("No Icons Found", systemImage: "magnifyingglass")
-                        } description: {
-                            Text("Try a different search term")
+                ZStack {
+                    if isLoading {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Loading icons...")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.top, 30)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
-                        LazyVGrid(columns: gridColumns, spacing: 8) {
-                            ForEach(filteredIcons, id: \.self) { icon in
-                                IconButton(
-                                    icon: icon,
-                                    isSelected: selectedIcon == icon
-                                ) {
-                                    selectIcon(icon)
+                        ScrollView {
+                            if filteredIcons.isEmpty {
+                                ContentUnavailableView {
+                                    Label("No Icons Found", systemImage: "magnifyingglass")
+                                } description: {
+                                    Text("Try a different search term")
                                 }
+                                .padding(.top, 30)
+                            } else {
+                                LazyVGrid(columns: gridColumns, spacing: 8) {
+                                    ForEach(filteredIcons, id: \.self) { icon in
+                                        IconButton(
+                                            icon: icon,
+                                            isSelected: selectedIcon == icon
+                                        ) {
+                                            selectIcon(icon)
+                                        }
+                                    }
+                                }
+                                .padding(12)
                             }
                         }
-                        .padding(12)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -155,6 +172,37 @@ struct IconPickerSheet: View {
                minHeight: 360, idealHeight: 480, maxHeight: 640)
         .onAppear {
             loadRecentIcons()
+            loadIconsAsync()
+        }
+    }
+
+    private func loadIconsAsync() {
+        isLoading = true
+
+        Task.detached(priority: .userInitiated) {
+            // Filter available icons on background thread
+            let allIcons = SFSymbolManager.shared.allIcons
+            let available = allIcons.filter { icon in
+                NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+            }
+
+            // Get categorized icons
+            let categories = SFSymbolManager.shared.getAllCategories()
+            var filteredCategories: [String: [String]] = [:]
+            for (category, icons) in categories {
+                let categoryAvailable = icons.filter { icon in
+                    NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+                }
+                if !categoryAvailable.isEmpty {
+                    filteredCategories[category] = categoryAvailable
+                }
+            }
+
+            await MainActor.run {
+                self.availableIcons = available
+                self.categorizedIcons = filteredCategories
+                self.isLoading = false
+            }
         }
     }
 
@@ -220,7 +268,10 @@ private struct IconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .symbolRenderingMode(.hierarchical)
+                .frame(width: 20, height: 20)
                 .frame(width: 40, height: 40)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
