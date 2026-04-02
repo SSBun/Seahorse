@@ -491,6 +491,27 @@ struct BackupRow: View {
         .padding(.vertical, 4)
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(4)
+        .contextMenu {
+            Button {
+                NSWorkspace.shared.activateFileViewerSelecting([backup])
+            } label: {
+                Label("Show in Finder", systemImage: "folder")
+            }
+
+            Button {
+                onTap()
+            } label: {
+                Label("Restore...", systemImage: "arrow.uturn.backward")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                try? FileManager.default.removeItem(at: backup)
+            } label: {
+                Label("Delete Backup", systemImage: "trash")
+            }
+        }
     }
 }
 
