@@ -17,7 +17,10 @@ struct BasicSettingsView: View {
     @StateObject private var startupManager = StartupManager.shared
 
     @State private var showRestartAlert = false
-    
+    @State private var backupFolders: [URL] = []
+    @State private var selectedBackup: URL?
+    @State private var showingRestoreConfirmation = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -203,7 +206,7 @@ struct BasicSettingsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(L10n.preferenceFolder)
                         .font(.system(size: 13, weight: .semibold))
-                    
+
                     HStack(spacing: 8) {
                         Text(storagePathManager.getDisplayPath())
                             .font(.system(size: 12))
@@ -213,7 +216,7 @@ struct BasicSettingsView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(NSColor.controlBackgroundColor))
                             .cornerRadius(6)
-                        
+
                         Button(L10n.changeDots) {
                             storagePathManager.changeStorageLocation(dataStorage: dataStorage) { success in
                                 if !success {
@@ -222,7 +225,7 @@ struct BasicSettingsView: View {
                             }
                         }
                         .accessibilityLabel(L10n.changeDots)
-                        
+
                         if storagePathManager.customPath != nil {
                             Button(L10n.reset) {
                                 storagePathManager.resetToDefaultLocation()
@@ -231,11 +234,27 @@ struct BasicSettingsView: View {
                             .accessibilityLabel(L10n.reset)
                             .accessibilityHint(L10n.resetToDefaultLocation)
                         }
+
+                        Button(action: {
+                            backupData()
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "archivebox.fill")
+                                Text("Backup")
+                            }
+                        }
+                        .disabled(exportImportManager.isBackingUp)
+                        .help("Create backup in data folder")
                     }
-                    
+
                     Text(L10n.storeBookmarksHint)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
+
+                    // Backup List
+                    BackupListView()
+                        .environmentObject(dataStorage)
+                        .padding(.top, 8)
                 }
                 
                 Divider()
@@ -294,8 +313,185 @@ struct BasicSettingsView: View {
         } message: {
             Text(L10n.restartMessage)
         }
+        .confirmationDialog(
+            "Restore from Backup",
+            isPresented: $showingRestoreConfirmation,
+            presenting: selectedBackup
+        ) { backup in
+            Button("Restore", role: .destructive) {
+                restoreFromBackup(backup)
+            }
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([backup])
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: { backup in
+            Text("This will replace your current data with the backup from \(exportImportManager.formatBackupName(backup)). This action cannot be undone.")
+        }
+        .onAppear {
+            refreshBackupList()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("BackupCompleted"))) { _ in
+            refreshBackupList()
+        }
     }
 
+    private func backupData() {
+        exportImportManager.backupToDataFolder(dataStorage: dataStorage) { success, url in
+            if success, let url = url {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": "Backup created: \(url.lastPathComponent)"]
+                )
+                NotificationCenter.default.post(name: NSNotification.Name("BackupCompleted"), object: nil)
+            } else if let error = exportImportManager.lastError {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": error]
+                )
+            }
+        }
+    }
+
+    private func refreshBackupList() {
+        backupFolders = exportImportManager.scanBackupFolders()
+    }
+
+    private func restoreFromBackup(_ backup: URL) {
+        exportImportManager.restoreFromBackup(backup, dataStorage: dataStorage) { success in
+            if success {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": "Data restored successfully from backup"]
+                )
+            } else if let error = exportImportManager.lastError {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": error]
+                )
+            }
+        }
+    }
+
+}
+
+// MARK: - Backup List View
+
+struct BackupListView: View {
+    @EnvironmentObject var dataStorage: DataStorage
+    @StateObject private var exportImportManager = ExportImportManager.shared
+    @State private var backupFolders: [URL] = []
+    @State private var selectedBackup: URL?
+    @State private var showingRestoreConfirmation = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !backupFolders.isEmpty {
+                Text("Backups")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 4) {
+                        ForEach(backupFolders, id: \.self) { backup in
+                            BackupRow(
+                                backup: backup,
+                                formattedName: exportImportManager.formatBackupName(backup),
+                                isSelected: selectedBackup == backup
+                            ) {
+                                selectedBackup = backup
+                                showingRestoreConfirmation = true
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 120)
+                .padding(8)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(6)
+            }
+        }
+        .onAppear {
+            refreshBackups()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("BackupCompleted"))) { _ in
+            refreshBackups()
+        }
+        .confirmationDialog(
+            "Restore from Backup",
+            isPresented: $showingRestoreConfirmation,
+            presenting: selectedBackup
+        ) { backup in
+            Button("Restore", role: .destructive) {
+                restoreBackup(backup)
+            }
+            Button("Show in Finder") {
+                NSWorkspace.shared.activateFileViewerSelecting([backup])
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: { backup in
+            Text("This will replace your current data with the backup from \(exportImportManager.formatBackupName(backup)). This action cannot be undone.")
+        }
+    }
+
+    private func refreshBackups() {
+        backupFolders = exportImportManager.scanBackupFolders()
+    }
+
+    private func restoreBackup(_ backup: URL) {
+        exportImportManager.restoreFromBackup(backup, dataStorage: dataStorage) { success in
+            if success {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": "Data restored successfully from backup"]
+                )
+            } else if let error = exportImportManager.lastError {
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ShowToast"),
+                    object: nil,
+                    userInfo: ["message": error]
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Backup Row
+
+struct BackupRow: View {
+    let backup: URL
+    let formattedName: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "archivebox.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Text(formattedName)
+                .font(.system(size: 11))
+                .lineLimit(1)
+
+            Spacer()
+
+            Button(action: onTap) {
+                Text("Restore")
+                    .font(.system(size: 10))
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        .cornerRadius(4)
+    }
 }
 
 #Preview {

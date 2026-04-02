@@ -15,9 +15,151 @@ class ExportImportManager: ObservableObject {
     
     @Published var isExporting = false
     @Published var isImporting = false
+    @Published var isBackingUp = false
     @Published var lastError: String?
-    
+
     private init() {}
+
+    // MARK: - Backup Methods
+
+    /// Get the parent directory of the current storage location
+    func getBackupDirectory() -> URL {
+        let storageDir = StoragePathManager.shared.getStorageDirectory()
+        return storageDir.deletingLastPathComponent()
+    }
+
+    /// Scan for existing backup folders in the backup directory
+    func scanBackupFolders() -> [URL] {
+        let backupDir = getBackupDirectory()
+        let fileManager = FileManager.default
+
+        guard fileManager.fileExists(atPath: backupDir.path) else {
+            return []
+        }
+
+        do {
+            let contents = try fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: nil)
+            return contents.filter { url in
+                let name = url.lastPathComponent
+                return name.hasPrefix("Seahorse_Export_") && url.hasDirectoryPath
+            }.sorted { $0.lastPathComponent > $1.lastPathComponent } // Most recent first
+        } catch {
+            print("❌ Failed to scan backup folders: \(error)")
+            return []
+        }
+    }
+
+    /// Format backup folder name for display (e.g., "2026-4-2-193055" -> "2026-04-02 19:30:55")
+    func formatBackupName(_ url: URL) -> String {
+        let name = url.lastPathComponent
+        // Remove "Seahorse_Export_" prefix
+        let timestamp = name.replacingOccurrences(of: "Seahorse_Export_", with: "")
+
+        // Parse timestamp: yyyy-M-d-HHmmss
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-M-d-HHmmss"
+        if let date = formatter.date(from: timestamp) {
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            return formatter.string(from: date)
+        }
+        return timestamp
+    }
+
+    /// Backup data to the parent directory of the storage folder
+    func backupToDataFolder(dataStorage: DataStorage, completion: @escaping (Bool, URL?) -> Void) {
+        isBackingUp = true
+        lastError = nil
+
+        Task {
+            do {
+                let backupDir = getBackupDirectory()
+
+                // Create backup folder with timestamp
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-M-d-HHmmss"
+                let timestamp = formatter.string(from: Date())
+                let exportDirectory = backupDir.appendingPathComponent("Seahorse_Export_\(timestamp)", isDirectory: true)
+
+                // Create directory structure
+                try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
+
+                // Get source storage directories
+                let storageManager = StorageManager.shared
+                let sourceImagesDir = storageManager.getImagesDirectory()
+
+                // Create destination directories
+                let destDataDir = exportDirectory.appendingPathComponent("Data", isDirectory: true)
+                let destImagesDir = exportDirectory.appendingPathComponent("Images", isDirectory: true)
+                try FileManager.default.createDirectory(at: destDataDir, withIntermediateDirectories: true)
+                try FileManager.default.createDirectory(at: destImagesDir, withIntermediateDirectories: true)
+
+                // Export JSON data files
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+                // Export all items
+                let itemsData = try encoder.encode(dataStorage.items)
+                try itemsData.write(to: destDataDir.appendingPathComponent("items.json"))
+
+                // Export categories.json
+                let categoriesData = try encoder.encode(dataStorage.categories)
+                try categoriesData.write(to: destDataDir.appendingPathComponent("categories.json"))
+
+                // Export tags.json
+                let tagsData = try encoder.encode(dataStorage.tags)
+                try tagsData.write(to: destDataDir.appendingPathComponent("tags.json"))
+
+                // Export preferences.json
+                let preferencesData = try encoder.encode([String: String]())
+                try preferencesData.write(to: destDataDir.appendingPathComponent("preferences.json"))
+
+                // Copy Images directory
+                if FileManager.default.fileExists(atPath: sourceImagesDir.path) {
+                    let imageFiles = try FileManager.default.contentsOfDirectory(at: sourceImagesDir, includingPropertiesForKeys: nil)
+                    for imageFile in imageFiles {
+                        let destFile = destImagesDir.appendingPathComponent(imageFile.lastPathComponent)
+                        try FileManager.default.copyItem(at: imageFile, to: destFile)
+                    }
+                }
+
+                print("✅ Backup successful: \(exportDirectory.path)")
+
+                await MainActor.run {
+                    self.isBackingUp = false
+                    completion(true, exportDirectory)
+                }
+            } catch {
+                print("❌ Backup failed: \(error)")
+                await MainActor.run {
+                    self.isBackingUp = false
+                    self.lastError = "Backup failed: \(error.localizedDescription)"
+                    completion(false, nil)
+                }
+            }
+        }
+    }
+
+    /// Restore from a backup folder
+    func restoreFromBackup(_ backupURL: URL, dataStorage: DataStorage, completion: @escaping (Bool) -> Void) {
+        isImporting = true
+        lastError = nil
+
+        Task {
+            do {
+                try await importFromFolder(backupURL, into: dataStorage)
+                await MainActor.run {
+                    self.isImporting = false
+                    completion(true)
+                }
+            } catch {
+                await MainActor.run {
+                    self.isImporting = false
+                    self.lastError = "Restore failed: \(error.localizedDescription)"
+                    completion(false)
+                }
+            }
+        }
+    }
     
     /// Export all data to a folder (complete storage structure including images)
     func exportData(dataStorage: DataStorage) {
@@ -49,8 +191,10 @@ class ExportImportManager: ObservableObject {
                     print("🔓 Accessing security-scoped resource for export: \(hasAccess)")
                     print("  Export URL: \(url.path)")
                     
-                    // Create Seahorse subfolder with timestamp
-                    let timestamp = Date().formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-")
+                    // Create Seahorse subfolder with timestamp (e.g., Seahorse_Export_2026-4-2-193055)
+                    let formatter = DateFormatter()
+                    formatter.dateFormat = "yyyy-M-d-HHmmss"
+                    let timestamp = formatter.string(from: Date())
                     let exportDirectory = url.appendingPathComponent("Seahorse_Export_\(timestamp)", isDirectory: true)
                     
                     // Create directory structure
