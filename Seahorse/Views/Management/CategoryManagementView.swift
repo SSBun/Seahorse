@@ -105,8 +105,9 @@ struct CategoryManagementView: View {
                             .cornerRadius(8)
                         }
                         .buttonStyle(.plain)
-                        .popover(isPresented: $showingIconPicker, arrowEdge: .bottom) {
-                            IconPickerPopover(selectedIcon: $selectedIcon)
+                        .sheet(isPresented: $showingIconPicker) {
+                            IconPickerSheet(selectedIcon: $selectedIcon)
+                                .frame(width: 360, height: 480)
                         }
                     }
                     

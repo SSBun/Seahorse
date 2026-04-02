@@ -1,5 +1,5 @@
 //
-//  IconPickerPopover.swift
+//  IconPickerSheet.swift
 //  Seahorse
 //
 //  Created by caishilin on 2025/04/02.
@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct IconPickerPopover: View {
+struct IconPickerSheet: View {
     @Binding var selectedIcon: String
     @Environment(\.dismiss) private var dismiss
     @AppStorage("recentIcons") private var recentIconsData: String = ""
@@ -252,6 +252,6 @@ private struct IconButton: View {
 }
 
 #Preview {
-    IconPickerPopover(selectedIcon: .constant("folder.fill"))
+    IconPickerSheet(selectedIcon: .constant("folder.fill"))
         .frame(width: 360, height: 480)
 }
