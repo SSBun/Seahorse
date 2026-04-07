@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = C404BAF22EC7301C007D7FD4 /* OpenAI */; };
-		C41951602F7BA17000017B19 /* InfomaniakRichHTMLEditor in Frameworks */ = {isa = PBXBuildFile; productRef = C419515F2F7BA17000017B19 /* InfomaniakRichHTMLEditor */; };
+		C44392432F7F68FB007B1605 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = C44392422F7F68FB007B1605 /* Highlightr */; };
 		C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C4B4298B2EE00D5600EF6DB2 /* Kingfisher */; };
 /* End PBXBuildFile section */
 
@@ -42,8 +42,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C44392432F7F68FB007B1605 /* Highlightr in Frameworks */,
 				C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */,
-				C41951602F7BA17000017B19 /* InfomaniakRichHTMLEditor in Frameworks */,
 				C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -89,7 +89,7 @@
 			packageProductDependencies = (
 				C404BAF22EC7301C007D7FD4 /* OpenAI */,
 				C4B4298B2EE00D5600EF6DB2 /* Kingfisher */,
-				C419515F2F7BA17000017B19 /* InfomaniakRichHTMLEditor */,
+				C44392422F7F68FB007B1605 /* Highlightr */,
 			);
 			productName = Seahorse;
 			productReference = C404BA202EC6C12F007D7FD4 /* Seahorse.app */;
@@ -122,7 +122,7 @@
 			packageReferences = (
 				C404BAF12EC7301C007D7FD4 /* XCRemoteSwiftPackageReference "OpenAI" */,
 				C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */,
-				C419515E2F7BA17000017B19 /* XCRemoteSwiftPackageReference "swift-rich-html-editor" */,
+				C44392412F7F68FB007B1605 /* XCRemoteSwiftPackageReference "Highlightr" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C404BA212EC6C12F007D7FD4 /* Products */;
@@ -365,12 +365,12 @@
 				minimumVersion = 0.4.7;
 			};
 		};
-		C419515E2F7BA17000017B19 /* XCRemoteSwiftPackageReference "swift-rich-html-editor" */ = {
+		C44392412F7F68FB007B1605 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/Infomaniak/swift-rich-html-editor.git";
+			repositoryURL = "https://github.com/raspu/Highlightr/";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.1.0;
+				minimumVersion = 2.3.0;
 			};
 		};
 		C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
@@ -389,10 +389,10 @@
 			package = C404BAF12EC7301C007D7FD4 /* XCRemoteSwiftPackageReference "OpenAI" */;
 			productName = OpenAI;
 		};
-		C419515F2F7BA17000017B19 /* InfomaniakRichHTMLEditor */ = {
+		C44392422F7F68FB007B1605 /* Highlightr */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = C419515E2F7BA17000017B19 /* XCRemoteSwiftPackageReference "swift-rich-html-editor" */;
-			productName = InfomaniakRichHTMLEditor;
+			package = C44392412F7F68FB007B1605 /* XCRemoteSwiftPackageReference "Highlightr" */;
+			productName = Highlightr;
 		};
 		C4B4298B2EE00D5600EF6DB2 /* Kingfisher */ = {
 			isa = XCSwiftPackageProductDependency;

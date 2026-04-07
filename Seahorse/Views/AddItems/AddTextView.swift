@@ -54,27 +54,24 @@ struct AddTextView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     // Content
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Content")
+                        Text("Content (Markdown)")
                             .font(.system(size: 13, weight: .semibold))
-                        
+
                         ZStack(alignment: .topLeading) {
-                            // Background with rounded corners to mask TextEditor's sharp corners
                             RoundedRectangle(cornerRadius: 8)
                                 .fill(Color(NSColor.controlBackgroundColor))
 
                             if content.isEmpty {
-                                Text("Enter your text content here...")
+                                Text("Enter your markdown content here...")
                                     .font(.system(size: 13))
                                     .foregroundStyle(.tertiary)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 10)
+                                    .zIndex(1)
                             }
 
-                            TextEditor(text: $content)
-                                .font(.system(size: 13))
+                            MarkdownTextEditor(text: $content, isEditable: true, fontSize: 13, minHeight: 200)
                                 .frame(minHeight: 200)
-                                .scrollContentBackground(.hidden)
-                                .background(Color.clear)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(

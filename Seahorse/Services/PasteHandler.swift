@@ -9,6 +9,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
 
+@MainActor
 class PasteHandler: ObservableObject {
     let dataStorage: DataStorage
     
@@ -196,16 +197,14 @@ class PasteHandler: ObservableObject {
     private func createBookmarkFromURL(_ urlString: String) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             // Canonicalize so URL parsing + metadata fetch work even when user pastes "example.com"
             let canonicalURLString = BookmarkURLNormalizer.normalize(urlString)
             guard !canonicalURLString.isEmpty else { return }
             DLog("Paste: create bookmark placeholder url='\(canonicalURLString)'", category: .paste)
-            
-            // Get default category (None)
-            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id 
-                ?? self.dataStorage.categories.first?.id 
-                ?? UUID()
+
+            // Get default category based on URL (Github for github.com, None otherwise)
+            let defaultCategoryId = self.getDefaultCategoryForURL(canonicalURLString)
             
             // Create initial bookmark with minimal info
             let bookmark = Bookmark(
@@ -452,20 +451,20 @@ class PasteHandler: ObservableObject {
     
     private func copyImageToStorage(from sourcePath: String) -> String? {
         guard let storageDir = getImagesStorageDirectory() else { return nil }
-        
+
         let sourceURL = URL(fileURLWithPath: sourcePath)
-        
+
         // Get original file extension
         let fileExtension = sourceURL.pathExtension.lowercased()
-        
+
         // Only copy if it's an image file
         let validExtensions = ["jpg", "jpeg", "png", "gif", "heic", "heif", "bmp", "tiff", "webp"]
         guard validExtensions.contains(fileExtension) else { return nil }
-        
+
         // Generate unique filename with original extension
         let filename = "\(UUID().uuidString).\(fileExtension)"
         let destinationURL = storageDir.appendingPathComponent(filename)
-        
+
         do {
             // Copy file directly to preserve format and metadata
             try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
@@ -474,5 +473,28 @@ class PasteHandler: ObservableObject {
             Log.error("Failed to copy image: \(error)", category: .paste)
             return nil
         }
+    }
+
+    // MARK: - Category Detection
+
+    private func getDefaultCategoryForURL(_ urlString: String) -> UUID {
+        if isGithubURL(urlString) {
+            // Use Github category for github.com URLs
+            if let githubCategory = dataStorage.categories.first(where: { $0.name == "Github" }) {
+                return githubCategory.id
+            }
+        }
+        // Default to "None" category for non-github URLs
+        return dataStorage.categories.first(where: { $0.name == "None" })?.id
+            ?? dataStorage.categories.first?.id
+            ?? UUID()
+    }
+
+    private func isGithubURL(_ urlString: String) -> Bool {
+        guard let url = URL(string: urlString),
+              let host = url.host?.lowercased() else {
+            return false
+        }
+        return host == "github.com" || host.hasSuffix(".github.com")
     }
 }

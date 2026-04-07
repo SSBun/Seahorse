@@ -42,7 +42,8 @@ struct AddBookmarkView: View {
     @State private var suggestedNewTags: [String] = []
     @State private var selectedNewCategory = false
     @State private var selectedNewTags: Set<String> = []
-    
+    @State private var hasManuallySelectedCategory = false
+
     private let aiManager = AIManager()
     
     var body: some View {
@@ -201,6 +202,7 @@ struct AddBookmarkView: View {
                                         isSelected: selectedCategoryId == category.id,
                                         onSelect: {
                                             selectedCategoryId = category.id
+                                            hasManuallySelectedCategory = true
                                         }
                                     )
                                 }
@@ -289,10 +291,14 @@ struct AddBookmarkView: View {
             if editingBookmark != nil {
                 populateFieldsIfEditing()
             } else {
-                // Set default category to "None" for new bookmarks
-                if let noneCategory = dataStorage.categories.first(where: { $0.name == "None" }) {
-                    selectedCategoryId = noneCategory.id
-                }
+                // Set default category based on URL
+                setDefaultCategoryForURL(urlString)
+            }
+        }
+        .onChange(of: urlString) { oldValue, newValue in
+            // Auto-update category when URL changes (only if not editing and not manually selected)
+            if editingBookmark == nil && !hasManuallySelectedCategory {
+                setDefaultCategoryForURL(newValue)
             }
         }
         // Refresh fields when snapshot tool or AI parse updates the bookmark
@@ -683,7 +689,7 @@ struct AddBookmarkView: View {
     
     private func populateFieldsIfEditing() {
         guard let bookmark = editingBookmark else { return }
-        
+
         urlString = bookmark.url
         title = bookmark.title
         summary = bookmark.notes ?? ""
@@ -693,6 +699,28 @@ struct AddBookmarkView: View {
         iconURL = bookmark.icon
         webMetadata = bookmark.metadata
         wasParsed = bookmark.isParsed // Preserve parsed status
+    }
+
+    private func setDefaultCategoryForURL(_ url: String) {
+        if isGithubURL(url) {
+            // Use Github category for github.com URLs
+            if let githubCategory = dataStorage.categories.first(where: { $0.name == "Github" }) {
+                selectedCategoryId = githubCategory.id
+                return
+            }
+        }
+        // Default to "None" category for non-github URLs
+        if let noneCategory = dataStorage.categories.first(where: { $0.name == "None" }) {
+            selectedCategoryId = noneCategory.id
+        }
+    }
+
+    private func isGithubURL(_ url: String) -> Bool {
+        guard let url = URL(string: url),
+              let host = url.host?.lowercased() else {
+            return false
+        }
+        return host == "github.com" || host.hasSuffix(".github.com")
     }
     
     private func updateBookmark() {

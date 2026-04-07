@@ -21,12 +21,12 @@ struct CategoryManagementView: View {
     @State private var showingIconPicker = false
 
     // Default categories that cannot be edited or deleted
-    private let defaultCategoryNames = ["All Bookmarks", "Favorites", "None"]
-    
+    private let defaultCategoryNames = ["All Bookmarks", "Favorites", "Github", "None"]
+
     private func isDefaultCategory(_ category: Category) -> Bool {
         defaultCategoryNames.contains(category.name)
     }
-    
+
     private func getNoneCategory() -> Category? {
         dataStorage.categories.first(where: { $0.name == "None" })
     }
@@ -38,7 +38,12 @@ struct CategoryManagementView: View {
     private var iconsByCategory: [String: [String]] {
         SFSymbolManager.shared.iconsByCategory()
     }
-    
+
+    // All categories are visible (no filtering)
+    private var visibleCategories: [Category] {
+        dataStorage.categories
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -141,32 +146,32 @@ struct CategoryManagementView: View {
                     HStack {
                         Text("Existing Categories")
                             .font(.system(size: 13, weight: .semibold))
-                        
+
                         Spacer()
-                        
+
                         Text("Drag to reorder")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
-                    
+
                     List {
-                        ForEach(dataStorage.categories) { category in
+                        ForEach(visibleCategories) { category in
                             HStack {
                                 Image(systemName: category.icon)
                                     .foregroundStyle(category.color)
                                     .frame(width: 20)
-                                
+
                                 Text(category.name)
                                     .font(.system(size: 13))
-                                
+
                                 if isDefaultCategory(category) {
                                     Text("(Default)")
                                         .font(.system(size: 10))
                                         .foregroundStyle(.secondary)
                                 }
-                                
+
                                 Spacer()
-                                
+
                                 if !isDefaultCategory(category) {
                                     Button(action: {
                                         startEditing(category)
@@ -175,7 +180,7 @@ struct CategoryManagementView: View {
                                             .font(.system(size: 12))
                                     }
                                     .buttonStyle(.borderless)
-                                    
+
                                     Button(action: {
                                         categoryToDelete = category
                                         showingDeleteConfirmation = true
@@ -331,6 +336,7 @@ struct CategoryManagementView: View {
         selectedColor = .blue
         editingCategory = nil
     }
+
 }
 
 #Preview {

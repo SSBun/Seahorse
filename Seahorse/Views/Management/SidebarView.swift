@@ -32,10 +32,14 @@ struct SidebarView: View {
     @State private var selectedItem: SidebarItem?
     @State private var dropTargetCategory: UUID?
 
+    private var visibleCategories: [Category] {
+        categories
+    }
+
     var body: some View {
         List(selection: $selectedItem) {
             Section {
-                ForEach(categories) { category in
+                ForEach(visibleCategories) { category in
                     ZStack {
                         // Invisible full-width drop zone
                         Color.clear

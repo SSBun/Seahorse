@@ -183,6 +183,7 @@ class JSONStorage: DatabaseProtocol {
         return [
             Category(name: "All Bookmarks", icon: "folder.fill", color: .blue),
             Category(name: "Favorites", icon: "star.fill", color: .yellow),
+            Category(name: "Github", icon: "github.fill", color: .gray),
             Category(name: "None", icon: "folder.fill", color: .gray)
         ]
     }

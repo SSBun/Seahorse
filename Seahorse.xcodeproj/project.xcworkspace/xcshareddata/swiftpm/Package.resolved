@@ -1,6 +1,15 @@
 {
-  "originHash" : "eac1b5f79589129b94d936abe82a5ce4550e163c06ed7074d630d28db6d69b8e",
+  "originHash" : "01309559cada8f19e166505ce1e9115f2049251ed4293bfde533e54d4360fb9e",
   "pins" : [
+    {
+      "identity" : "highlightr",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/raspu/Highlightr/",
+      "state" : {
+        "revision" : "05e7fcc63b33925cd0c1faaa205cdd5681e7bbef",
+        "version" : "2.3.0"
+      }
+    },
     {
       "identity" : "kingfisher",
       "kind" : "remoteSourceControl",
@@ -35,15 +44,6 @@
       "state" : {
         "revision" : "7722cf8eac05c1f1b5b05895b04cfcc29576d9be",
         "version" : "1.8.3"
-      }
-    },
-    {
-      "identity" : "swift-rich-html-editor",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/Infomaniak/swift-rich-html-editor.git",
-      "state" : {
-        "revision" : "296d75d8a9bf1687980988019a53e5a675d80f6f",
-        "version" : "3.1.0"
       }
     }
   ],

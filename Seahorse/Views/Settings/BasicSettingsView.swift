@@ -401,11 +401,15 @@ struct BackupListView: View {
                             BackupRow(
                                 backup: backup,
                                 formattedName: exportImportManager.formatBackupName(backup),
-                                isSelected: selectedBackup == backup
-                            ) {
-                                selectedBackup = backup
-                                showingRestoreConfirmation = true
-                            }
+                                isSelected: selectedBackup == backup,
+                                onTap: {
+                                    selectedBackup = backup
+                                    showingRestoreConfirmation = true
+                                },
+                                onDelete: {
+                                    refreshBackups()
+                                }
+                            )
                         }
                     }
                 }
@@ -468,6 +472,7 @@ struct BackupRow: View {
     let formattedName: String
     let isSelected: Bool
     let onTap: () -> Void
+    let onDelete: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -508,6 +513,7 @@ struct BackupRow: View {
 
             Button(role: .destructive) {
                 try? FileManager.default.removeItem(at: backup)
+                onDelete()
             } label: {
                 Label("Delete Backup", systemImage: "trash")
             }

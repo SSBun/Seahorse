@@ -325,6 +325,12 @@
         }
       }
     },
+    "Backup" : {
+
+    },
+    "Backups" : {
+
+    },
     "Basic" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -503,7 +509,7 @@
     "Connection Test" : {
 
     },
-    "Content" : {
+    "Content (Markdown)" : {
 
     },
     "Copy" : {
@@ -534,6 +540,9 @@
           }
         }
       }
+    },
+    "Create backup in data folder" : {
+
     },
     "Create New Items?" : {
 
@@ -580,6 +589,9 @@
           }
         }
       }
+    },
+    "Delete Backup" : {
+
     },
     "Delete Bookmark" : {
 
@@ -664,7 +676,7 @@
     "Enter your API token" : {
 
     },
-    "Enter your text content here..." : {
+    "Enter your markdown content here..." : {
 
     },
     "Error" : {
@@ -852,6 +864,9 @@
 
     },
     "Loading icons..." : {
+
+    },
+    "Markdown" : {
 
     },
     "Metadata" : {
@@ -1101,6 +1116,15 @@
         }
       }
     },
+    "Restore" : {
+
+    },
+    "Restore from Backup" : {
+
+    },
+    "Restore..." : {
+
+    },
     "Retry" : {
 
     },
@@ -1320,6 +1344,9 @@
       }
     },
     "The base URL for AI API requests" : {
+
+    },
+    "This will replace your current data with the backup from %@. This action cannot be undone." : {
 
     },
     "Title" : {

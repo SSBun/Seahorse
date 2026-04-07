@@ -13,28 +13,36 @@ struct TextDetailContentView: View {
     @State private var textContent: String = ""
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Background with rounded corners to mask TextEditor's sharp corners
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(NSColor.controlBackgroundColor))
+        VStack(spacing: 0) {
+            HStack {
+                Text("Markdown")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
 
-            TextEditor(text: $textContent)
-                .font(.system(size: 14))
-                .padding(5)
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
+                Spacer()
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(NSColor.controlBackgroundColor))
+
+                MarkdownTextEditor(text: $textContent, isEditable: true, fontSize: 14, minHeight: 400)
+                    .frame(minHeight: 400)
+                    .onChange(of: textContent) { oldValue, newValue in
+                        saveTextContent(newValue)
+                    }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+            )
+            .padding()
         }
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-        )
-        .padding()
         .onAppear {
             textContent = textItem.content
-        }
-        .onChange(of: textContent) { oldValue, newValue in
-            saveTextContent(newValue)
         }
     }
 
