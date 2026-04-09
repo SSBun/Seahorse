@@ -1,140 +1,136 @@
-[English](README_EN.md) | **中文**
+**English** | [中文](README_ZH.md)
 
 # Seahorse
 
-一个优雅的 macOS 素材收集与管理工具，让保存灵感变得简单自然。
+An elegant macOS material collection and management tool that makes saving inspiration simple and natural.
 
 ![Seahorse Screenshot](./snapshot.png)
 
-**官方网站**: https://ssbun.github.io/Seahorse
+## Why Choose Seahorse?
 
-## 为什么选择 Seahorse？
+Seahorse is more than just a bookmark manager—it's a versatile material collection tool. Whether it's web links, images, or text snippets, Seahorse helps you save and organize everything effortlessly.
 
-Seahorse 不仅仅是一个书签管理器，它是一个全能的素材收集工具。无论是网页链接、图片、还是文本片段，Seahorse 都能帮你轻松保存和整理。
+## Core Features
 
-## 核心功能
+### 🚀 Lightning-Fast Saving
 
-### 🚀 极速保存
+**Double Copy Auto-Save**
+- Quickly copy the same content twice in succession, and Seahorse will automatically detect and save it
+- No need to open the app or perform manual operations—your inspiration is saved instantly
 
-**双击复制自动保存**
-- 快速连续复制两次相同内容，Seahorse 会自动识别并保存
-- 无需打开应用，无需手动操作，灵感瞬间保存
+**Paste to Save in Window**
+- Simply paste (⌘V) directly in the Seahorse window, and content is automatically recognized and saved
+- Supports intelligent recognition of multiple formats including URLs, text, and images
 
-**窗口内粘贴即保存**
-- 在 Seahorse 窗口内直接粘贴（⌘V），内容自动识别并保存
-- 支持 URL、文本、图片等多种格式智能识别
+### 📦 Multi-Type Material Support
 
-### 📦 多类型素材支持
+**More Than Just Bookmarks**
+- **Web Links**: Automatically fetches title, icon, and preview image
+- **Images**: Supports both local and network images
+- **Text Snippets**: Save code snippets, notes, ideas, and any text content
 
-**不仅仅是书签**
-- **网页链接**：自动获取标题、图标和预览图
-- **图片素材**：支持本地图片和网络图片
-- **文本片段**：保存代码片段、笔记、想法等任何文本内容
+### 🗂️ Smart Organization
 
-### 🗂️ 智能整理
+**Category Management**
+- Create custom categories with colors and icons for easy distinction
+- Quickly switch between different categories to view content
 
-**分类管理**
-- 创建自定义分类，用颜色和图标区分
-- 快速切换查看不同分类的内容
+**Tag System**
+- Add multiple tags to materials for flexible organization
+- Quickly filter and find content by tags
 
-**标签系统**
-- 为素材添加多个标签，灵活组织
-- 通过标签快速筛选和查找
+**Favorites**
+- Mark important content as favorites for quick access
 
-**收藏功能**
-- 标记重要内容为收藏，快速访问
+### 🔍 Powerful Search
 
-### 🔍 强大搜索
+- Real-time search across all saved content
+- Search by title, URL, or text content
+- Quickly locate the materials you need
 
-- 实时搜索所有保存的内容
-- 支持按标题、URL、文本内容搜索
-- 快速定位你需要的素材
+### 📊 Multiple View Modes
 
-### 📊 多种视图
+**Grid View**
+- Card-based display that's intuitive and beautiful
+- Supports image and icon previews
 
-**网格视图**
-- 卡片式展示，直观美观
-- 支持预览图片和图标
+**List View**
+- Compact display with high information density
+- Perfect for quickly browsing large amounts of content
 
-**列表视图**
-- 紧凑显示，信息密度高
-- 适合快速浏览大量内容
+### ⚙️ Personalized Settings
 
-### ⚙️ 个性化设置
+- Custom storage location
+- Adjust copy detection time window
+- Enable/disable auto-save functionality
+- Multi-language support
 
-- 自定义存储位置
-- 调整复制检测时间窗口
-- 启用/禁用自动保存功能
-- 多语言支持
+### 📤 Import & Export
 
-### 📤 导入导出
+- Import bookmarks from browsers
+- Export to JSON format
+- Batch import support
 
-- 从浏览器导入书签
-- 导出为 JSON 格式
-- 批量导入支持
+## Use Cases
 
-## 使用场景
+- **Designers**: Collect design inspiration, reference images, color schemes
+- **Developers**: Save technical documentation, code snippets, tool links
+- **Researchers**: Organize paper links, research notes, data materials
+- **Content Creators**: Collect materials, inspiration, reference resources
+- **Everyone**: Save anything you want to remember
 
-- **设计师**：收集设计灵感、参考图片、配色方案
-- **开发者**：保存技术文档、代码片段、工具链接
-- **研究者**：整理论文链接、研究笔记、数据资料
-- **内容创作者**：收集素材、灵感、参考资料
-- **任何人**：保存任何想要记住的内容
+## System Requirements
 
-## 系统要求
+- macOS 13.0 or later
 
-- macOS 13.0 或更高版本
+## Download
 
-## 下载
+Download the latest DMG installer from the [Releases](https://github.com/SSBun/Seahorse/releases) page.
 
-从 [Releases](https://github.com/SSBun/Seahorse/releases) 页面下载最新版本的 DMG 安装包。
+## Installation Guide
 
-## 安装指南
+### Quick Install (Recommended)
 
-### 快速安装（推荐）
-
-使用以下命令一键下载并安装最新版本：
+Use the following command to download and install the latest version with one click:
 
 ```bash
 curl -sL https://github.com/SSBun/Seahorse/raw/main/install_latest.sh | bash
 ```
 
-### 安装步骤
+### Installation Steps
 
-### 安装步骤
+1. Download the latest DMG installer from the [Releases](https://github.com/SSBun/Seahorse/releases) page
+2. Double-click the DMG file to open it
+3. Drag Seahorse.app to the Applications folder
+4. Open the Applications folder and double-click Seahorse.app to launch the application
 
-1. 从 [Releases](https://github.com/SSBun/Seahorse/releases) 页面下载最新版本的 DMG 安装包
-2. 双击 DMG 文件打开
-3. 将 Seahorse.app 拖拽到 Applications 文件夹
-4. 打开 Applications 文件夹，双击 Seahorse.app 启动应用
+### Resolving Security Warnings
 
-### 解决安全提示问题
-
-如果首次打开应用时出现"无法打开，因为来自身份不明的开发者"或类似的警告提示，这是因为 macOS 的 Gatekeeper 安全机制。可以通过以下命令解决：
+If you see a warning message like "Seahorse.app cannot be opened because it is from an unidentified developer" or similar security alerts when first opening the application, this is due to macOS Gatekeeper security mechanism. You can resolve this by running the following command:
 
 ```bash
 xattr -d com.apple.quarantine /Applications/Seahorse.app
 ```
 
-执行此命令后，再次打开应用即可正常使用。
+After running this command, you can open the application normally.
 
-**说明：** 此命令会移除应用的隔离属性（quarantine），这是 macOS 对从网络下载的应用的安全标记。Seahorse 是开源软件，你可以查看源代码确认其安全性。
+**Note:** This command removes the quarantine attribute from the application, which is a security marker macOS applies to applications downloaded from the internet. Seahorse is open-source software, and you can review the source code to verify its safety.
 
-## 开始使用
+## Getting Started
 
-1. 下载并安装 Seahorse
-2. 打开应用，授予必要的权限
-3. 开始收集你的素材！
+1. Download and install Seahorse
+2. Open the app and grant necessary permissions
+3. Start collecting your materials!
 
-**快速上手：**
-- 复制一个链接，快速再复制一次 → 自动保存
-- 在 Seahorse 窗口内粘贴任何内容 → 自动保存
-- 点击工具栏的 ➕ 按钮手动添加内容
+**Quick Start:**
+- Copy a link, then quickly copy it again → Auto-saved
+- Paste any content in the Seahorse window → Auto-saved
+- Click the ➕ button in the toolbar to manually add content
 
-## 反馈与支持
+## Feedback & Support
 
-如有问题或建议，欢迎在 [GitHub Issues](https://github.com/SSBun/Seahorse/issues) 提出。
+If you have questions or suggestions, please feel free to open an issue on [GitHub Issues](https://github.com/SSBun/Seahorse/issues).
 
 ---
 
-让收集变得简单，让灵感不再丢失。Seahorse，你的素材收集助手。
+Making collection simple, ensuring inspiration is never lost. Seahorse, your material collection assistant.
