@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  StandardListItemView.swift
 //  Seahorse
@@ -251,3 +252,5 @@ struct StandardListItemView: View, Equatable {
         }
     }
 }
+
+#endif

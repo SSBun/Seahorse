@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  MarkdownTextEditor.swift
 //  Seahorse
@@ -142,3 +143,5 @@ struct MarkdownTextPreview: NSViewRepresentable {
         // Since we can't detect that easily here, we could trigger updates via the caller
     }
 }
+
+#endif

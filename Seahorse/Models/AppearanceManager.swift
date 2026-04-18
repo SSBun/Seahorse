@@ -7,7 +7,9 @@
 
 import Foundation
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 
 enum AppearanceMode: String, CaseIterable, Codable {
     case light = "Light"
@@ -87,6 +89,7 @@ class AppearanceManager: ObservableObject {
     }
     
     func applyAppearance() {
+        #if os(macOS)
         switch selectedMode {
         case .light:
             NSApp.appearance = NSAppearance(named: .aqua)
@@ -95,6 +98,7 @@ class AppearanceManager: ObservableObject {
         case .system:
             NSApp.appearance = nil
         }
+        #endif
     }
     
     private func savePreference() {

@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  AddBookmarkView.swift
 //  Seahorse
@@ -910,3 +911,5 @@ struct FlowLayout: Layout {
         .environmentObject(DataStorage.shared)
 }
 
+
+#endif

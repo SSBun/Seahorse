@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  IconPickerSheet.swift
 //  Seahorse
@@ -306,3 +307,5 @@ private struct IconButton: View {
     IconPickerSheet(selectedIcon: .constant("folder.fill"))
         .frame(width: 360, height: 480)
 }
+
+#endif

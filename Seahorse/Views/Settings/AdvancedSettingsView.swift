@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  AdvancedSettingsView.swift
 //  Seahorse
@@ -340,3 +341,5 @@ struct AdvancedSettingsView: View {
         .environmentObject(DataStorage.shared)
         .frame(width: 600, height: 500)
 }
+
+#endif

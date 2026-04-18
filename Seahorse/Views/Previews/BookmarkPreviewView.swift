@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BookmarkPreviewView.swift
 //  Seahorse
@@ -212,3 +213,5 @@ struct BookmarkPreviewView: View {
     .environmentObject(DataStorage.shared)
 }
 
+
+#endif

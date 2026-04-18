@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  SettingsView.swift
 //  Seahorse
@@ -76,3 +77,5 @@ struct SettingsView: View {
         .environmentObject(DataStorage.shared)
 }
 
+
+#endif

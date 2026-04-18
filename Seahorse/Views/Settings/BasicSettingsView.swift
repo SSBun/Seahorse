@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BasicSettingsView.swift
 //  Seahorse
@@ -527,3 +528,5 @@ struct BackupRow: View {
         .frame(width: 600, height: 400)
 }
 
+
+#endif

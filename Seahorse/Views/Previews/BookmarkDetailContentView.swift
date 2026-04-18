@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BookmarkDetailContentView.swift
 //  Seahorse
@@ -398,3 +399,5 @@ private struct SnapshotSelectionOverlay: View {
     }
 }
 
+
+#endif

@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/12/03.
 //
 
+#if os(macOS)
 import SwiftUI
 import AppKit
 import CoreGraphics
@@ -377,7 +378,7 @@ enum ClipboardContent: Equatable {
     case url(String)
     case text(String)
     case image(NSImage)
-    
+
     static func == (lhs: ClipboardContent, rhs: ClipboardContent) -> Bool {
         switch (lhs, rhs) {
         case (.url(let lhsUrl), .url(let rhsUrl)):
@@ -393,3 +394,4 @@ enum ClipboardContent: Equatable {
         }
     }
 }
+#endif

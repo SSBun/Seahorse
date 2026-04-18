@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ImageDetailContentView.swift
 //  Seahorse
@@ -24,3 +25,5 @@ struct ImageDetailContentView: View {
     }
 }
 
+
+#endif

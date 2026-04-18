@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  AddTextView.swift
 //  Seahorse
@@ -280,3 +281,5 @@ struct AddTextView: View {
     AddTextView()
         .environmentObject(DataStorage.shared)
 }
+
+#endif

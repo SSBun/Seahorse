@@ -7,7 +7,6 @@
 
 import Foundation
 import UserNotifications
-import AppKit
 import OSLog
 import SwiftUI
 
@@ -154,14 +153,15 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         // .list = also adds to notification center
         // .sound = play sound
         // .badge = update app badge
+        #if os(macOS)
         if #available(macOS 11.0, *) {
-            // Use .banner for floating notification at top right
-            // Don't include .list if we only want the banner
             completionHandler([.banner, .sound])
         } else {
-            // Fallback for older macOS versions (macOS 10.15)
             completionHandler([.alert, .sound])
         }
+        #else
+        completionHandler([.banner, .sound])
+        #endif
     }
     
     func userNotificationCenter(

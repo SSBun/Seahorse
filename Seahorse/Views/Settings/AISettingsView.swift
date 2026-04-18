@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  AISettingsView.swift
 //  Seahorse
@@ -178,3 +179,5 @@ struct AISettingsView: View {
         .frame(width: 600, height: 500)
 }
 
+
+#endif

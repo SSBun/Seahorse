@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  StandardCardView.swift
 //  Seahorse
@@ -664,3 +665,5 @@ struct StandardCardView: View, Equatable {
         .frame(width: 280)
         .padding()
 }
+
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ToastView.swift
 //  Seahorse
@@ -68,3 +69,5 @@ extension View {
     }
 }
 
+
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BookmarkActionPopover.swift
 //  Seahorse
@@ -215,3 +216,5 @@ struct TagSelectionRow: View {
     .environmentObject(DataStorage.shared)
 }
 
+
+#endif

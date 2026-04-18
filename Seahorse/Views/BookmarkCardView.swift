@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BookmarkCardView.swift
 //  Seahorse
@@ -32,3 +33,5 @@ struct BookmarkCardView: View {
         .padding()
 }
 
+
+#endif

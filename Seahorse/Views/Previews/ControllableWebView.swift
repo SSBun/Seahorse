@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ControllableWebView.swift
 //  Seahorse
@@ -138,3 +139,5 @@ struct ControllableWebView: NSViewRepresentable {
     }
 }
 
+
+#endif

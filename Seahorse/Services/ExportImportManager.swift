@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/11/17.
 //
 
+#if os(macOS)
 import Foundation
 import AppKit
 
@@ -412,14 +413,14 @@ class ExportImportManager: ObservableObject {
                 try? dataStorage.addCategory(category)
             }
         }
-        
+
         // Import tags (skip duplicates by name)
         for tag in tags {
             if !dataStorage.tags.contains(where: { $0.name.lowercased() == tag.name.lowercased() }) {
                 try? dataStorage.addTag(tag)
             }
         }
-        
+
         // Import all items (skip duplicates by ID)
         for item in items {
             if !dataStorage.items.contains(where: { $0.id == item.id }) {
@@ -427,6 +428,7 @@ class ExportImportManager: ObservableObject {
             }
         }
     }
-    
+
 }
+#endif
 

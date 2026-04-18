@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  TextDetailContentView.swift
 //  Seahorse
@@ -53,3 +54,5 @@ struct TextDetailContentView: View {
         dataStorage.updateItem(AnyCollectionItem(updatedItem))
     }
 }
+
+#endif

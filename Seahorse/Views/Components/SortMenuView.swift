@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  SortMenuView.swift
 //  Seahorse
@@ -137,3 +138,5 @@ struct SortMenuButton: View {
     .frame(width: 400, height: 300)
     .background(Color(NSColor.textBackgroundColor))
 }
+
+#endif

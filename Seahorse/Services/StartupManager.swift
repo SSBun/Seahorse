@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/12/05.
 //
 
+#if os(macOS)
 import Foundation
 import ServiceManagement
 import SwiftUI
@@ -81,4 +82,5 @@ final class StartupManager: ObservableObject {
         }
     }
 }
+#endif
 

@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  SidebarView.swift
 //  Seahorse
@@ -180,3 +181,5 @@ struct SidebarView: View {
         Text("Detail View")
     }
 }
+
+#endif

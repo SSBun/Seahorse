@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  AddImageView.swift
 //  Seahorse
@@ -491,3 +492,5 @@ struct AddImageView: View {
     AddImageView()
         .environmentObject(DataStorage.shared)
 }
+
+#endif

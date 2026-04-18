@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 // MARK: - GitHub Release Model
 
@@ -127,6 +131,10 @@ final class UpdateManager: ObservableObject {
 
     func openReleasePage() {
         guard let release = latestRelease, let url = URL(string: release.htmlUrl) else { return }
+        #if os(macOS)
         NSWorkspace.shared.open(url)
+        #else
+        UIApplication.shared.open(url)
+        #endif
     }
 }

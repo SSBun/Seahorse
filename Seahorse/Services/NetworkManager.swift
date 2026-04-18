@@ -16,12 +16,14 @@ class NetworkManager {
         let configuration = URLSessionConfiguration.default
         
         // Enable system proxy support (including VPN)
+        #if os(macOS)
         configuration.connectionProxyDictionary = [
             kCFNetworkProxiesHTTPEnable: true,
             kCFNetworkProxiesHTTPSEnable: true,
             // Use system proxy settings
             kCFProxyTypeKey: kCFProxyTypeAutoConfigurationURL
         ] as [AnyHashable: Any]
+        #endif
         
         // Set timeout intervals
         configuration.timeoutIntervalForRequest = 30

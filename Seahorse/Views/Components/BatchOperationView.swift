@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BatchOperationView.swift
 //  Seahorse
@@ -222,3 +223,5 @@ private struct BatchBookmarkRow: View {
         }
     }
 }
+
+#endif

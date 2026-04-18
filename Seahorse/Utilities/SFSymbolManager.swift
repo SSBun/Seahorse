@@ -19,7 +19,11 @@ class SFSymbolManager {
     var availableIcons: [String] {
         // Filter to only include symbols that exist on this macOS version
         return allIcons.filter { icon in
+            #if os(macOS)
             NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+            #else
+            UIImage(systemName: icon) != nil
+            #endif
         }
     }
 
@@ -1555,7 +1559,11 @@ class SFSymbolManager {
         var filtered: [String: [String]] = [:]
         for (category, icons) in allCategories {
             let available = icons.filter { icon in
+                #if os(macOS)
                 NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
+                #else
+                UIImage(systemName: icon) != nil
+                #endif
             }
             if !available.isEmpty {
                 filtered[category] = available

@@ -7,7 +7,13 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
+#if os(macOS)
 import AppKit
+#endif
+
+extension UTType {
+    static let seahorseItemUUID = UTType(exportedAs: "com.csl.cool.Seahorse.item-uuid")
+}
 
 @MainActor
 class PasteHandler: ObservableObject {
@@ -177,12 +183,13 @@ class PasteHandler: ObservableObject {
     
     private func handleImagePaste(_ provider: NSItemProvider) {
         Log.info("Handling Image paste", category: .paste)
+        #if os(macOS)
         provider.loadObject(ofClass: NSImage.self) { [weak self] object, error in
             if let error = error {
                 Log.error("Error loading image object: \(error)", category: .paste)
                 return
             }
-            
+
             guard let self = self, let image = object as? NSImage else {
                 Log.error("Object is not an NSImage", category: .paste)
                 return
@@ -190,6 +197,21 @@ class PasteHandler: ObservableObject {
             Log.info("Loaded image object", category: .paste)
             self.createImageItem(from: image)
         }
+        #else
+        provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+            if let error = error {
+                Log.error("Error loading image object: \(error)", category: .paste)
+                return
+            }
+
+            guard let self = self, let image = object as? UIImage else {
+                Log.error("Object is not a UIImage", category: .paste)
+                return
+            }
+            Log.info("Loaded image object", category: .paste)
+            self.createImageItem(from: image)
+        }
+        #endif
     }
     
     // MARK: - Item Creation
@@ -293,20 +315,21 @@ class PasteHandler: ObservableObject {
         }
     }
     
+    #if os(macOS)
     private func createImageItem(from image: NSImage) {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            
+
             // Save image to storage
             guard let imagePath = self.saveImageToStorage(image) else {
                 Log.error("Failed to save pasted image", category: .paste)
                 return
             }
-            
-            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id 
-                ?? self.dataStorage.categories.first?.id 
+
+            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id
+                ?? self.dataStorage.categories.first?.id
                 ?? UUID()
-            
+
             let imageItem = ImageItem(
                 imagePath: imagePath,
                 categoryId: defaultCategoryId,
@@ -317,7 +340,7 @@ class PasteHandler: ObservableObject {
                 thumbnailPath: nil,
                 imageSize: nil
             )
-            
+
             do {
                 try self.dataStorage.addItem(AnyCollectionItem(imageItem))
                 Log.info("Created image item from paste", category: .paste)
@@ -326,6 +349,40 @@ class PasteHandler: ObservableObject {
             }
         }
     }
+    #else
+    private func createImageItem(from image: UIImage) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            guard let imagePath = self.saveImageToStorage(image) else {
+                Log.error("Failed to save pasted image", category: .paste)
+                return
+            }
+
+            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id
+                ?? self.dataStorage.categories.first?.id
+                ?? UUID()
+
+            let imageItem = ImageItem(
+                imagePath: imagePath,
+                categoryId: defaultCategoryId,
+                isFavorite: false,
+                notes: nil,
+                tagIds: [],
+                isParsed: false,
+                thumbnailPath: nil,
+                imageSize: nil
+            )
+
+            do {
+                try self.dataStorage.addItem(AnyCollectionItem(imageItem))
+                Log.info("Created image item from paste", category: .paste)
+            } catch {
+                Log.error("Failed to create image item: \(error)", category: .paste)
+            }
+        }
+    }
+    #endif
     
     private func createImageItemFromURL(_ urlString: String) {
         DispatchQueue.main.async { [weak self] in
@@ -417,14 +474,15 @@ class PasteHandler: ObservableObject {
     
     // MARK: - Helper Methods
     
+    #if os(macOS)
     private func saveImageToStorage(_ image: NSImage) -> String? {
         guard let storageDir = getImagesStorageDirectory() else { return nil }
         guard let tiffData = image.tiffRepresentation else { return nil }
         guard let bitmapImage = NSBitmapImageRep(data: tiffData) else { return nil }
-        
+
         let filename = "\(UUID().uuidString).png"
         let fileURL = storageDir.appendingPathComponent(filename)
-        
+
         if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
             do {
                 try pngData.write(to: fileURL)
@@ -434,9 +492,26 @@ class PasteHandler: ObservableObject {
                 return nil
             }
         }
-        
+
         return nil
     }
+    #else
+    private func saveImageToStorage(_ image: UIImage) -> String? {
+        guard let storageDir = getImagesStorageDirectory() else { return nil }
+        guard let pngData = image.pngData() else { return nil }
+
+        let filename = "\(UUID().uuidString).png"
+        let fileURL = storageDir.appendingPathComponent(filename)
+
+        do {
+            try pngData.write(to: fileURL)
+            return filename
+        } catch {
+            Log.error("Failed to save image: \(error)", category: .paste)
+            return nil
+        }
+    }
+    #endif
     
     private func getImagesStorageDirectory() -> URL? {
         let imagesDir = StorageManager.shared.getImagesDirectory()

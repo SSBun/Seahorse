@@ -6,6 +6,7 @@
 //  Performance optimization: Image thumbnail generation
 //
 
+#if os(macOS)
 import AppKit
 
 extension NSImage {
@@ -52,3 +53,4 @@ extension NSImage {
         return resized
     }
 }
+#endif

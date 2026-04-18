@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ItemDetailView.swift
 //  Seahorse
@@ -884,3 +885,5 @@ struct ItemDetailView: View {
 
 
 
+
+#endif

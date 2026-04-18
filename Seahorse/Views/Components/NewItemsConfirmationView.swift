@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  NewItemsConfirmationView.swift
 //  Seahorse
@@ -136,3 +137,5 @@ struct NewItemsConfirmationView: View {
     )
 }
 
+
+#endif

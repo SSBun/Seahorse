@@ -54,6 +54,9 @@
     "5s" : {
 
     },
+    "About" : {
+
+    },
     "Accessibility Permission Granted" : {
 
     },
@@ -225,6 +228,9 @@
       }
     },
     "All bookmarks are accessible ✓" : {
+
+    },
+    "All Categories" : {
 
     },
     "All Good!" : {
@@ -406,6 +412,9 @@
         }
       }
     },
+    "Categories" : {
+
+    },
     "CATEGORIES" : {
 
     },
@@ -503,6 +512,9 @@
     "Click to open URL in browser for verification" : {
 
     },
+    "Collections" : {
+
+    },
     "Color" : {
 
     },
@@ -510,6 +522,9 @@
 
     },
     "Content (Markdown)" : {
+
+    },
+    "Content unavailable" : {
 
     },
     "Copy" : {
@@ -551,6 +566,9 @@
 
     },
     "Current Version" : {
+
+    },
+    "Data" : {
 
     },
     "Data Folder" : {
@@ -757,6 +775,9 @@
     "file:///path/to/image.jpg or https://..." : {
 
     },
+    "Filter" : {
+
+    },
     "Filter by %@" : {
 
     },
@@ -782,6 +803,9 @@
 
     },
     "Image" : {
+
+    },
+    "Image not available" : {
 
     },
     "Image not found" : {
@@ -810,10 +834,16 @@
     "Import Bookmarks..." : {
 
     },
+    "Import Data" : {
+
+    },
     "Import Error" : {
 
     },
     "Import from File" : {
+
+    },
+    "Import Successful" : {
 
     },
     "Importing bookmarks..." : {
@@ -834,10 +864,16 @@
     "Item Detail" : {
 
     },
+    "Items" : {
+
+    },
     "Items will be saved when you copy the same content twice within this time window" : {
 
     },
     "JSON files exported from Seahorse" : {
+
+    },
+    "Kind" : {
 
     },
     "Launch at Login" : {
@@ -900,6 +936,9 @@
 
     },
     "No image available" : {
+
+    },
+    "No Items" : {
 
     },
     "No matching bookmarks" : {
@@ -1187,6 +1226,9 @@
     "Selected Icon" : {
 
     },
+    "Settings" : {
+
+    },
     "Show in Finder" : {
 
     },
@@ -1346,6 +1388,9 @@
     "The base URL for AI API requests" : {
 
     },
+    "Theme" : {
+
+    },
     "This will replace your current data with the backup from %@. This action cannot be undone." : {
 
     },
@@ -1413,6 +1458,9 @@
     "Use {title}, {content}, and {tags} as placeholders" : {
 
     },
+    "Version" : {
+
+    },
     "View Diagnostic Progress" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1446,6 +1494,9 @@
 
     },
     "Your bookmarks have been added to the \"None\" category. You can organize them later." : {
+
+    },
+    "Your collection is empty or no items match your filters." : {
 
     }
   },

@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
-import AppKit
 import OSLog
+
+#if os(macOS)
+import AppKit
 
 @main
 struct SeahorseApp: App {
@@ -16,29 +18,26 @@ struct SeahorseApp: App {
     @StateObject private var dataStorage = DataStorage.shared
     @StateObject private var batchParsingService = BatchParsingService(dataStorage: DataStorage.shared)
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
+
     // Copy monitoring
     @StateObject private var copyMonitor = CopyMonitor.shared
-    
+
     // Status Bar Manager
     @State private var statusBarManager: StatusBarManager?
-    
+
     // Item Detail Window State - shared across the single window instance
     @StateObject private var itemDetailState = ItemDetailState()
-    
-    // Settings
-    // Removed showInDock as it's now dynamic based on window visibility
-    
+
     init() {
         // Ensure storage path manager is initialized before data storage
         // This establishes security-scoped access to custom folders
         _ = StoragePathManager.shared
-        
+
         // Initialize NotificationService early to set up delegate
         // This ensures notifications show as banners when app is in foreground
         _ = NotificationService.shared
     }
-    
+
     var body: some Scene {
         // Main Window - Single window only (no tabs, no multiple windows)
         Window("Seahorse", id: "main") {
@@ -60,7 +59,7 @@ struct SeahorseApp: App {
         .commands {
             // Custom menu commands
             CommandGroup(replacing: .newItem) {}
-            
+
             // Edit menu with import
             CommandGroup(after: .pasteboard) {
                 Button("Import Bookmarks...") {
@@ -69,7 +68,7 @@ struct SeahorseApp: App {
                 .keyboardShortcut("i", modifiers: [.command, .shift])
             }
         }
-        
+
         // Item Detail Window - Single window only
         Window("Item Detail", id: "item-detail") {
             ItemDetailWindowView()
@@ -78,7 +77,7 @@ struct SeahorseApp: App {
         }
         .defaultSize(width: 1600, height: 1000)
         .defaultPosition(.center)
-        
+
         // Settings window
         Settings {
             SettingsView()
@@ -92,7 +91,7 @@ struct SeahorseApp: App {
 struct ItemDetailWindowView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
-    
+
     var body: some View {
         Group {
             if let itemId = itemDetailState.currentItemId,
@@ -115,7 +114,7 @@ struct ItemDetailWindowView: View {
 @MainActor
 final class ItemDetailState: ObservableObject {
     @Published var currentItemId: UUID?
-    
+
     func showItem(_ itemId: UUID) {
         currentItemId = itemId
     }
@@ -124,14 +123,37 @@ final class ItemDetailState: ObservableObject {
 // App Delegate for handling quit events
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        Log.info("🔄 Syncing data before quit...", category: .general)
-        
+        Log.info("Syncing data before quit...", category: .general)
+
         // Force save all database data synchronously
         Task { @MainActor in
             DataStorage.shared.forceSaveAllData()
         }
-        
-        Log.info("✅ Data sync complete", category: .general)
+
+        Log.info("Data sync complete", category: .general)
         return .terminateNow
     }
 }
+
+#elseif os(iOS)
+
+@main
+struct SeahorseApp: App {
+    @StateObject private var dataStorage = DataStorage.shared
+    @StateObject private var appearanceManager = AppearanceManager.shared
+
+    init() {
+        // Initialize NotificationService early to set up delegate
+        _ = NotificationService.shared
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            iOSContentView()
+                .environmentObject(dataStorage)
+                .environmentObject(appearanceManager)
+        }
+    }
+}
+
+#endif

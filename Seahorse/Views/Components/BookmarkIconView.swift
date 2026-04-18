@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  BookmarkIconView.swift
 //  Seahorse
@@ -86,3 +87,5 @@ struct BookmarkIconView: View {
     .padding()
 }
 
+
+#endif

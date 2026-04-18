@@ -7,7 +7,7 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>需要监听复制操作以自动保存内容到收藏夹</string>
+	<key>UILaunchScreen</key>
+	<dict/>
 </dict>
 </plist>

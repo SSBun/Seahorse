@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/12/04.
 //
 
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -21,3 +22,4 @@ struct WindowAccessor: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
+#endif

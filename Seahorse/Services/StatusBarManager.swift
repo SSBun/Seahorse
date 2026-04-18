@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/12/04.
 //
 
+#if os(macOS)
 import AppKit
 import Combine
 import SwiftUI
@@ -208,3 +209,4 @@ class StatusBarManager: NSObject {
         NSApplication.shared.terminate(nil)
     }
 }
+#endif

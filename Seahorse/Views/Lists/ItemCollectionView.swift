@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ItemCollectionView.swift
 //  Seahorse
@@ -123,3 +124,5 @@ struct ItemCollectionView: View {
         .environmentObject(DataStorage.shared)
         .frame(width: 800, height: 600)
 }
+
+#endif

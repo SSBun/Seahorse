@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  CategoryManagementView.swift
 //  Seahorse
@@ -345,3 +346,5 @@ struct CategoryManagementView: View {
         .frame(width: 600, height: 500)
 }
 
+
+#endif

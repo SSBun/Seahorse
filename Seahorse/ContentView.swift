@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ContentView.swift
 //  Seahorse
@@ -8,10 +9,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import Combine
-
-extension UTType {
-    static let seahorseItemUUID = UTType(exportedAs: "com.csl.cool.Seahorse.item-uuid")
-}
 
 enum ItemKind: String, CaseIterable {
     case all = "All"
@@ -578,3 +575,5 @@ struct ContentView: View {
         .environmentObject(DataStorage.shared)
         .frame(width: 1200, height: 800)
 }
+
+#endif

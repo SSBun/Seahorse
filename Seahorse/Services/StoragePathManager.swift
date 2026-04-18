@@ -5,6 +5,7 @@
 //  Created by caishilin on 2025/11/17.
 //
 
+#if os(macOS)
 import Foundation
 import AppKit
 import OSLog
@@ -271,4 +272,5 @@ class StoragePathManager: ObservableObject {
         alert.runModal()
     }
 }
+#endif
 

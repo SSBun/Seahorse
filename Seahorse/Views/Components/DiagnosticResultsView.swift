@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  DiagnosticResultsView.swift
 //  Seahorse
@@ -519,3 +520,5 @@ struct CategoryFilterButton: View {
         .environmentObject(dataStorage)
 }
 
+
+#endif

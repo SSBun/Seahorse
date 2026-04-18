@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ImportBookmarksView.swift
 //  Seahorse
@@ -273,3 +274,5 @@ struct ImportBookmarksView: View {
         .environmentObject(DataStorage.shared)
 }
 
+
+#endif

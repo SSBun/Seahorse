@@ -99,26 +99,27 @@ class StorageManager {
     /// Get storage directory with active security-scoped access
     /// Returns tuple: (directory URL, security-scoped parent URL if applicable)
     private func getStorageDirectoryWithAccess() -> (URL, URL?) {
+        #if os(macOS)
         // Try to resolve security-scoped bookmark first
         if let bookmarkData = UserDefaults.standard.data(forKey: "seahorse.storage.bookmarkData") {
             do {
                 var isStale = false
                 let url = try URL(resolvingBookmarkData: bookmarkData, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
-                
+
                 if !isStale {
                     // Start accessing security-scoped resource
                     if url.startAccessingSecurityScopedResource() {
                         let seahorseDirectory = url.appendingPathComponent("Seahorse", isDirectory: true)
                         Log.info("📂 Using security-scoped bookmark path: \(seahorseDirectory.path)", category: .storage)
                         Log.info("🔓 Active security-scoped access established", category: .storage)
-                        
+
                         // Verify we can actually access the directory
                         if FileManager.default.isReadableFile(atPath: seahorseDirectory.path) {
                             Log.info("✅ Directory is readable", category: .storage)
                         } else {
                             Log.warning("⚠️ Directory not readable yet, but access granted", category: .storage)
                         }
-                        
+
                         return (seahorseDirectory, url)
                     } else {
                         Log.error("❌ Failed to start accessing security-scoped resource", category: .storage)
@@ -130,8 +131,8 @@ class StorageManager {
                 Log.error("❌ Failed to resolve bookmark: \(error)", category: .storage)
             }
         }
-        
-        
+        #endif
+
         // Default path (Application Support - no security scope needed)
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let defaultPath = appSupport.appendingPathComponent("Seahorse", isDirectory: true)

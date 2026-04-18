@@ -98,6 +98,30 @@ struct AnyCollectionItem: Identifiable, Codable {
         }
         return Date()
     }
+
+    /// Get the category ID from any item type
+    var categoryId: UUID {
+        if let bookmark = bookmark {
+            return bookmark.categoryId
+        } else if let imageItem = imageItem {
+            return imageItem.categoryId
+        } else if let textItem = textItem {
+            return textItem.categoryId
+        }
+        fatalError("AnyCollectionItem has no underlying item")
+    }
+
+    /// Get the tag IDs from any item type
+    var tagIds: [UUID] {
+        if let bookmark = bookmark {
+            return bookmark.tagIds
+        } else if let imageItem = imageItem {
+            return imageItem.tagIds
+        } else if let textItem = textItem {
+            return textItem.tagIds
+        }
+        return []
+    }
 }
 
 // NOTE:

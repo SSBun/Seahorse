@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  TagManagementView.swift
 //  Seahorse
@@ -259,3 +260,5 @@ struct TagManagementView: View {
         .frame(width: 600, height: 500)
 }
 
+
+#endif

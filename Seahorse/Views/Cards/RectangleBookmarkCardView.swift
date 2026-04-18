@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  RectangleBookmarkCardView.swift
 //  Seahorse
@@ -233,3 +234,5 @@ struct RectangleBookmarkCardView: View {
     .frame(width: 500, height: 400)
 }
 
+
+#endif

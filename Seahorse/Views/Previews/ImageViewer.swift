@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ImageViewer.swift
 //  Seahorse
@@ -96,3 +97,5 @@ struct ImageViewer: View {
     }
 }
 
+
+#endif
