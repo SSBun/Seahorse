@@ -22,21 +22,40 @@ enum iOSItemKind: String, CaseIterable {
     }
 }
 
+enum iOSSortOrder: String, CaseIterable {
+    case newestFirst = "Newest First"
+    case oldestFirst = "Oldest First"
+
+    var icon: String {
+        switch self {
+        case .newestFirst: return "arrow.down.to.line"
+        case .oldestFirst: return "arrow.up.to.line"
+        }
+    }
+}
+
 struct iOSHomePageView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @State private var searchText = ""
     @State private var selectedKind: iOSItemKind = .all
     @State private var selectedCategory: Category?
     @State private var selectedTagIds: Set<UUID> = []
+    @State private var sortOrder: iOSSortOrder = .newestFirst
     @State private var showingFilter = false
 
     private var filteredItems: [AnyCollectionItem] {
-        dataStorage.items.filter { item in
+        let items = dataStorage.items.filter { item in
             let matchesKind = kindMatches(item)
             let matchesSearch = searchText.isEmpty || itemMatchesSearch(item, searchText)
             let matchesCategory = selectedCategory == nil || item.categoryId == selectedCategory?.id
             let matchesTags = selectedTagIds.isEmpty || !item.tagIds.filter { selectedTagIds.contains($0) }.isEmpty
             return matchesKind && matchesSearch && matchesCategory && matchesTags
+        }
+        return items.sorted { a, b in
+            switch sortOrder {
+            case .newestFirst: return a.addedDate > b.addedDate
+            case .oldestFirst: return a.addedDate < b.addedDate
+            }
         }
     }
 
@@ -75,7 +94,8 @@ struct iOSHomePageView: View {
                 iOSFilterView(
                     selectedKind: $selectedKind,
                     selectedCategory: $selectedCategory,
-                    selectedTagIds: $selectedTagIds
+                    selectedTagIds: $selectedTagIds,
+                    sortOrder: $sortOrder
                 )
             }
         }
@@ -134,11 +154,33 @@ struct iOSFilterView: View {
     @Binding var selectedKind: iOSItemKind
     @Binding var selectedCategory: Category?
     @Binding var selectedTagIds: Set<UUID>
+    @Binding var sortOrder: iOSSortOrder
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
+                // Sort
+                Section("Sort") {
+                    ForEach(iOSSortOrder.allCases, id: \.self) { order in
+                        Button {
+                            sortOrder = order
+                        } label: {
+                            HStack {
+                                Image(systemName: order.icon)
+                                    .frame(width: 24)
+                                Text(order.rawValue)
+                                Spacer()
+                                if sortOrder == order {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                }
+
                 // Kind
                 Section("Kind") {
                     ForEach(iOSItemKind.allCases, id: \.self) { kind in
@@ -232,6 +274,7 @@ struct iOSFilterView: View {
                         selectedKind = .all
                         selectedCategory = nil
                         selectedTagIds.removeAll()
+                        sortOrder = .newestFirst
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
