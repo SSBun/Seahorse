@@ -11,6 +11,7 @@ import ZipArchive
 struct iOSSettingsView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var appearanceManager: AppearanceManager
+    @StateObject private var aiSettings = AISettings.shared
     @State private var isImporting = false
     @State private var importError: String?
     @State private var importSuccess: String?
@@ -38,6 +39,14 @@ struct iOSSettingsView: View {
                         }
                     }
                     .disabled(isImportingInProgress)
+                }
+
+                Section("AI") {
+                    Toggle("Auto AI Parsing", isOn: $aiSettings.autoParsingEnabled)
+                    if aiSettings.autoParsingEnabled {
+                        Toggle("Create New Categories", isOn: $aiSettings.autoParsingCreateCategories)
+                        Toggle("Create New Tags", isOn: $aiSettings.autoParsingCreateTags)
+                    }
                 }
 
                 Section("About") {

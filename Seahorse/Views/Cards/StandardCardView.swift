@@ -16,6 +16,7 @@ import Kingfisher
 struct StandardCardView: View, Equatable {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
+    @EnvironmentObject var autoParsingService: AutoParsingService
     @Environment(\.openWindow) var openWindow
     @StateObject private var appearanceManager = AppearanceManager.shared
     let item: AnyCollectionItem
@@ -329,6 +330,12 @@ struct StandardCardView: View, Equatable {
             // Layer 2: Bottom Container (Title + Metadata) overlays on top
             bottomContainer
                 .zIndex(1)
+
+            // Layer 3: Parsing fire effect overlay
+            if autoParsingService.parsingItemId == item.id {
+                ParsingFireEffect()
+                    .zIndex(2)
+            }
         }
         .background {
             RoundedRectangle(cornerRadius: 12)
@@ -508,9 +515,16 @@ struct StandardCardView: View, Equatable {
         case .bookmark:
             if let bookmark = bookmark {
                 Button(action: {
+                    autoParsingService.parseSpecificBookmark(id: bookmark.id)
+                }) {
+                    Label("Quick AI Parse", systemImage: "sparkles")
+                }
+                .disabled(autoParsingService.parsingItemId != nil)
+
+                Button(action: {
                     showingEditSheet = true
                 }) {
-                    Label("AI Parse", systemImage: "pencil")
+                    Label("Edit", systemImage: "pencil")
                 }
                 
                 Button(action: {

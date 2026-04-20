@@ -59,6 +59,24 @@ class AISettings: ObservableObject {
             UserDefaults.standard.set(aiLanguage.rawValue, forKey: "ai_language")
         }
     }
+
+    @Published var autoParsingEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(autoParsingEnabled, forKey: "ai_auto_parsing_enabled")
+        }
+    }
+
+    @Published var autoParsingCreateCategories: Bool {
+        didSet {
+            UserDefaults.standard.set(autoParsingCreateCategories, forKey: "ai_auto_parsing_create_categories")
+        }
+    }
+
+    @Published var autoParsingCreateTags: Bool {
+        didSet {
+            UserDefaults.standard.set(autoParsingCreateTags, forKey: "ai_auto_parsing_create_tags")
+        }
+    }
     
     private init() {
         // Load from UserDefaults or use defaults
@@ -76,14 +94,14 @@ Return only the summary text, nothing else. Keep it under 50 words.
 """
         
         self.categorizingPrompt = UserDefaults.standard.string(forKey: "ai_categorizing_prompt") ?? """
-Based on the following webpage content and title, suggest the most appropriate category.
+Based on the following webpage content and title, you MUST select the most appropriate category from the available categories. Do not return "None" or empty — always pick one.
 
 Title: {title}
 Content: {content}
 
 Available Categories: {categories}
 
-If an existing category fits well, return only that category name. If none of the existing categories fit well, suggest a NEW category name that would be appropriate for this content (single word, capitalized, like "Technology", "Finance", "Design", etc.).
+If an existing category fits, return only that category name. If none fit well, suggest a NEW category name (single word, capitalized, like "Technology", "Finance", "Design").
 
 Return only one category name, nothing else.
 """
@@ -121,6 +139,10 @@ Return only the cleaned title, nothing else.
         } else {
             self.aiLanguage = .english
         }
+
+        self.autoParsingEnabled = UserDefaults.standard.bool(forKey: "ai_auto_parsing_enabled")
+        self.autoParsingCreateCategories = UserDefaults.standard.object(forKey: "ai_auto_parsing_create_categories") as? Bool ?? false
+        self.autoParsingCreateTags = UserDefaults.standard.object(forKey: "ai_auto_parsing_create_tags") as? Bool ?? true
     }
 }
 

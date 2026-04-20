@@ -17,6 +17,35 @@ struct AISettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // Auto AI Parsing
+                VStack(alignment: .leading, spacing: 10) {
+                    Toggle("Auto AI Parsing", isOn: $aiSettings.autoParsingEnabled)
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Text("Automatically parse new bookmarks with AI to refine title, generate summary, and suggest tags")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    if aiSettings.autoParsingEnabled {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle("Create New Categories", isOn: $aiSettings.autoParsingCreateCategories)
+                                .font(.system(size: 12))
+                            Text("Allow AI to create new categories when parsing")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+
+                            Toggle("Create New Tags", isOn: $aiSettings.autoParsingCreateTags)
+                                .font(.system(size: 12))
+                            Text("Allow AI to create new tags when parsing")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.leading, 20)
+                    }
+                }
+
+                Divider()
+
                 // API Base URL
                 VStack(alignment: .leading, spacing: 10) {
                     Text("API Base URL")

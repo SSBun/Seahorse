@@ -22,6 +22,9 @@ struct SeahorseApp: App {
     // Copy monitoring
     @StateObject private var copyMonitor = CopyMonitor.shared
 
+    // Auto AI Parsing
+    @StateObject private var autoParsingService = AutoParsingService(dataStorage: DataStorage.shared)
+
     // Status Bar Manager
     @State private var statusBarManager: StatusBarManager?
 
@@ -44,6 +47,7 @@ struct SeahorseApp: App {
             ContentView(batchParsingService: batchParsingService)
                 .environmentObject(dataStorage)
                 .environmentObject(itemDetailState)
+                .environmentObject(autoParsingService)
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
@@ -141,6 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 struct SeahorseApp: App {
     @StateObject private var dataStorage = DataStorage.shared
     @StateObject private var appearanceManager = AppearanceManager.shared
+    @StateObject private var autoParsingService = AutoParsingService(dataStorage: DataStorage.shared)
 
     init() {
         // Initialize NotificationService early to set up delegate
@@ -152,6 +157,7 @@ struct SeahorseApp: App {
             iOSContentView()
                 .environmentObject(dataStorage)
                 .environmentObject(appearanceManager)
+                .environmentObject(autoParsingService)
         }
     }
 }

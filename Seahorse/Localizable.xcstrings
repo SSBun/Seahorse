@@ -190,6 +190,9 @@
         }
       }
     },
+    "AI Parsing..." : {
+
+    },
     "AI suggested new categories and tags that don't exist yet. Select which ones you'd like to create:" : {
 
     },
@@ -237,6 +240,12 @@
 
     },
     "All your bookmarks are accessible." : {
+
+    },
+    "Allow AI to create new categories when parsing" : {
+
+    },
+    "Allow AI to create new tags when parsing" : {
 
     },
     "API Base URL" : {
@@ -309,6 +318,12 @@
 
     },
     "Auto" : {
+
+    },
+    "Auto AI Parsing" : {
+
+    },
+    "Automatically parse new bookmarks with AI to refine title, generate summary, and suggest tags" : {
 
     },
     "Automatically save items when you copy the same content twice within the time window" : {
@@ -559,7 +574,13 @@
     "Create backup in data folder" : {
 
     },
+    "Create New Categories" : {
+
+    },
     "Create New Items?" : {
+
+    },
+    "Create New Tags" : {
 
     },
     "Create Selected" : {
@@ -1096,6 +1117,9 @@
       }
     },
     "pt" : {
+
+    },
+    "Quick AI Parse" : {
 
     },
     "Refresh" : {
