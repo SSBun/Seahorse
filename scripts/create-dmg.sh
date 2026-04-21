@@ -39,7 +39,15 @@ echo -e "${GREEN}App built at: $APP_PATH${NC}"
 
 # Get version from tag or use default
 VERSION=${1:-"dev"}
-DMG_NAME="Seahorse-${VERSION}.dmg"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+DIST_DIR="dist/Seahorse-${VERSION}_${TIMESTAMP}"
+mkdir -p "$DIST_DIR"
+
+# Copy build product to dist
+cp -R "$APP_PATH" "$DIST_DIR/"
+echo -e "${GREEN}Build product saved to: $DIST_DIR/Seahorse.app${NC}"
+
+DMG_NAME="$DIST_DIR/Seahorse-${VERSION}.dmg"
 
 echo -e "${GREEN}Creating DMG: $DMG_NAME${NC}"
 
@@ -74,11 +82,11 @@ fi
 rm -rf "$TMP_DIR"
 
 # Calculate checksum
-shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
+shasum -a 256 "$DMG_NAME" > "${DIST_DIR}/${DMG_NAME##*/}.sha256"
 
 echo -e "${GREEN}✓ DMG created: $DMG_NAME${NC}"
 echo -e "${GREEN}✓ Checksum: ${NC}"
-cat "${DMG_NAME}.sha256"
+cat "${DIST_DIR}/${DMG_NAME##*/}.sha256"
 
 echo ""
 echo -e "${GREEN}To test the DMG:${NC}"
