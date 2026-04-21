@@ -29,10 +29,26 @@ Seahorse is more than just a bookmark manager—it's a versatile material collec
 - **Images**: Supports both local and network images
 - **Text Snippets**: Save code snippets, notes, ideas, and any text content
 
+### 🤖 AI-Powered Intelligence
+
+**Auto AI Parsing**
+- Automatically parse newly added bookmarks with AI — refine titles, generate summaries, and suggest tags
+- Configurable: optionally auto-create new categories and tags
+- Github repositories are automatically categorized
+
+**Batch AI Parsing**
+- Select multiple bookmarks and parse them all at once
+- Fire/sparkle animation effect on cards being parsed
+- Quick AI Parse from bookmark context menu
+
+**AI Settings**
+- Configure your own AI API endpoint and model
+- Toggle auto-parsing, category creation, and tag creation independently
+
 ### 🗂️ Smart Organization
 
 **Category Management**
-- Create custom categories with colors and icons for easy distinction
+- Create custom categories with colors and icons (800+ SF Symbols) for easy distinction
 - Quickly switch between different categories to view content
 
 **Tag System**
@@ -48,15 +64,27 @@ Seahorse is more than just a bookmark manager—it's a versatile material collec
 - Search by title, URL, or text content
 - Quickly locate the materials you need
 
+### 🩺 Bookmark Diagnostics
+
+- Select specific bookmarks or all to check for broken links
+- Category-filtered error view (404, timeout, SSL, network errors)
+- Batch delete broken bookmarks
+
 ### 📊 Multiple View Modes
 
 **Grid View**
 - Card-based display that's intuitive and beautiful
 - Supports image and icon previews
+- Configurable card spacing
 
 **List View**
 - Compact display with high information density
 - Perfect for quickly browsing large amounts of content
+
+### 📝 Markdown Support
+
+- Markdown content with syntax highlighting
+- Preview rendered markdown in detail view
 
 ### ⚙️ Personalized Settings
 
@@ -70,6 +98,12 @@ Seahorse is more than just a bookmark manager—it's a versatile material collec
 - Import bookmarks from browsers
 - Export to JSON format
 - Batch import support
+- Backup and restore
+
+### 📱 Cross-Platform
+
+- Full macOS experience with menu bar integration
+- iOS companion app with sort and filter support
 
 ## Use Cases
 

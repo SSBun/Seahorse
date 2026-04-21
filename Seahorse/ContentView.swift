@@ -342,9 +342,6 @@ struct ContentView: View {
                     // Diagnostic button
                     Button(action: {
                         showingDiagnosticResults = true
-                        if !diagnosticService.isRunning {
-                            diagnosticService.start()
-                        }
                     }) {
                         Image(systemName: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope")
                             .foregroundStyle(diagnosticService.isRunning ? .orange : .green)

@@ -40,32 +40,32 @@ class DiagnosticService: ObservableObject {
         self.dataStorage = dataStorage
     }
     
-    func start() {
+    func start(bookmarks: [Bookmark]? = nil) {
         guard !isRunning, let dataStorage = dataStorage else { return }
-        
-        let allBookmarks = dataStorage.bookmarks
-        guard !allBookmarks.isEmpty else { return }
-        
+
+        let targetBookmarks = bookmarks ?? dataStorage.bookmarks
+        guard !targetBookmarks.isEmpty else { return }
+
         isRunning = true
-        totalCount = allBookmarks.count
+        totalCount = targetBookmarks.count
         checkedCount = 0
         progress = 0
         results = []
         brokenBookmarks = []
-        
+
         print("🚀 Starting concurrent diagnostic scan")
-        print("  📊 Total bookmarks: \(allBookmarks.count)")
+        print("  📊 Total bookmarks: \(targetBookmarks.count)")
         print("  ⚡️ Concurrent workers: 10")
-        
+
         let startTime = Date()
-        
+
         task = Task {
-            await performConcurrentDiagnostics(bookmarks: allBookmarks)
+            await performConcurrentDiagnostics(bookmarks: targetBookmarks)
             
             let duration = Date().timeIntervalSince(startTime)
             print("✅ Diagnostic scan complete")
             print("  ⏱️ Duration: \(String(format: "%.2f", duration)) seconds")
-            print("  📈 Speed: \(String(format: "%.1f", Double(allBookmarks.count) / duration)) bookmarks/second")
+            print("  📈 Speed: \(String(format: "%.1f", Double(targetBookmarks.count) / duration)) bookmarks/second")
             print("  ❌ Broken bookmarks: \(self.brokenBookmarks.count)")
             
             await MainActor.run {

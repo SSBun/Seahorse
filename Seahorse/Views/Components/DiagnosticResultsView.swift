@@ -19,9 +19,9 @@ enum DiagnosticErrorCategory: String, CaseIterable, Identifiable {
     case sslError = "SSL/Certificate"
     case invalidURL = "Invalid URL"
     case other = "Other"
-    
+
     var id: String { rawValue }
-    
+
     var icon: String {
         switch self {
         case .all: return "exclamationmark.triangle.fill"
@@ -35,10 +35,10 @@ enum DiagnosticErrorCategory: String, CaseIterable, Identifiable {
         case .other: return "exclamationmark.circle.fill"
         }
     }
-    
+
     func matches(_ result: BookmarkDiagnosticResult) -> Bool {
         guard case .broken(let reason) = result.status else { return false }
-        
+
         switch self {
         case .all:
             return true
@@ -64,19 +64,39 @@ enum DiagnosticErrorCategory: String, CaseIterable, Identifiable {
     }
 }
 
+private enum DiagnosticPhase {
+    case selection
+    case results
+}
+
 struct DiagnosticResultsView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var dataStorage: DataStorage
     @ObservedObject var diagnosticService: DiagnosticService
-    
+
+    @State private var phase: DiagnosticPhase = .selection
+    @State private var selectedBookmarkIds: Set<UUID> = []
+    @State private var searchText = ""
+
+    // Results phase state
     @State private var selectedResults = Set<UUID>()
     @State private var showingDeleteConfirmation = false
     @State private var selectedCategory: DiagnosticErrorCategory = .all
-    
+
+    private var filteredBookmarks: [Bookmark] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let all = dataStorage.bookmarks
+        if query.isEmpty { return all }
+        return all.filter {
+            $0.title.lowercased().contains(query) ||
+            $0.url.lowercased().contains(query)
+        }
+    }
+
     var filteredResults: [BookmarkDiagnosticResult] {
         diagnosticService.brokenBookmarks.filter { selectedCategory.matches($0) }
     }
-    
+
     var categoryCounts: [DiagnosticErrorCategory: Int] {
         var counts: [DiagnosticErrorCategory: Int] = [:]
         for category in DiagnosticErrorCategory.allCases {
@@ -87,74 +107,224 @@ struct DiagnosticResultsView: View {
         }
         return counts
     }
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Diagnostic Results")
-                        .font(.system(size: 20, weight: .semibold))
-                    
-                    if diagnosticService.isRunning {
-                        HStack(spacing: 6) {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                                .frame(width: 16, height: 16)
-                            
-                            Text("Checking \(diagnosticService.checkedCount) of \(diagnosticService.totalCount)...")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                            
-                            if !diagnosticService.brokenBookmarks.isEmpty {
-                                Text("• \(diagnosticService.brokenBookmarks.count) broken")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(.red)
-                            }
-                        }
-                    } else if !diagnosticService.brokenBookmarks.isEmpty {
-                        Text("\(diagnosticService.brokenBookmarks.count) broken bookmarks found")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.red)
-                    } else if diagnosticService.checkedCount > 0 {
-                        Text("All bookmarks are accessible ✓")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.green)
-                    }
+            header
+
+            Divider()
+
+            if phase == .selection {
+                selectionContent
+            } else {
+                resultsContent
+            }
+        }
+        .frame(width: 700, height: 600)
+        .alert("Delete Bookmarks", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteSelectedBookmarks()
+            }
+        } message: {
+            Text("Are you sure you want to delete \(selectedResults.count) broken bookmark(s)? This action cannot be undone.")
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Diagnostic")
+                    .font(.system(size: 20, weight: .semibold))
+
+                if phase == .results {
+                    headerSubtitle
                 }
-                
-                Spacer()
-                
-                // Stop button when running
-                if diagnosticService.isRunning {
-                    Button(action: {
-                        diagnosticService.stop()
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "stop.circle.fill")
-                            Text("Stop")
-                        }
-                        .font(.system(size: 13))
+            }
+
+            Spacer()
+
+            if phase == .selection {
+                // Back to results if scan was previously run
+                if !diagnosticService.brokenBookmarks.isEmpty && !diagnosticService.isRunning {
+                    Button("View Previous Results") {
+                        phase = .results
+                    }
+                    .buttonStyle(.bordered)
+                    .font(.system(size: 12))
+                }
+            } else if diagnosticService.isRunning {
+                Button(action: {
+                    diagnosticService.stop()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stop.circle.fill")
+                        Text("Stop")
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(.red)
+                }
+                .buttonStyle(.borderless)
+            }
+
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    @ViewBuilder
+    private var headerSubtitle: some View {
+        if diagnosticService.isRunning {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                    .frame(width: 16, height: 16)
+
+                Text("Checking \(diagnosticService.checkedCount) of \(diagnosticService.totalCount)...")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                if !diagnosticService.brokenBookmarks.isEmpty {
+                    Text("• \(diagnosticService.brokenBookmarks.count) broken")
+                        .font(.system(size: 12))
                         .foregroundStyle(.red)
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Stop diagnostic scan")
                 }
-                
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
+            }
+        } else if !diagnosticService.brokenBookmarks.isEmpty {
+            Text("\(diagnosticService.brokenBookmarks.count) broken bookmarks found")
+                .font(.system(size: 12))
+                .foregroundStyle(.red)
+        } else if diagnosticService.checkedCount > 0 {
+            Text("All bookmarks are accessible ✓")
+                .font(.system(size: 12))
+                .foregroundStyle(.green)
+        }
+    }
+
+    // MARK: - Selection Phase
+
+    private var selectionContent: some View {
+        VStack(spacing: 0) {
+            // Search bar
+            searchBar
+            Divider()
+
+            // Bookmark list
+            if filteredBookmarks.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32))
                         .foregroundStyle(.secondary)
+                    Text("No bookmarks found")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredBookmarks) { bookmark in
+                            DiagnosticBookmarkRow(
+                                bookmark: bookmark,
+                                isSelected: selectedBookmarkIds.contains(bookmark.id),
+                                onToggle: {
+                                    if selectedBookmarkIds.contains(bookmark.id) {
+                                        selectedBookmarkIds.remove(bookmark.id)
+                                    } else {
+                                        selectedBookmarkIds.insert(bookmark.id)
+                                    }
+                                }
+                            )
+                            Divider().padding(.leading, 44)
+                        }
+                    }
+                }
+            }
+
+            Divider()
+
+            // Footer
+            selectionFooter
+        }
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 12))
+
+            TextField("Search bookmarks...", text: $searchText)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+
+            if !searchText.isEmpty {
+                Button(action: { searchText = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
-            .background(Color(NSColor.controlBackgroundColor))
-            
-            Divider()
-            
-            // Category filter (show when there are broken bookmarks, updates in real-time during scan)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.controlBackgroundColor))
+        .cornerRadius(8)
+        .padding(16)
+    }
+
+    private var selectionFooter: some View {
+        HStack(spacing: 12) {
+            Button(action: {
+                if selectedBookmarkIds.count == filteredBookmarks.count {
+                    selectedBookmarkIds.removeAll()
+                } else {
+                    selectedBookmarkIds = Set(filteredBookmarks.map { $0.id })
+                }
+            }) {
+                Text(selectedBookmarkIds.count == filteredBookmarks.count && !filteredBookmarks.isEmpty ? "Deselect All" : "Select All")
+                    .font(.system(size: 12))
+            }
+            .buttonStyle(.bordered)
+            .disabled(filteredBookmarks.isEmpty)
+
+            Spacer()
+
+            Text("\(filteredBookmarks.count) bookmarks")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+
+            Button(action: {
+                let selected = dataStorage.bookmarks.filter { selectedBookmarkIds.contains($0.id) }
+                diagnosticService.start(bookmarks: selected)
+                phase = .results
+            }) {
+                Text("Check Selected (\(selectedBookmarkIds.count))")
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedBookmarkIds.isEmpty)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
+    // MARK: - Results Phase
+
+    private var resultsContent: some View {
+        VStack(spacing: 0) {
+            // Category filter
             if !diagnosticService.brokenBookmarks.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
@@ -166,13 +336,12 @@ struct DiagnosticResultsView: View {
                                     isSelected: selectedCategory == category,
                                     action: {
                                         selectedCategory = category
-                                        selectedResults.removeAll() // Clear selection when changing category
+                                        selectedResults.removeAll()
                                     }
                                 )
                             }
                         }
-                        
-                        // Show "updating" indicator during scan
+
                         if diagnosticService.isRunning {
                             HStack(spacing: 4) {
                                 ProgressView()
@@ -188,16 +357,16 @@ struct DiagnosticResultsView: View {
                     .padding(.vertical, 12)
                 }
                 .background(Color(NSColor.controlBackgroundColor))
-                
+
                 Divider()
             }
-            
+
             // Progress bar
             if diagnosticService.isRunning {
                 VStack(spacing: 8) {
                     ProgressView(value: diagnosticService.progress)
                         .progressViewStyle(.linear)
-                    
+
                     if let current = diagnosticService.currentBookmark {
                         Text("Checking: \(current.title)")
                             .font(.system(size: 11))
@@ -208,55 +377,14 @@ struct DiagnosticResultsView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(Color(NSColor.windowBackgroundColor))
-                
+
                 Divider()
             }
-            
+
             // Results list
             if diagnosticService.brokenBookmarks.isEmpty {
-                // Empty state or scanning with no errors yet
-                VStack(spacing: 16) {
-                    if diagnosticService.isRunning {
-                        // Scanning, no errors found yet
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .padding(.bottom, 8)
-                        
-                        Text("Scanning...")
-                            .font(.system(size: 18, weight: .semibold))
-                        
-                        Text("No broken bookmarks found yet")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    } else if diagnosticService.checkedCount > 0 {
-                        // Scan complete, all good
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.green)
-                        
-                        Text("All Good!")
-                            .font(.system(size: 18, weight: .semibold))
-                        
-                        Text("All your bookmarks are accessible.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    } else {
-                        // No scan run yet
-                        Image(systemName: "stethoscope")
-                            .font(.system(size: 60))
-                            .foregroundStyle(.secondary)
-                        
-                        Text("No Results Yet")
-                            .font(.system(size: 18, weight: .semibold))
-                        
-                        Text("Run diagnostics to check your bookmarks.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                resultsEmptyState
             } else {
-                // Show results (updates in real-time during scan)
                 ScrollView {
                     LazyVStack(spacing: 1) {
                         ForEach(filteredResults) { result in
@@ -271,78 +399,120 @@ struct DiagnosticResultsView: View {
                     .padding(.top, 1)
                 }
             }
-            
+
             // Footer with actions
             if !diagnosticService.brokenBookmarks.isEmpty {
                 Divider()
-                
-                HStack(spacing: 12) {
-                    if !selectedResults.isEmpty {
-                        Text("\(selectedResults.count) selected")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    if selectedCategory != .all {
-                        Text("• \(selectedCategory.rawValue)")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.blue)
-                    }
-                    
-                    // Show scanning status in footer
-                    if diagnosticService.isRunning {
-                        HStack(spacing: 4) {
-                            Text("•")
-                                .foregroundStyle(.secondary)
-                            ProgressView()
-                                .scaleEffect(0.6)
-                            Text("Scanning in progress")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    
-                    Spacer()
-                    
-                    // Select All in Current Category (disabled while scanning)
-                    if selectedResults.count < filteredResults.count {
-                        Button(selectedCategory == .all ? "Select All" : "Select All in Category") {
-                            selectedResults = Set(filteredResults.map { $0.id })
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(diagnosticService.isRunning)
-                    }
-                    
-                    if !selectedResults.isEmpty {
-                        Button("Deselect All") {
-                            selectedResults.removeAll()
-                        }
-                        .buttonStyle(.borderless)
-                        
-                        Button("Delete Selected (\(selectedResults.count))") {
-                            showingDeleteConfirmation = true
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.red)
-                        .disabled(diagnosticService.isRunning)
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.vertical, 16)
-                .background(Color(NSColor.controlBackgroundColor))
+
+                resultsFooter
             }
-        }
-        .frame(width: 700, height: 600)
-        .alert("Delete Bookmarks", isPresented: $showingDeleteConfirmation) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                deleteSelectedBookmarks()
-            }
-        } message: {
-            Text("Are you sure you want to delete \(selectedResults.count) broken bookmark(s)? This action cannot be undone.")
         }
     }
-    
+
+    @ViewBuilder
+    private var resultsEmptyState: some View {
+        VStack(spacing: 16) {
+            if diagnosticService.isRunning {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .padding(.bottom, 8)
+
+                Text("Scanning...")
+                    .font(.system(size: 18, weight: .semibold))
+
+                Text("No broken bookmarks found yet")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            } else if diagnosticService.checkedCount > 0 {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundStyle(.green)
+
+                Text("All Good!")
+                    .font(.system(size: 18, weight: .semibold))
+
+                Text("All your bookmarks are accessible.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            } else {
+                Image(systemName: "stethoscope")
+                    .font(.system(size: 60))
+                    .foregroundStyle(.secondary)
+
+                Text("No Results Yet")
+                    .font(.system(size: 18, weight: .semibold))
+
+                Text("Run diagnostics to check your bookmarks.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var resultsFooter: some View {
+        HStack(spacing: 12) {
+            if !selectedResults.isEmpty {
+                Text("\(selectedResults.count) selected")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+
+            if selectedCategory != .all {
+                Text("• \(selectedCategory.rawValue)")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.blue)
+            }
+
+            if diagnosticService.isRunning {
+                HStack(spacing: 4) {
+                    Text("•")
+                        .foregroundStyle(.secondary)
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Scanning in progress")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Spacer()
+
+            // New scan button
+            Button("New Scan") {
+                selectedResults.removeAll()
+                selectedCategory = .all
+                phase = .selection
+            }
+            .buttonStyle(.borderless)
+
+            if selectedResults.count < filteredResults.count {
+                Button(selectedCategory == .all ? "Select All" : "Select All in Category") {
+                    selectedResults = Set(filteredResults.map { $0.id })
+                }
+                .buttonStyle(.borderless)
+                .disabled(diagnosticService.isRunning)
+            }
+
+            if !selectedResults.isEmpty {
+                Button("Deselect All") {
+                    selectedResults.removeAll()
+                }
+                .buttonStyle(.borderless)
+
+                Button("Delete Selected (\(selectedResults.count))") {
+                    showingDeleteConfirmation = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .disabled(diagnosticService.isRunning)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(Color(NSColor.controlBackgroundColor))
+    }
+
     private func toggleSelection(_ id: UUID) {
         if selectedResults.contains(id) {
             selectedResults.remove(id)
@@ -350,82 +520,122 @@ struct DiagnosticResultsView: View {
             selectedResults.insert(id)
         }
     }
-    
+
     private func deleteSelectedBookmarks() {
         let bookmarksToDelete = diagnosticService.brokenBookmarks
             .filter { selectedResults.contains($0.id) }
             .map { $0.bookmark }
-        
+
         for bookmark in bookmarksToDelete {
             try? dataStorage.deleteBookmark(bookmark)
         }
-        
-        // Remove deleted items from results
+
         diagnosticService.brokenBookmarks.removeAll { selectedResults.contains($0.id) }
         selectedResults.removeAll()
     }
 }
 
+// MARK: - Bookmark Selection Row
+
+private struct DiagnosticBookmarkRow: View {
+    let bookmark: Bookmark
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onToggle) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 18))
+                    .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+
+            BookmarkIconView(iconString: bookmark.icon, size: 16)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bookmark.title)
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+
+                if let url = URL(string: bookmark.url), let host = url.host {
+                    Text(host)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(isHovered ? Color.primary.opacity(0.04) : .clear)
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovered = hovering
+        }
+    }
+}
+
+// MARK: - Result Row
+
 struct DiagnosticResultRow: View {
     let result: BookmarkDiagnosticResult
     let isSelected: Bool
     let onToggle: () -> Void
-    
+
     @State private var isHovered = false
-    
+
     var body: some View {
         HStack(spacing: 12) {
-            // Checkbox
-            Button(action: {
-                onToggle()
-            }) {
+            Button(action: onToggle) {
                 Image(systemName: isSelected ? "checkmark.square.fill" : "square")
                     .font(.system(size: 18))
                     .foregroundStyle(isSelected ? .blue : .secondary)
             }
             .buttonStyle(.plain)
-            .onTapGesture {
-                // Prevent event from bubbling to parent
-            }
-            
-            // Icon
+            .onTapGesture { }
+
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Color.red.opacity(0.1))
-                
+
                 BookmarkIconView(iconString: result.bookmark.icon, size: 16)
                     .frame(width: 24, height: 24)
             }
             .frame(width: 32, height: 32)
-            
-            // Content
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 4) {
                     Text(result.bookmark.title)
                         .font(.system(size: 13, weight: .medium))
                         .lineLimit(1)
-                    
+
                     Image(systemName: "arrow.up.forward.app")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                         .opacity(isHovered ? 1.0 : 0.0)
                 }
-                
+
                 Text(result.bookmark.url)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                
+
                 if case .broken(let reason) = result.status {
                     HStack(spacing: 4) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 10))
                             .foregroundStyle(.red)
-                        
+
                         Text(reason)
                             .font(.system(size: 11))
                             .foregroundStyle(.red)
-                        
+
                         if let errorMessage = result.errorMessage {
                             Text("• \(errorMessage)")
                                 .font(.system(size: 10))
@@ -435,10 +645,9 @@ struct DiagnosticResultRow: View {
                     }
                 }
             }
-            
+
             Spacer()
-            
-            // Status badge
+
             if let statusCode = result.httpStatusCode {
                 Text("\(statusCode)")
                     .font(.system(size: 11, weight: .medium))
@@ -462,7 +671,6 @@ struct DiagnosticResultRow: View {
             isHovered = hovering
         }
         .onTapGesture {
-            // Open URL in browser for verification
             if let url = URL(string: result.bookmark.url) {
                 NSWorkspace.shared.open(url)
             }
@@ -471,21 +679,23 @@ struct DiagnosticResultRow: View {
     }
 }
 
+// MARK: - Category Filter Button
+
 struct CategoryFilterButton: View {
     let category: DiagnosticErrorCategory
     let count: Int
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: category.icon)
                     .font(.system(size: 12))
-                
+
                 Text(category.rawValue)
                     .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
-                
+
                 Text("\(count)")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(isSelected ? .white : .secondary)
@@ -515,10 +725,9 @@ struct CategoryFilterButton: View {
 #Preview {
     let dataStorage = DataStorage.shared
     let diagnosticService = DiagnosticService(dataStorage: dataStorage)
-    
+
     DiagnosticResultsView(diagnosticService: diagnosticService)
         .environmentObject(dataStorage)
 }
-
 
 #endif
