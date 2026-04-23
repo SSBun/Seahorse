@@ -29,10 +29,10 @@ struct StandardCardView: View, Equatable {
         lhs.item.id == rhs.item.id
     }
     
-    // Extract specific item types - always read from dataStorage for live updates
-    private var bookmark: Bookmark? { dataStorage.bookmarks.first(where: { $0.id == item.id }) }
-    private var imageItem: ImageItem? { dataStorage.items.first(where: { $0.id == item.id })?.asImageItem }
-    private var textItem: TextItem? { dataStorage.items.first(where: { $0.id == item.id })?.asTextItem }
+    // Extract specific item types - O(1) lookup via DataStorage cache
+    private var bookmark: Bookmark? { dataStorage.item(for: item.id)?.asBookmark }
+    private var imageItem: ImageItem? { dataStorage.item(for: item.id)?.asImageItem }
+    private var textItem: TextItem? { dataStorage.item(for: item.id)?.asTextItem }
     
     // MARK: - Computed Properties
     

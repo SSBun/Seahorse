@@ -92,10 +92,17 @@ struct StandardListItemView: View, Equatable {
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
-                    } else if let nsImage = NSImage(contentsOfFile: resolvedPath) {
-                        // Optimized: Create thumbnail for local images
-                        let thumbnail = nsImage.resized(to: CGSize(width: 40, height: 40))
-                        Image(nsImage: thumbnail)
+                    } else {
+                        let fileURL = URL(fileURLWithPath: resolvedPath)
+                        KFImage.url(fileURL)
+                            .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 80, height: 80)))
+                            .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                            .cacheMemoryOnly()
+                            .placeholder {
+                                Image(systemName: "photo")
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)

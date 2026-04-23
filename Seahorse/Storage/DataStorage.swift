@@ -34,6 +34,7 @@ class DataStorage: ObservableObject {
     // MARK: - Performance Optimization: Lookup Caches (O(1) instead of O(n))
     private var _categoryCache: [UUID: Category] = [:]
     private var _tagCache: [UUID: Tag] = [:]
+    private var _itemCache: [UUID: AnyCollectionItem] = [:]
 
     /// O(1) category lookup by ID
     func category(for id: UUID) -> Category? {
@@ -54,6 +55,12 @@ class DataStorage: ObservableObject {
     private func rebuildCaches() {
         _categoryCache = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         _tagCache = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
+        _itemCache = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+    }
+
+    /// O(1) item lookup by ID
+    func item(for id: UUID) -> AnyCollectionItem? {
+        return _itemCache[id]
     }
     
     private init(database: DatabaseProtocol = JSONStorage()) {
