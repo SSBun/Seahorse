@@ -17,6 +17,42 @@ struct AISettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                // Image Generation
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Image Generation")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    Toggle("Use same API settings", isOn: $aiSettings.useSharedImageApi)
+                        .font(.system(size: 12))
+
+                    Text("When enabled, image generation uses the same API endpoint and token as text AI")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+
+                    if !aiSettings.useSharedImageApi {
+                        VStack(alignment: .leading, spacing: 10) {
+                            TextField("API Base URL", text: $aiSettings.imageApiBaseURL)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
+
+                            SecureField("API Token", text: $aiSettings.imageApiToken)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
+                        }
+                        .padding(.leading, 20)
+                    }
+
+                    TextField("Image Model", text: $aiSettings.imageModel)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+
+                    Text("Model for generating cover images (e.g., gpt-image-2, dall-e-3)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
                 // Auto AI Parsing
                 VStack(alignment: .leading, spacing: 10) {
                     Toggle("Auto AI Parsing", isOn: $aiSettings.autoParsingEnabled)

@@ -16,6 +16,7 @@ struct BookmarkDetailContentView: View {
     @State private var canGoBack = false
     @State private var canGoForward = false
     @State private var isLoading = false
+    @State private var showWebPreview = false
     
     // Snapshot state
     @State private var isSnapshotMode = false
@@ -25,55 +26,104 @@ struct BookmarkDetailContentView: View {
     @State private var snapshotError: String?
     
     private var currentBookmark: Bookmark? {
-        dataStorage.bookmarks.first(where: { $0.id == bookmark.id }) ?? bookmark
+        dataStorage.item(for: bookmark.id)?.asBookmark ?? bookmark
     }
     
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar
             bookmarkToolbar
+            loadingBar
             
-            // WebView
-            if let bookmark = currentBookmark,
-               let url = URL(string: bookmark.url) {
-                GeometryReader { geo in
-                    ZStack(alignment: .topLeading) {
-                        ControllableWebView(
-                            url: url,
-                            webView: $webView,
-                            canGoBack: $canGoBack,
-                            canGoForward: $canGoForward,
-                            isLoading: $isLoading
-                        )
-                        .background(
-                            GeometryReader { proxy in
-                                Color.clear
-                                    .onAppear {
-                                        snapshotOverlaySize = proxy.size
-                                    }
-                                    .onChange(of: proxy.size) { _, newValue in
-                                        snapshotOverlaySize = newValue
-                                    }
-                            }
-                        )
-                        
-                        if isSnapshotMode {
-                            SnapshotSelectionOverlay(
-                                selection: $snapshotSelection,
-                                containerSize: geo.size,
-                                isSaving: isSavingSnapshot,
-                                onSave: captureSnapshot,
-                                onCancel: exitSnapshotMode,
-                                errorMessage: snapshotError
-                            )
+            if showWebPreview {
+                webPreview
+            } else {
+                webPreviewPlaceholder
+            }
+        }
+        .onAppear {
+            Log.info("detail_open bookmark_detail_appear", category: .performance)
+        }
+    }
+
+    @ViewBuilder
+    private var webPreview: some View {
+        if let bookmark = currentBookmark,
+           let url = URL(string: bookmark.url) {
+            GeometryReader { geo in
+                ZStack(alignment: .topLeading) {
+                    ControllableWebView(
+                        url: url,
+                        webView: $webView,
+                        canGoBack: $canGoBack,
+                        canGoForward: $canGoForward,
+                        isLoading: $isLoading
+                    )
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onAppear {
+                                    snapshotOverlaySize = proxy.size
+                                }
+                                .onChange(of: proxy.size) { _, newValue in
+                                    snapshotOverlaySize = newValue
+                                }
                         }
+                    )
+
+                    if isSnapshotMode {
+                        SnapshotSelectionOverlay(
+                            selection: $snapshotSelection,
+                            containerSize: geo.size,
+                            isSaving: isSavingSnapshot,
+                            onSave: captureSnapshot,
+                            onCancel: exitSnapshotMode,
+                            errorMessage: snapshotError
+                        )
                     }
                 }
-            } else {
-                Text("Invalid URL")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+        } else {
+            Text("Invalid URL")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var webPreviewPlaceholder: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "globe")
+                .font(.system(size: 36))
+                .foregroundStyle(.secondary)
+
+            Text(currentBookmark?.url ?? bookmark.url)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .textSelection(.enabled)
+
+            Button {
+                showWebPreview = true
+            } label: {
+                Label("Open Web Preview", systemImage: "safari")
+            }
+            .buttonStyle(.borderedProminent)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var loadingBar: some View {
+        if showWebPreview && isLoading {
+            ProgressView()
+                .progressViewStyle(.linear)
+                .controlSize(.mini)
+                .frame(height: 2)
+        } else {
+            Color.clear
+                .frame(height: 2)
         }
     }
     
@@ -139,6 +189,7 @@ struct BookmarkDetailContentView: View {
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.plain)
+            .disabled(!showWebPreview)
             .foregroundStyle(.primary)
             .frame(width: 28, height: 28)
             .background(Color(NSColor.controlBackgroundColor))
@@ -151,6 +202,7 @@ struct BookmarkDetailContentView: View {
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.plain)
+            .disabled(!showWebPreview)
             .foregroundStyle(isSnapshotMode ? Color.accentColor : .primary)
             .frame(width: 28, height: 28)
             .background(isSnapshotMode ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor))

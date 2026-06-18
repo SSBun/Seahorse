@@ -17,7 +17,7 @@ struct StandardListItemView: View, Equatable {
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
-    @State private var tapTask: Task<Void, Never>?
+    private let rowHeight: CGFloat = 64
 
     // Equatable - only compare item ID to prevent unnecessary re-renders
     static func == (lhs: StandardListItemView, rhs: StandardListItemView) -> Bool {
@@ -122,8 +122,10 @@ struct StandardListItemView: View, Equatable {
                     Text(displayTitle)
                         .font(.system(size: 13))
                         .fontWeight(.medium)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                     
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
                 
                 if let subtitle = displaySubtitle {
@@ -131,10 +133,11 @@ struct StandardListItemView: View, Equatable {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
-            
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
             
             // Type Badge
             Text(itemTypeLabel)
@@ -161,7 +164,7 @@ struct StandardListItemView: View, Equatable {
                 .frame(width: 80, alignment: .trailing)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .frame(height: rowHeight)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color(NSColor.controlBackgroundColor) : Color.clear)
@@ -170,24 +173,10 @@ struct StandardListItemView: View, Equatable {
             isHovered = hovering
         }
         .onTapGesture(count: 2) {
-            // Cancel single tap task
-            tapTask?.cancel()
             handleDoubleTap()
         }
         .onTapGesture {
-            // Cancel any pending single tap
-            tapTask?.cancel()
-
-            // Schedule single tap action with delay to allow double tap detection
-            tapTask = Task {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
-                if !Task.isCancelled {
-                    await MainActor.run {
-                        itemDetailState.showItem(item.id)
-                        openWindow(id: "item-detail")
-                    }
-                }
-            }
+            openDetailWindow()
         }
         .contextMenu {
             Button(role: .destructive, action: {
@@ -225,6 +214,14 @@ struct StandardListItemView: View, Equatable {
     }
     
     // MARK: - Actions
+
+    private func openDetailWindow() {
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        Log.info("detail_open cell_tap source=list item_type=\(item.itemType.rawValue)", category: .performance)
+        itemDetailState.showItem(item.id, source: "list", requestedAt: startedAt)
+        openWindow(id: "item-detail")
+        Log.info("detail_open openWindow_return source=list elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
+    }
     
     private func toggleFavorite() {
         // TODO: Implement generic favorite toggle

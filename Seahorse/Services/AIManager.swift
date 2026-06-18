@@ -7,6 +7,7 @@
 
 import Foundation
 import OpenAI
+import OSLog
 
 enum AIError: LocalizedError {
     case invalidURL(String)
@@ -59,6 +60,16 @@ actor AIManager {
                 titleRefinementPrompt: settings.titleRefinementPrompt,
                 aiLanguage: settings.aiLanguage
             )
+        }
+    }
+
+    nonisolated private func getImageSettings() async -> (apiToken: String, apiBaseURL: String, model: String) {
+        await MainActor.run {
+            let settings = AISettings.shared
+            if settings.useSharedImageApi {
+                return (apiToken: settings.apiToken, apiBaseURL: settings.apiBaseURL, model: settings.imageModel)
+            }
+            return (apiToken: settings.imageApiToken, apiBaseURL: settings.imageApiBaseURL, model: settings.imageModel)
         }
     }
     
@@ -349,6 +360,105 @@ actor AIManager {
         )
     }
     
+    private func createImageClient() async throws -> OpenAI {
+        let settings = await getImageSettings()
+
+        Log.info("Creating image AI client — model: \(settings.model), baseURL: \(settings.apiBaseURL), token: \(settings.apiToken.isEmpty ? "empty" : "set(\(settings.apiToken.prefix(4))...)")", category: .ai)
+
+        guard !settings.apiToken.isEmpty else {
+            Log.error("Image AI client failed: API token is empty", category: .ai)
+            throw AIError.missingAPIKey
+        }
+
+        let baseURLString = settings.apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !baseURLString.isEmpty else {
+            Log.error("Image AI client failed: base URL is empty", category: .ai)
+            throw AIError.missingBaseURL
+        }
+        guard let baseURL = URL(string: baseURLString) else {
+            Log.error("Image AI client failed: invalid base URL — \(baseURLString)", category: .ai)
+            throw AIError.invalidURL(baseURLString)
+        }
+        guard let host = baseURL.host else {
+            Log.error("Image AI client failed: cannot extract host from — \(baseURLString)", category: .ai)
+            throw AIError.invalidURL(baseURLString)
+        }
+
+        var hostString = host
+        if baseURL.path != "/" && !baseURL.path.isEmpty {
+            hostString += baseURL.path
+        }
+
+        Log.debug("Image AI client host: \(hostString)", category: .ai)
+        let configuration = OpenAI.Configuration(token: settings.apiToken, host: hostString, timeoutInterval: 300)
+        return OpenAI(configuration: configuration)
+    }
+
+    func generateCoverImage(title: String, description: String?, url: String, siteName: String?) async throws -> Data {
+        Log.info("Starting cover image generation for bookmark: \"\(title)\"", category: .ai)
+
+        let settings = await getImageSettings()
+        Log.debug("Image settings — model: \(settings.model)", category: .ai)
+
+        let client = try await createImageClient()
+
+        var promptParts = ["Generate a visually appealing cover image for a bookmark/link collection app."]
+        promptParts.append("The bookmark title is: \"\(title)\"")
+        if let desc = description, !desc.isEmpty {
+            promptParts.append("Description: \"\(desc.prefix(200))\"")
+        }
+        if let site = siteName, !site.isEmpty {
+            promptParts.append("Website: \(site)")
+        }
+        promptParts.append("Create a modern, clean illustration that represents the content. No text in the image.")
+
+        let prompt = promptParts.joined(separator: " ")
+        Log.debug("Image generation prompt (\(prompt.count) chars): \(prompt.prefix(200))...", category: .ai)
+
+        let query = ImagesQuery(
+            prompt: prompt,
+            model: Model(settings.model),
+            n: 1,
+            responseFormat: .b64_json,
+            size: ._1024x1536
+        )
+
+        Log.info("Sending image generation request — model: \(settings.model), size: 1024x1536", category: .ai)
+
+        do {
+            let result = try await client.images(query: query)
+            Log.debug("Image API returned \(result.data.count) image(s)", category: .ai)
+
+            guard let imageData = result.data.first else {
+                Log.error("Image API returned empty data array", category: .ai)
+                throw AIError.invalidResponse
+            }
+
+            if let revised = imageData.revisedPrompt {
+                Log.debug("Revised prompt: \(revised.prefix(200))", category: .ai)
+            }
+
+            guard let b64 = imageData.b64Json else {
+                Log.error("Image API returned no b64_json — url field present: \(imageData.url != nil)", category: .ai)
+                throw AIError.invalidResponse
+            }
+
+            guard let data = Data(base64Encoded: b64) else {
+                Log.error("Failed to decode base64 image data (length: \(b64.count))", category: .ai)
+                throw AIError.invalidResponse
+            }
+
+            Log.info("Cover image generated successfully — \(data.count) bytes", category: .ai)
+            return data
+        } catch let error as AIError {
+            Log.error("Cover image generation failed (AIError): \(error.localizedDescription)", category: .ai)
+            throw error
+        } catch {
+            Log.error("Cover image generation failed: \(error.localizedDescription)", category: .ai)
+            throw AIError.apiError(error.localizedDescription)
+        }
+    }
+
     private func callAI(client: OpenAI, model: String, prompt: String) async throws -> String {
         guard let userMessage = ChatQuery.ChatCompletionMessageParam(role: .user, content: prompt) else {
             throw AIError.invalidResponse

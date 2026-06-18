@@ -60,6 +60,30 @@ class AISettings: ObservableObject {
         }
     }
 
+    @Published var imageApiBaseURL: String {
+        didSet {
+            UserDefaults.standard.set(imageApiBaseURL, forKey: "ai_image_api_base_url")
+        }
+    }
+
+    @Published var imageApiToken: String {
+        didSet {
+            UserDefaults.standard.set(imageApiToken, forKey: "ai_image_api_token")
+        }
+    }
+
+    @Published var imageModel: String {
+        didSet {
+            UserDefaults.standard.set(imageModel, forKey: "ai_image_model")
+        }
+    }
+
+    @Published var useSharedImageApi: Bool {
+        didSet {
+            UserDefaults.standard.set(useSharedImageApi, forKey: "ai_use_shared_image_api")
+        }
+    }
+
     @Published var autoParsingEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoParsingEnabled, forKey: "ai_auto_parsing_enabled")
@@ -83,6 +107,11 @@ class AISettings: ObservableObject {
         self.apiBaseURL = UserDefaults.standard.string(forKey: "ai_api_base_url") ?? "https://api.openai.com/v1"
         self.apiToken = UserDefaults.standard.string(forKey: "ai_api_token") ?? ""
         self.model = UserDefaults.standard.string(forKey: "ai_model") ?? "gpt-4o-mini"
+
+        self.imageApiBaseURL = UserDefaults.standard.string(forKey: "ai_image_api_base_url") ?? "https://api.openai.com/v1"
+        self.imageApiToken = UserDefaults.standard.string(forKey: "ai_image_api_token") ?? ""
+        self.imageModel = UserDefaults.standard.string(forKey: "ai_image_model") ?? "gpt-image-2"
+        self.useSharedImageApi = UserDefaults.standard.object(forKey: "ai_use_shared_image_api") as? Bool ?? true
         
         self.pageSummaryPrompt = UserDefaults.standard.string(forKey: "ai_page_summary_prompt") ?? """
 Summarize the following webpage content concisely in 50 words or less. Focus on the main topic and key points.

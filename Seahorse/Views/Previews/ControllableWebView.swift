@@ -17,6 +17,8 @@ struct ControllableWebView: NSViewRepresentable {
     @Binding var isLoading: Bool
     
     func makeNSView(context: Context) -> WKWebView {
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        Log.info("detail_open webview_make_start host=\(url.host ?? "unknown")", category: .performance)
         let webView = WKWebView()
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
@@ -32,6 +34,8 @@ struct ControllableWebView: NSViewRepresentable {
         
         // Load initial URL
         webView.load(URLRequest(url: url))
+        let elapsed = (ProcessInfo.processInfo.systemUptime - startedAt) * 1000
+        Log.info("detail_open webview_make_done elapsed_ms=\(String(format: "%.1f", elapsed))", category: .performance)
         
         return webView
     }
@@ -62,6 +66,7 @@ struct ControllableWebView: NSViewRepresentable {
         @Binding var isLoading: Bool
         private var observation: NSKeyValueObservation?
         private var lastInitialURL: URL?
+        private var loadStartedAt: TimeInterval?
         
         init(
             canGoBack: Binding<Bool>,
@@ -104,6 +109,8 @@ struct ControllableWebView: NSViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+            loadStartedAt = ProcessInfo.processInfo.systemUptime
+            Log.info("detail_open webview_load_start", category: .performance)
             DispatchQueue.main.async {
                 self.isLoading = true
                 self.updateNavigationState(for: webView)
@@ -111,6 +118,8 @@ struct ControllableWebView: NSViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let elapsed = loadStartedAt.map { (ProcessInfo.processInfo.systemUptime - $0) * 1000 } ?? 0
+            Log.info("detail_open webview_load_finish elapsed_ms=\(String(format: "%.1f", elapsed))", category: .performance)
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.updateNavigationState(for: webView)
@@ -118,19 +127,21 @@ struct ControllableWebView: NSViewRepresentable {
         }
         
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            let elapsed = loadStartedAt.map { (ProcessInfo.processInfo.systemUptime - $0) * 1000 } ?? 0
+            Log.warning("detail_open webview_load_fail elapsed_ms=\(String(format: "%.1f", elapsed)) error=\(error.localizedDescription)", category: .performance)
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.updateNavigationState(for: webView)
             }
-            print("WebView error: \(error.localizedDescription)")
         }
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            let elapsed = loadStartedAt.map { (ProcessInfo.processInfo.systemUptime - $0) * 1000 } ?? 0
+            Log.warning("detail_open webview_load_provisional_fail elapsed_ms=\(String(format: "%.1f", elapsed)) error=\(error.localizedDescription)", category: .performance)
             DispatchQueue.main.async {
                 self.isLoading = false
                 self.updateNavigationState(for: webView)
             }
-            print("WebView error: \(error.localizedDescription)")
         }
         
         deinit {

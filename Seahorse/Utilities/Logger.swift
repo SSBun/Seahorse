@@ -21,6 +21,7 @@ extension Logger {
     static let storage = Logger(subsystem: Log.subsystem, category: "storage")
     static let ai = Logger(subsystem: Log.subsystem, category: "ai")
     static let parsing = Logger(subsystem: Log.subsystem, category: "parsing")
+    static let performance = Logger(subsystem: Log.subsystem, category: "performance")
 }
 
 extension Log {

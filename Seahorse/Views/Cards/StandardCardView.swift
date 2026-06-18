@@ -22,7 +22,6 @@ struct StandardCardView: View, Equatable {
     let item: AnyCollectionItem
     @State private var isHovered = false
     @State private var showingEditSheet = false
-    @State private var tapTask: Task<Void, Never>?
 
     // Equatable - only compare item ID to prevent unnecessary re-renders
     static func == (lhs: StandardCardView, rhs: StandardCardView) -> Bool {
@@ -154,6 +153,7 @@ struct StandardCardView: View, Equatable {
                                 }
                                 .setProcessor(DownsamplingImageProcessor(size: geo.size))
                                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                                .loadDiskFileSynchronously()
                                 .cacheOriginalImage()
                                 .fade(duration: 0.25)
                                 .resizable()
@@ -178,6 +178,7 @@ struct StandardCardView: View, Equatable {
                                 }
                                 .setProcessor(DownsamplingImageProcessor(size: geo.size))
                                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                                .loadDiskFileSynchronously()
                                 .cacheOriginalImage()
                                 .fade(duration: 0.25)
                                 .resizable()
@@ -361,26 +362,11 @@ struct StandardCardView: View, Equatable {
             contextMenuContent
         }
         .onTapGesture(count: 2) {
-            // Cancel single tap task
-            tapTask?.cancel()
             // Handle double tap
             handleDoubleTap()
         }
         .onTapGesture {
-            // Cancel any pending single tap
-            tapTask?.cancel()
-            
-            // Schedule single tap action with delay to allow double tap detection
-            tapTask = Task {
-                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
-                if !Task.isCancelled {
-                    await MainActor.run {
-                        // Set current item and open detail window
-                        itemDetailState.showItem(item.id)
-                        openWindow(id: "item-detail")
-                    }
-                }
-            }
+            openDetailWindow()
         }
         .sheet(isPresented: $showingEditSheet) {
             if let bookmark = bookmark {
@@ -469,6 +455,7 @@ struct StandardCardView: View, Equatable {
                 }
                 .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                .loadDiskFileSynchronously()
                 .cacheOriginalImage()
                 .fade(duration: 0.25)
                 .resizable()
@@ -490,6 +477,7 @@ struct StandardCardView: View, Equatable {
                 }
                 .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                .loadDiskFileSynchronously()
                 .cacheOriginalImage()
                 .fade(duration: 0.25)
                 .resizable()
@@ -621,6 +609,14 @@ struct StandardCardView: View, Equatable {
     }
     
     // MARK: - Actions
+
+    private func openDetailWindow() {
+        let startedAt = ProcessInfo.processInfo.systemUptime
+        Log.info("detail_open cell_tap source=grid item_type=\(item.itemType.rawValue)", category: .performance)
+        itemDetailState.showItem(item.id, source: "grid", requestedAt: startedAt)
+        openWindow(id: "item-detail")
+        Log.info("detail_open openWindow_return source=grid elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
+    }
     
     private func handleDoubleTap() {
         switch item.itemType {

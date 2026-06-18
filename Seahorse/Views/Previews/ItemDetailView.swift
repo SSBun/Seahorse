@@ -10,6 +10,7 @@ import SwiftUI
 import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
+import OSLog
 
 struct ItemDetailView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -29,16 +30,17 @@ struct ItemDetailView: View {
     @State private var showingAlert = false
     @State private var isPreviewDropTarget = false
     @State private var showingEditSheet = false
+    @EnvironmentObject var imageGenerationService: ImageGenerationService
     
     // Extract specific item types
     private var bookmark: Bookmark? {
-        dataStorage.bookmarks.first(where: { $0.id == item.id }) ?? item.asBookmark
+        dataStorage.item(for: item.id)?.asBookmark ?? item.asBookmark
     }
     private var imageItem: ImageItem? {
-        dataStorage.items.first(where: { $0.id == item.id })?.asImageItem ?? item.asImageItem
+        dataStorage.item(for: item.id)?.asImageItem ?? item.asImageItem
     }
     private var textItem: TextItem? {
-        dataStorage.items.first(where: { $0.id == item.id })?.asTextItem ?? item.asTextItem
+        dataStorage.item(for: item.id)?.asTextItem ?? item.asTextItem
     }
     
     var body: some View {
@@ -54,7 +56,11 @@ struct ItemDetailView: View {
         .frame(minWidth: 500, minHeight: 500)
         .frame(idealWidth: 700, idealHeight: 550)
         .onAppear {
+            let startedAt = ProcessInfo.processInfo.systemUptime
+            Log.info("detail_open detail_view_appear item_type=\(item.itemType.rawValue)", category: .performance)
             loadItemData()
+            let elapsed = (ProcessInfo.processInfo.systemUptime - startedAt) * 1000
+            Log.info("detail_open loadItemData_done item_type=\(item.itemType.rawValue) elapsed_ms=\(String(format: "%.1f", elapsed))", category: .performance)
         }
         .confirmationDialog(
             "Delete Tag",
@@ -476,7 +482,20 @@ struct ItemDetailView: View {
             Text("Preview Image")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
-            
+
+            // AI Cover Generation Button
+            Button(action: generateCoverImage) {
+                HStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11))
+                    Text("Generate Cover")
+                        .font(.system(size: 11))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
+
             previewDropArea
             
             if let metadata = bookmark?.metadata {
@@ -634,6 +653,13 @@ struct ItemDetailView: View {
         return false
     }
     
+    private func generateCoverImage() {
+        guard let bookmark = bookmark else { return }
+        Log.info("User triggered cover generation for: \"\(bookmark.title)\"", category: .ai)
+        imageGenerationService.generate(for: bookmark)
+        imageGenerationService.showingPanel = true
+    }
+
     private func persistPreviewImage(_ image: NSImage) {
         DispatchQueue.main.async {
             guard let path = savePreviewImage(image) else { return }

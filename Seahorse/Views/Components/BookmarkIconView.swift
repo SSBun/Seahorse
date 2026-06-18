@@ -23,10 +23,15 @@ struct BookmarkIconView: View {
             if iconString.hasPrefix("http://") || iconString.hasPrefix("https://") {
                 // Remote URL
                 KFImage(URL(string: iconString))
+                    .setProcessor(DownsamplingImageProcessor(size: CGSize(width: size * 2, height: size * 2)))
+                    .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                    .loadDiskFileSynchronously()
+                    .cacheOriginalImage()
                     .placeholder {
                         ProgressView()
                             .scaleEffect(0.5)
                     }
+                    .fade(duration: 0.15)
                     .onFailure { _ in
                         // Fallback will be handled by parent or just empty
                     }

@@ -23,7 +23,13 @@
     "%lld" : {
 
     },
+    "%lld bookmarks" : {
+
+    },
     "%lld broken bookmarks found" : {
+
+    },
+    "%lld running" : {
 
     },
     "%lld selected" : {
@@ -305,6 +311,9 @@
         }
       }
     },
+    "Apply" : {
+
+    },
     "Are you sure you want to delete '%@'? Bookmarks in this category will be moved to the 'None' category." : {
 
     },
@@ -496,6 +505,9 @@
     "Check for Updates" : {
 
     },
+    "Check Selected (%lld)" : {
+
+    },
     "Checking %lld of %lld..." : {
       "localizations" : {
         "en" : {
@@ -516,6 +528,9 @@
 
     },
     "Choose Icon" : {
+
+    },
+    "Clear Completed" : {
 
     },
     "Click and drag over the page to choose the snapshot rectangle." : {
@@ -570,6 +585,9 @@
           }
         }
       }
+    },
+    "Cover Generation" : {
+
     },
     "Create backup in data folder" : {
 
@@ -653,7 +671,7 @@
     "Details" : {
 
     },
-    "Diagnostic Results" : {
+    "Diagnostic" : {
 
     },
     "Display a system notification at the top right when a new item is saved" : {
@@ -802,6 +820,12 @@
     "Filter by %@" : {
 
     },
+    "Generate Cover" : {
+
+    },
+    "Generating..." : {
+
+    },
     "gpt-4o-mini" : {
 
     },
@@ -824,6 +848,12 @@
 
     },
     "Image" : {
+
+    },
+    "Image Generation" : {
+
+    },
+    "Image Model" : {
 
     },
     "Image not available" : {
@@ -935,13 +965,22 @@
     "Model" : {
 
     },
+    "Model for generating cover images (e.g., gpt-image-2, dall-e-3)" : {
+
+    },
     "New Category" : {
+
+    },
+    "New Scan" : {
 
     },
     "New Tags" : {
 
     },
     "No Bookmarks" : {
+
+    },
+    "No bookmarks found" : {
 
     },
     "No bookmarks in None category" : {
@@ -951,6 +990,9 @@
 
     },
     "No broken bookmarks found yet" : {
+
+    },
+    "No generation tasks" : {
 
     },
     "No Icons Found" : {
@@ -1285,9 +1327,6 @@
     "Stop" : {
 
     },
-    "Stop diagnostic scan" : {
-
-    },
     "Stop Loading" : {
 
     },
@@ -1482,6 +1521,9 @@
     "Use {title}, {content}, and {tags} as placeholders" : {
 
     },
+    "Use same API settings" : {
+
+    },
     "Version" : {
 
     },
@@ -1503,6 +1545,12 @@
       }
     },
     "View Mode" : {
+
+    },
+    "View Previous Results" : {
+
+    },
+    "When enabled, image generation uses the same API endpoint and token as text AI" : {
 
     },
     "Why Accessibility Permission?" : {

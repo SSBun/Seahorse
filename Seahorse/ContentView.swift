@@ -46,8 +46,9 @@ struct ContentView: View {
     @ObservedObject var batchParsingService: BatchParsingService
     @StateObject private var diagnosticService: DiagnosticService
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
+    @StateObject private var toastManager = GlobalToastManager.shared
+    @EnvironmentObject var imageGenerationService: ImageGenerationService
     @StateObject private var pasteHandler: PasteHandler
-    @FocusState private var isSearchFocused: Bool
     @State private var isSyncing = false
     @State private var syncRotation: Double = 0
     @State private var syncStartTime: Date?
@@ -237,131 +238,69 @@ struct ContentView: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     // Kind filter dropdown
                     Menu {
-                        ForEach(ItemKind.allCases, id: \.self) { kind in
-                            Button(action: {
-                                selectedKind = kind
-                            }) {
-                                HStack {
-                                    Image(systemName: kind.icon)
-                                    Text(kind.rawValue)
-                                    if selectedKind == kind {
-                                        Spacer()
-                                        Image(systemName: "checkmark")
-                                    }
-                                }
+                        Picker("Kind", selection: $selectedKind) {
+                            ForEach(ItemKind.allCases, id: \.self) { kind in
+                                Label(kind.rawValue, systemImage: kind.icon)
+                                    .tag(kind)
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: selectedKind.icon)
-                                .font(.system(size: 12))
-                            Text(selectedKind.rawValue)
-                                .font(.system(size: 13))
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 10))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(6)
+                        Label(selectedKind.rawValue, systemImage: selectedKind.icon)
                     }
-                    .buttonStyle(.borderless)
-
-                    // Search field
-                    HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass")
-                            .foregroundStyle(.secondary)
-                            .font(.system(size: 12))
-
-                        TextField("Search", text: $searchText)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 13))
-                            .focused($isSearchFocused)
-                            .frame(width: 180)
-
-                        if !searchText.isEmpty {
-                            Button(action: {
-                                searchText = ""
-                            }) {
-                                Image(systemName: "xmark.circle.fill")
-                                    .foregroundStyle(.secondary)
-                                    .font(.system(size: 11))
-                            }
-                            .buttonStyle(.borderless)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color(NSColor.controlBackgroundColor))
-                    .cornerRadius(6)
 
                     // Sync button
                     Button(action: performManualSync) {
-                        Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                        Image(systemName: "arrow.triangle.2.circlepath")
                             .rotationEffect(.degrees(syncRotation))
                             .animation(isSyncing
                                        ? .linear(duration: 1.0).repeatForever(autoreverses: false)
                                        : .default,
                                        value: isSyncing)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(Color(NSColor.controlBackgroundColor))
-                            .cornerRadius(6)
                     }
-                    .buttonStyle(.borderless)
                     .help("Sync")
-                }
-                
-                ToolbarItemGroup(placement: .automatic) {
+
                     // Sort menu
                     SortMenuButton(sortPreferenceManager: sortPreferenceManager)
 
-                    // Batch parsing button
-                    Button(action: {
-                        showingBatchOperation = true
-                    }) {
-                        Image(systemName: batchParsingService.isRunning ? "pause.fill" : "play.fill")
-                            .foregroundStyle(batchParsingService.isRunning ? .orange : .blue)
+                    Menu {
+                        Button(action: {
+                            showingBatchOperation = true
+                        }) {
+                            Label(
+                                batchParsingService.isRunning ? "Batch Operation Running" : "Batch Operation",
+                                systemImage: batchParsingService.isRunning ? "pause.fill" : "play.fill"
+                            )
+                        }
+
+                        Button(action: {
+                            showingDiagnosticResults = true
+                        }) {
+                            Label(
+                                diagnosticService.brokenBookmarks.isEmpty ? "Check Broken Bookmarks" : "Broken Bookmarks (\(diagnosticService.brokenBookmarks.count))",
+                                systemImage: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope"
+                            )
+                        }
+
+                        Button(action: {
+                            imageGenerationService.showingPanel.toggle()
+                        }) {
+                            Label(
+                                imageGenerationService.activeCount > 0 ? "Cover Generation (\(imageGenerationService.activeCount))" : "Cover Generation",
+                                systemImage: imageGenerationService.isRunning ? "photo.fill" : "photo"
+                            )
+                        }
+                    } label: {
+                        Label("Tools", systemImage: "ellipsis.circle")
                     }
-                    .help("Batch Operation")
-
-                    // Parsing progress indicator
-                    if batchParsingService.isRunning, let current = batchParsingService.currentBookmark {
-                        HStack(spacing: 4) {
-                            ProgressView()
-                                .scaleEffect(0.6)
-
-                            Text("Parsing: \(current.title)")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .frame(maxWidth: 100)
+                    .help("Tools")
+                    .popover(isPresented: $imageGenerationService.showingPanel) {
+                        ImageGenerationPanelView(service: imageGenerationService) { taskId, image in
+                            applyGeneratedCover(taskId: taskId, image: image)
                         }
                     }
-                    
-                    // Diagnostic button
-                    Button(action: {
-                        showingDiagnosticResults = true
-                    }) {
-                        Image(systemName: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope")
-                            .foregroundStyle(diagnosticService.isRunning ? .orange : .green)
-                            .symbolEffect(.pulse, isActive: diagnosticService.isRunning)
-                    }
-                    .help("Check broken bookmarks")
-                    .overlay(alignment: .topTrailing) {
-                        if !diagnosticService.isRunning && !diagnosticService.brokenBookmarks.isEmpty {
-                            Text("\(diagnosticService.brokenBookmarks.count)")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(2)
-                                .background(Color.red)
-                                .clipShape(Circle())
-                                .offset(x: 4, y: -4)
-                        }
-                    }
-                    
-                    Divider()
-                    
+                }
+
+                ToolbarItemGroup(placement: .automatic) {
                     // View mode toggle
                     Picker("View Mode", selection: $viewMode) {
                         Label("Grid", systemImage: "square.grid.2x2")
@@ -371,9 +310,7 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .fixedSize()
-                    
-                    Divider()
-                    
+
                     // Add button with dropdown menu
                     Menu {
                         Button(action: {
@@ -400,6 +337,7 @@ struct ContentView: View {
                 }
             }
         }
+        .searchable(text: $searchText, placement: .toolbar, prompt: "Search")
         .background(WindowAccessor { window in
             if let window = window {
                 window.delegate = windowDelegate
@@ -489,6 +427,11 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowAddText"))) { _ in
             showingAddText = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowToast"))) { notification in
+            let message = notification.userInfo?["message"] as? String ?? ""
+            let icon = notification.userInfo?["icon"] as? String ?? "checkmark.circle.fill"
+            GlobalToastManager.shared.show(message: message, icon: icon)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .autoSyncStarted)) { _ in
             startSyncAnimation()
         }
@@ -498,6 +441,7 @@ struct ContentView: View {
         .onPasteCommand(of: [.url, .image, .plainText]) { providers in
             pasteHandler.handlePaste(providers: providers)
         }
+        .toast(isPresented: $toastManager.isPresented, message: toastManager.message, icon: toastManager.icon, duration: 3.0)
     }
     
     private var emptyStateView: some View {
@@ -523,10 +467,16 @@ struct ContentView: View {
     private func performManualSync() {
         guard !isSyncing else { return }
         startSyncAnimation()
-        
+
         Task { @MainActor in
-            // Force save triggers autoSync notifications; we handle animation stop with minimum duration.
-            DataStorage.shared.forceSaveAllData()
+            await ChromeBookmarkSyncService.shared.syncToChrome(from: dataStorage)
+            if let error = ChromeBookmarkSyncService.shared.lastError {
+                GlobalToastManager.shared.show(message: "Chrome sync failed: \(error)", icon: "xmark.circle.fill")
+            } else {
+                let count = ChromeBookmarkSyncService.shared.lastSyncCount
+                let profile = ChromeBookmarkSyncService.shared.lastProfileName ?? "Default"
+                GlobalToastManager.shared.show(message: "Synced \(count) bookmarks to Chrome (\(profile))", icon: "checkmark.circle.fill")
+            }
             stopSyncAnimation()
         }
     }
@@ -564,6 +514,44 @@ struct ContentView: View {
         // Use PasteHandler to process dropped items
         pasteHandler.handlePaste(providers: providers)
         return true
+    }
+
+    private func applyGeneratedCover(taskId: UUID, image: NSImage) {
+        guard let _ = imageGenerationService.applyImage(taskId: taskId) else { return }
+
+        let imagesDir = StorageManager.shared.getImagesDirectory()
+        do {
+            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+        } catch {
+            Log.error("Failed to create images directory: \(error)", category: .ai)
+            return
+        }
+
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
+
+        let filename = "preview-\(UUID().uuidString).png"
+        let fileURL = imagesDir.appendingPathComponent(filename)
+        do {
+            try pngData.write(to: fileURL)
+        } catch {
+            Log.error("Failed to write preview image to disk: \(error)", category: .ai)
+            return
+        }
+
+        // Find the bookmark and update its metadata
+        if let task = imageGenerationService.tasks.first(where: { $0.id == taskId }),
+           let bookmark = dataStorage.bookmarks.first(where: { $0.id == task.bookmarkId }) {
+            var updated = bookmark
+            if updated.metadata != nil {
+                updated.metadata?.imageURL = filename
+            } else {
+                updated.metadata = WebMetadata(imageURL: filename, url: updated.url)
+            }
+            try? dataStorage.updateBookmark(updated)
+            Log.info("Applied generated cover to bookmark: \"\(bookmark.title)\"", category: .ai)
+        }
     }
 }
 

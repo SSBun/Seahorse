@@ -25,6 +25,9 @@ struct SeahorseApp: App {
     // Auto AI Parsing
     @StateObject private var autoParsingService = AutoParsingService(dataStorage: DataStorage.shared)
 
+    // Image Generation
+    @StateObject private var imageGenerationService = ImageGenerationService.shared
+
     // Status Bar Manager
     @State private var statusBarManager: StatusBarManager?
 
@@ -48,6 +51,7 @@ struct SeahorseApp: App {
                 .environmentObject(dataStorage)
                 .environmentObject(itemDetailState)
                 .environmentObject(autoParsingService)
+                .environmentObject(imageGenerationService)
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
@@ -78,6 +82,7 @@ struct SeahorseApp: App {
             ItemDetailWindowView()
                 .environmentObject(dataStorage)
                 .environmentObject(itemDetailState)
+                .environmentObject(imageGenerationService)
         }
         .defaultSize(width: 1600, height: 1000)
         .defaultPosition(.center)
@@ -99,7 +104,7 @@ struct ItemDetailWindowView: View {
     var body: some View {
         Group {
             if let itemId = itemDetailState.currentItemId,
-               let item = dataStorage.items.first(where: { $0.id == itemId }) {
+               let item = dataStorage.item(for: itemId) {
                 ItemDetailView(item: item)
             } else {
                 VStack {
@@ -107,6 +112,12 @@ struct ItemDetailWindowView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+        }
+        .onAppear {
+            Log.info("detail_open window_appear source=\(itemDetailState.openRequestSourceName) item_set=\(itemDetailState.currentItemId != nil) elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
+        }
+        .onChange(of: itemDetailState.currentItemId) { _, itemId in
+            Log.info("detail_open window_item_change source=\(itemDetailState.openRequestSourceName) has_item=\(itemId != nil) elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
         }
     }
 }
@@ -118,9 +129,21 @@ struct ItemDetailWindowView: View {
 @MainActor
 final class ItemDetailState: ObservableObject {
     @Published var currentItemId: UUID?
+    private var openRequestStartedAt: TimeInterval?
+    private var openRequestSource = "unknown"
+    var openRequestSourceName: String { openRequestSource }
 
-    func showItem(_ itemId: UUID) {
+    func showItem(_ itemId: UUID, source: String = "unknown", requestedAt: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+        openRequestStartedAt = requestedAt
+        openRequestSource = source
+        Log.info("detail_open showItem source=\(source) item_type_pending=true elapsed_ms=\(elapsedSinceOpenRequestMs())", category: .performance)
         currentItemId = itemId
+    }
+
+    func elapsedSinceOpenRequestMs() -> String {
+        guard let openRequestStartedAt else { return "n/a" }
+        let elapsed = (ProcessInfo.processInfo.systemUptime - openRequestStartedAt) * 1000
+        return String(format: "%.1f", elapsed)
     }
 }
 
