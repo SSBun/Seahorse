@@ -176,3 +176,163 @@
 ## 审查记录
 - `ContentView` 移除了包在 Kind、Sync、Sort、Tools 外面的 `ControlGroup`，避免 `Menu` 形成外层玻璃和内层 button 的嵌套高亮。
 - `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Crop Interaction
+
+## 假设
+- 固定比例先使用常见的 16:9；以后确实需要再做比例输入。
+- 已创建选框后，拖动选框本体应该移动它；拖动空白区域创建新选框；单击空白区域清除选框。
+
+## 计划
+- [x] 给 snapshot overlay 增加 `Lock 16:9` 配置。
+- [x] 背景拖拽创建固定比例或自由比例选框。
+- [x] 选框本体拖拽移动，并限制在 WebView 范围内。
+- [x] 空白单击清除选框。
+- [x] 构建验证。
+
+## 审查记录
+- `SnapshotSelectionOverlay` 新增持久化的 `Lock 16:9` 开关。
+- 空白区域拖拽创建选框；开启比例锁时按 16:9 创建。
+- 已有选框可通过拖动选框本体移动，并限制在 WebView 范围内。
+- 单击空白区域会清除当前选框。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Drag Cursor
+
+## 假设
+- 只有已有选框本体是可拖动区域，空白区域用于创建/清除选框。
+
+## 计划
+- [x] 鼠标悬停在选框本体时显示 open hand 光标。
+- [x] 拖动选框时显示 closed hand 光标。
+- [x] 构建验证。
+
+## 审查记录
+- `SnapshotSelectionOverlay` 的选框本体 hover 时设置 `NSCursor.openHand`。
+- 拖动选框时设置 `NSCursor.closedHand`，拖动结束恢复 open hand。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Resize Handles
+
+## 假设
+- 先提供四角缩放；边缘缩放和任意比例菜单以后需要再加。
+- `Lock 16:9` 打开时，拖动角点缩放也保持 16:9。
+
+## 计划
+- [x] 给选框添加四个角点 resize handle。
+- [x] 拖动角点缩放选框，并限制在 WebView 范围内。
+- [x] 固定比例模式下 resize 保持 16:9。
+- [x] 构建验证。
+
+## 审查记录
+- `SnapshotSelectionOverlay` 给选框添加了四个角点 resize handle。
+- 拖动角点会以对角点为锚点缩放选框。
+- `Lock 16:9` 开启时，角点缩放继续保持 16:9。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Bookmark Poster Stable Cache
+
+## 假设
+- GitHub 等站点的 OpenGraph 图片 URL 可能随项目状态变化，按 URL 缓存会导致下次启动重新加载。
+- 先用 bookmark id 作为封面缓存 key，让同一条 bookmark 下次启动优先显示上次成功缓存的图片。
+- 不强制每次启动刷新远程封面，避免继续拖慢列表首屏。
+
+## 计划
+- [x] 给 bookmark 网格封面远程图片添加稳定 Kingfisher cache key。
+- [x] 保持本地截图/本地图片路径按原路径加载。
+- [x] 构建验证。
+
+## 审查记录
+- `StandardCardView` 的 bookmark 远程封面现在使用 `bookmark-preview-{bookmark.id}` 作为 Kingfisher cache key。
+- 本地截图、本地图片路径、image item 的加载逻辑保持原样。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Selection Hit Testing
+
+## 假设
+- 空白背景负责新建/清除选框。
+- 已有选框本体只负责拖动和拦截事件。
+- 只有四角 handle 能 resize。
+
+## 计划
+- [x] 让选框本体高优先级处理拖动，避免背景 drag 抢事件。
+- [x] 让选框本体拦截点击，空白点击才清除。
+- [x] 让四角 handle 独占 resize。
+- [x] 构建验证。
+
+## 审查记录
+- `SnapshotSelectionOverlay` 的选框本体现在使用高优先级拖动手势，并拦截点击。
+- 背景仍只负责空白区域的新建/清除选框。
+- 四角 resize handle 提升到选框上层，并扩大 hit area。
+- 底部保存/取消面板保持最高交互层级。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Poster Refresh
+
+## 假设
+- 现有日志没有 snapshot save 的应用级事件，无法直接从日志看到保存路径。
+- `DataStorage.updateBookmark` 更新了 `items`，但没有更新 `_itemCache`。
+- 卡片通过 `dataStorage.item(for:)` 读取 `_itemCache`，所以 save 后仍渲染旧 bookmark。
+
+## 计划
+- [x] 让 `DataStorage` 在 item 增删改时同步 `_itemCache`。
+- [x] 给 snapshot preview 更新成功/失败添加精简日志。
+- [x] 构建验证。
+
+## 审查记录
+- `/Users/caishilin/.venom/logs/Seahorse.log` 里没有 snapshot save / poster update 的应用级日志，只有 WebKit/CFNetwork 噪声，无法直接从日志判断保存是否成功。
+- 根因在 `DataStorage.item(for:)` 的 `_itemCache` 没有随 `updateBookmark` 更新，卡片刷新后仍读到旧 bookmark。
+- `DataStorage` 现在会在 item/bookmark 增删改时同步 `_itemCache`。
+- snapshot preview 保存成功/失败现在会写 `snapshot_preview_updated` / `snapshot_preview_update_failed` 日志。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Poster Ratio
+
+## 假设
+- 网格 poster 默认比例是 `4:3`。
+- 最小修复是把 snapshot crop 的固定比例从 `16:9` 改成默认开启的 `4:3`。
+- 先不做自定义比例编辑器。
+
+## 计划
+- [x] 把 snapshot ratio lock 默认值改为开启。
+- [x] 把固定比例从 `16:9` 改为 `4:3`。
+- [x] 构建验证。
+
+## 审查记录
+- snapshot crop 固定比例现在默认开启，并使用 `4:3`。
+- UI 文案从 `Lock 16:9` 改成 `Lock 4:3`。
+- 使用新的 `snapshotLockPosterAspectRatio` 存储 key，避免旧 `16:9` 偏好影响新默认。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Ratio Options
+
+## 假设
+- 用户需要直接在 snapshot 面板里选择多个比例。
+- 最小实现提供常用比例，不做自定义输入。
+- 默认比例使用 `16:9`。
+
+## 计划
+- [x] 增加 Free、4:3、16:9、1:1、3:2 ratio 选项。
+- [x] 将选框创建和 resize 都改为使用当前 ratio。
+- [x] 构建验证。
+
+## 审查记录
+- snapshot 面板里的单一 `Lock 4:3` 已替换为系统 `Picker` 菜单。
+- 当前可选比例为 `Free`、`4:3`、`16:9`、`1:1`、`3:2`，默认是 `16:9`。
+- 创建选框和拖动四角 resize 都会使用当前选择的比例。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Snapshot Default Ratio
+
+## 假设
+- 用户明确要求默认比例为 `16:9`。
+- 旧的 `4:3` 默认不应该继续从本地偏好里继承。
+
+## 计划
+- [x] 把 snapshot ratio 默认值改为 `16:9`。
+- [x] 构建验证。
+
+## 审查记录
+- snapshot ratio 的 `AppStorage` 默认值现在是 `16:9`。
+- 使用新的 `snapshotAspectRatioV2` key，避免旧 `4:3` 本地默认值继续生效。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。

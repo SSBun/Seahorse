@@ -99,6 +99,7 @@ class DataStorage: ObservableObject {
         do {
             try database.saveItem(item)
             items.append(item)
+            _itemCache[item.id] = item
             
             // Also add to type-specific array if it's a bookmark
             if let bookmark = item.asBookmark {
@@ -121,6 +122,7 @@ class DataStorage: ObservableObject {
             if let index = items.firstIndex(where: { $0.id == item.id }) {
                 items[index] = item
             }
+            _itemCache[item.id] = item
 
             // Also update type-specific array if it's a bookmark
             if let bookmark = item.asBookmark,
@@ -144,6 +146,7 @@ class DataStorage: ObservableObject {
         
         try database.deleteItem(item)
         items.removeAll { $0.id == item.id }
+        _itemCache.removeValue(forKey: item.id)
         
         // Also delete from type-specific array if it's a bookmark
         if let bookmark = item.asBookmark {
@@ -183,6 +186,7 @@ class DataStorage: ObservableObject {
         bookmarks.append(bookmark)
         let item = AnyCollectionItem(bookmark)
         items.append(item) // Also add to items array
+        _itemCache[bookmark.id] = item
         DLog("DataStorage: addBookmark success id=\(bookmark.id.uuidString) bookmarks=\(bookmarks.count) items=\(items.count)", category: .database)
         
         // Post notification for menu icon shaking animation
@@ -203,9 +207,11 @@ class DataStorage: ObservableObject {
             bookmarks[index] = bookmark
         }
         // Also update in items array
+        let item = AnyCollectionItem(bookmark)
         if let itemIndex = items.firstIndex(where: { $0.id == bookmark.id }) {
-            items[itemIndex] = AnyCollectionItem(bookmark)
+            items[itemIndex] = item
         }
+        _itemCache[bookmark.id] = item
         // Increment version to notify views of in-place update
         itemsVersion += 1
         DLog("DataStorage: updateBookmark success id=\(bookmark.id.uuidString)", category: .database)
@@ -215,6 +221,7 @@ class DataStorage: ObservableObject {
         try database.deleteBookmark(bookmark)
         bookmarks.removeAll { $0.id == bookmark.id }
         items.removeAll { $0.id == bookmark.id } // Also remove from items array
+        _itemCache.removeValue(forKey: bookmark.id)
     }
     
     func fetchBookmarks(for category: Category) throws -> [Bookmark] {
@@ -381,4 +388,3 @@ extension Notification.Name {
     static let autoSyncStarted = Notification.Name("SeahorseAutoSyncStarted")
     static let autoSyncEnded = Notification.Name("SeahorseAutoSyncEnded")
 }
-

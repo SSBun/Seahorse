@@ -108,7 +108,11 @@ struct StandardCardView: View, Equatable {
                 VStack(spacing: 0) {
                     if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL {
                         GeometryReader { geo in
-                            previewImage(for: previewURL, size: geo.size)
+                            previewImage(
+                                for: previewURL,
+                                size: geo.size,
+                                cacheKey: bookmarkPreviewCacheKey(for: bookmark)
+                            )
                         }
                         .onAppear {
                             // Configure timeout
@@ -439,13 +443,18 @@ struct StandardCardView: View, Equatable {
         .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
     }
     
+    private func bookmarkPreviewCacheKey(for bookmark: Bookmark) -> String {
+        "bookmark-preview-\(bookmark.id.uuidString)"
+    }
+
     @ViewBuilder
-    private func previewImage(for path: String, size: CGSize) -> some View {
+    private func previewImage(for path: String, size: CGSize, cacheKey: String? = nil) -> some View {
         if let remoteURL = URL(string: path),
            let scheme = remoteURL.scheme,
            scheme == "http" || scheme == "https" {
+            let resource = ImageResource(downloadURL: remoteURL, cacheKey: cacheKey)
             // Remote URL - use Kingfisher with disk cache
-            KFImage.url(remoteURL)
+            KFImage(source: .network(resource))
                 .placeholder {
                     Rectangle()
                         .fill(Color.gray.opacity(0.1))
