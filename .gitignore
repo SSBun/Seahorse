@@ -4,6 +4,7 @@
 !default.pbxuser
 !default.perspectivev3
 .accio/
+.superpowers/
 .DS_Store
 .netrc
 .swiftpm/config/registries.json

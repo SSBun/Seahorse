@@ -336,3 +336,20 @@
 - snapshot ratio 的 `AppStorage` 默认值现在是 `16:9`。
 - 使用新的 `snapshotAspectRatioV2` key，避免旧 `4:3` 本地默认值继续生效。
 - `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+
+# Agent Panel Spec
+
+## 假设
+- 采用右侧 inspector-style 第三列。
+- Agent 搜索结果只显示在 Agent 面板内，不影响主列表过滤。
+- 先复用现有 AI provider，不做 embedding 或向量库。
+
+## 计划
+- [x] 确认布局方案。
+- [x] 确认搜索结果作用范围。
+- [x] 写设计文档。
+- [ ] 等用户 review spec 后再写实现计划。
+
+## 审查记录
+- 设计文档写入 `docs/superpowers/specs/2026-06-22-agent-panel-design.md`。
+- `.superpowers/` 已加入 `.gitignore`，避免 visual companion 临时文件进入提交。
