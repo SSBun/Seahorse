@@ -436,13 +436,21 @@
 ## 计划
 - [x] 检查工作区和版本信息。
 - [x] 提交当前改动。
-- [ ] 确认目标版本号。
-- [ ] bump 版本并构建验证。
-- [ ] 生成发布产物并记录结果。
-- [ ] 创建 release commit/tag。
+- [x] 确认目标版本号。
+- [x] bump 版本并构建验证。
+- [x] 生成发布产物并记录结果。
+- [x] 创建 release commit/tag。
 
 ## 审查记录
 - 当前版本是 `1.5.1`，build number 是 `4`。
 - 现有 tag 使用 `v` 前缀，最新 tag 是 `v1.5.1`。
 - 当前改动的 Debug 构建通过；仅有既有 AppIntents metadata warning。
 - 当前功能改动已提交，提交标题为 `Add agent bookmark panel`。
+- 用户已确认发布 `1.6.0`，build number 使用 `5`。
+- `MARKETING_VERSION` 已更新到 `1.6.0`，`CURRENT_PROJECT_VERSION` 已更新到 `5`。
+- Debug 构建通过。
+- Release 构建通过；`scripts/create-dmg.sh` 的 `create-dmg` 分支没有生成最终目标 DMG，已使用 `hdiutil` 从同一 Release app 产物手动生成。
+- 发布产物：`dist/Seahorse-1.6.0_20260624_213028/Seahorse-1.6.0.dmg`。
+- SHA-256：`3e524b5d7527890064b879677f4b37f9a589d3325967b2270a925e41ac40a886`。
+- `hdiutil verify` 通过，app 内部版本为 `1.6.0` / `5`。
+- release commit 标题为 `Bump version to 1.6.0`，本地 tag 为 `v1.6.0`。
