@@ -359,6 +359,12 @@ actor AIManager {
             suggestedSFSymbol: sfSymbolName.isEmpty ? nil : sfSymbolName
         )
     }
+
+    func complete(prompt: String, temperature: Double = 0.2) async throws -> String {
+        let settings = await getSettings()
+        let client = try await createClient()
+        return try await callAI(client: client, model: settings.model, prompt: prompt, temperature: temperature)
+    }
     
     private func createImageClient() async throws -> OpenAI {
         let settings = await getImageSettings()
@@ -459,7 +465,7 @@ actor AIManager {
         }
     }
 
-    private func callAI(client: OpenAI, model: String, prompt: String) async throws -> String {
+    private func callAI(client: OpenAI, model: String, prompt: String, temperature: Double = 0.7) async throws -> String {
         guard let userMessage = ChatQuery.ChatCompletionMessageParam(role: .user, content: prompt) else {
             throw AIError.invalidResponse
         }
@@ -467,7 +473,7 @@ actor AIManager {
         let query = ChatQuery(
             messages: [userMessage],
             model: .init(model),
-            temperature: 0.7
+            temperature: temperature
         )
         
         do {
@@ -483,4 +489,3 @@ actor AIManager {
         }
     }
 }
-

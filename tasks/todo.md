@@ -353,3 +353,96 @@
 ## 审查记录
 - 设计文档写入 `docs/superpowers/specs/2026-06-22-agent-panel-design.md`。
 - `.superpowers/` 已加入 `.gitignore`，避免 visual companion 临时文件进入提交。
+
+# Thin AgentService Chat Panel
+
+## 假设
+- 不引入第三方 Agent 框架。
+- 先实现书签搜索工具，不做多工具编排和长期记忆。
+- 搜索结果只显示在右侧 Agent 面板，不影响主列表过滤状态。
+
+## 计划
+- [x] 给 `AIManager` 暴露通用 chat completion 方法。
+- [x] 新增 `AgentService`，包含本地候选预筛、AI JSON 结果解析和 bookmark 映射。
+- [x] 新增 `AgentPanelView`，包含消息、输入框、loading、结果卡片。
+- [x] 在 `ContentView` toolbar 加 Agent 按钮，并展开右侧第三列。
+- [x] 构建验证。
+
+## 审查记录
+- `AIManager.complete(prompt:temperature:)` 复用现有 OpenAI-compatible provider。
+- `AgentService` 实现书签搜索工具：本地预筛候选、请求 AI 返回 JSON、映射回 bookmark。
+- `AgentPanelView` 在右侧 320pt 第三列显示聊天和结果，点击结果打开现有详情窗口。
+- `ContentView` 使用系统 toolbar button 展开/收起 Agent 面板，不改主列表过滤状态。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warning。
+
+# Agent Result Count
+
+## 假设
+- 用户说 question 太多，指 Agent 面板一次返回的搜索结果太多。
+- 最小修复是限制 AI 只选最重要的 5 个书签结果。
+
+## 计划
+- [x] 将 Agent 结果数量限制从最多 8 个改为 5 个。
+- [x] 构建验证。
+
+## 审查记录
+- Agent prompt 现在要求 AI 只选择最相关的 5 个书签。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warning。
+
+# Startup Crash Diagnosis
+
+## 假设
+- 启动崩溃发生在 SwiftUI 构建主 `Window` 阶段，不是 Agent 请求阶段。
+- crash stack 指向 `ContentView.init(batchParsingService:)` 里的 `@StateObject` 初始化/销毁路径。
+- 最小修复是去掉 `ContentView.init` 内手动创建 `StateObject` 的闭包。
+
+## 计划
+- [x] 检查 `/Users/caishilin/.venom/logs/Seahorse.log`。
+- [x] 检查最新 DiagnosticReports crash report。
+- [x] 复现当前 Debug app 启动 crash。
+- [x] 简化 `ContentView` 的 `@StateObject` 初始化。
+- [x] 构建验证。
+- [x] 启动验证。
+
+## 审查记录
+- Seahorse log 尾部没有 Swift fatal/error，主要是大量 `CFURLResolveBookmarkData` 和 TCC/XPC 记录。
+- 最新 crash report 是 `Seahorse-2026-06-23-112722.ips`，异常为 `EXC_BAD_ACCESS / SIGBUS`，崩溃线程在 `SeahorseApp.body` 创建主 `Window` 时销毁 `ContentView.environmentObject(...)` 链。
+- `ContentView` 现在不再在 `init(batchParsingService:)` 里手动构造 `DiagnosticService` 和 `PasteHandler` 的 `StateObject`，改为属性默认初始化。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过。
+- 直接启动 Debug app 后运行超过 5 秒，没有生成新的 Seahorse crash report。
+
+# Agent Panel Layout Fix
+
+## 假设
+- 截图中的错误来自 `HSplitView` 给 Agent split item 分配了超过 320pt 的宽度。
+- 最小修复是让 Agent 面板作为固定宽度 inspector 列，不参与 split 宽度分配。
+
+## 计划
+- [x] 将 detail 区域的 Agent 容器从 `HSplitView` 改为 `HStack`。
+- [x] 让主内容占剩余宽度，Agent 保持固定 320pt。
+- [x] 构建验证。
+
+## 审查记录
+- Agent 面板现在跟随右侧边缘显示，不再留下右侧空白 split 区域。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warning。
+
+# Commit And Release
+
+## 假设
+- 用户要求先提交当前全部改动，再发布一个新版本。
+- 当前版本是 `1.5.1`，需要用户确认目标版本号后再修改版本、打 tag 或发布产物。
+- 不执行远端 push 或公开发布，除非用户明确确认。
+
+## 计划
+- [x] 检查工作区和版本信息。
+- [x] 提交当前改动。
+- [ ] 确认目标版本号。
+- [ ] bump 版本并构建验证。
+- [ ] 生成发布产物并记录结果。
+- [ ] 创建 release commit/tag。
+
+## 审查记录
+- 当前版本是 `1.5.1`，build number 是 `4`。
+- 现有 tag 使用 `v` 前缀，最新 tag 是 `v1.5.1`。
+- 当前改动的 Debug 构建通过；仅有既有 AppIntents metadata warning。
+- 当前功能改动已提交，提交标题为 `Add agent bookmark panel`。

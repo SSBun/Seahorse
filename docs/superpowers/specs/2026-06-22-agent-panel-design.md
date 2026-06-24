@@ -2,7 +2,7 @@
 
 ## 目标
 
-在主窗口右侧增加一个可展开的 Agent 第三列。用户点击顶部右侧 toolbar 的 Agent 图标后展开面板，在面板内通过聊天方式让 AI 搜索书签。
+在主窗口右侧增加一个可展开的 Agent 第三列。用户点击顶部右侧 toolbar 的 Agent 图标后展开面板，在面板内通过聊天方式让薄 `AgentService` 搜索书签。
 
 搜索结果只显示在 Agent 面板内，不改变主列表的分类、标签、搜索文本或排序状态。
 
@@ -14,6 +14,7 @@
 - 点击按钮展开或收起右侧第三列。
 - 第三列显示聊天界面：消息列表、输入框、发送按钮、加载状态。
 - Agent 使用现有 `AISettings` 和 `AIManager` 的 OpenAI-compatible provider。
+- Agent 系统先只包含一个书签搜索工具，不引入第三方 Agent 框架。
 - Agent 返回的书签结果显示在面板内。
 - 点击结果复用现有详情窗口打开对应 item。
 
@@ -39,15 +40,15 @@
 ## Agent 搜索流程
 
 1. 用户输入自然语言查询。
-2. 面板先把用户消息追加到 chat transcript。
-3. 本地对 bookmark 做轻量预筛：
+2. `AgentPanelView` 先把用户消息追加到 chat transcript。
+3. `AgentService` 本地对 bookmark 做轻量预筛：
    - title
    - url
    - notes
    - tag names
    - metadata description
-4. 取前一小批候选传给 AI。
-5. AI 返回最相关的书签 id 列表和简短原因。
+4. 取前一小批候选传给 `AIManager.complete(...)`。
+5. AI 返回最相关的 5 个书签 id 列表和简短原因。
 6. 面板渲染结果卡片。
 
 预筛是为了避免把所有书签一次性塞给模型，也降低 token 和延迟。
@@ -68,7 +69,7 @@
 }
 ```
 
-如果解析失败，面板显示 AI 的文本回复，并给出“未能解析结构化结果”的轻量错误提示。
+如果解析失败，面板显示 AI 的文本回复，不显示结构化结果。
 
 ## 状态
 
@@ -98,4 +99,3 @@
   - 可发送消息并看到 loading。
   - 结果只出现在 Agent 面板。
   - 点击结果打开现有详情窗口。
-

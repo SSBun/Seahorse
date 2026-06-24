@@ -44,14 +44,15 @@ struct ContentView: View {
     @State private var showingDiagnosticResults = false
     @State private var showingBatchOperation = false
     @ObservedObject var batchParsingService: BatchParsingService
-    @StateObject private var diagnosticService: DiagnosticService
+    @StateObject private var diagnosticService = DiagnosticService(dataStorage: .shared)
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
     @StateObject private var toastManager = GlobalToastManager.shared
     @EnvironmentObject var imageGenerationService: ImageGenerationService
-    @StateObject private var pasteHandler: PasteHandler
+    @StateObject private var pasteHandler = PasteHandler(dataStorage: .shared)
     @State private var isSyncing = false
     @State private var syncRotation: Double = 0
     @State private var syncStartTime: Date?
+    @State private var isAgentPanelVisible = false
 
     // Cached filtered items - only recalculates when filters change
     @State private var cachedItems: [AnyCollectionItem] = []
@@ -61,10 +62,7 @@ struct ContentView: View {
     @State private var windowDelegate = MainWindowDelegate()
     
     init(batchParsingService: BatchParsingService) {
-        let dataStorage = DataStorage.shared
         self.batchParsingService = batchParsingService
-        _diagnosticService = StateObject(wrappedValue: DiagnosticService(dataStorage: dataStorage))
-        _pasteHandler = StateObject(wrappedValue: PasteHandler(dataStorage: dataStorage))
     }
     
     var filteredItems: [AnyCollectionItem] {
@@ -210,24 +208,16 @@ struct ContentView: View {
             )
             .environmentObject(dataStorage)
         } detail: {
-            Group {
-                // Content area
-                if selectedCategory != nil || selectedTag != nil {
-                    ItemCollectionView(
-                        items: filteredItems,
-                        viewMode: viewMode
-                    )
-                    .overlay {
-                        if filteredItems.isEmpty {
-                            emptyStateView
-                                .background(Color(NSColor.windowBackgroundColor)) // Ensure it covers the content
-                        }
-                    }
-                } else {
-                    Text("Select a category")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+            HStack(spacing: 0) {
+                mainContentArea
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(minWidth: 420)
+
+                if isAgentPanelVisible {
+                    Divider()
+                    AgentPanelView()
+                        .environmentObject(dataStorage)
+                        .environmentObject(itemDetailState)
                 }
             }
             .navigationTitle(navigationTitle)
@@ -334,6 +324,13 @@ struct ContentView: View {
                         Label("Add", systemImage: "plus")
                     }
                     .help("Add Item")
+
+                    Button {
+                        isAgentPanelVisible.toggle()
+                    } label: {
+                        Label("Agent", systemImage: "sparkles")
+                    }
+                    .help(isAgentPanelVisible ? "Hide Agent" : "Show Agent")
                 }
             }
         }
@@ -442,6 +439,27 @@ struct ContentView: View {
             pasteHandler.handlePaste(providers: providers)
         }
         .toast(isPresented: $toastManager.isPresented, message: toastManager.message, icon: toastManager.icon, duration: 3.0)
+    }
+
+    @ViewBuilder
+    private var mainContentArea: some View {
+        if selectedCategory != nil || selectedTag != nil {
+            ItemCollectionView(
+                items: filteredItems,
+                viewMode: viewMode
+            )
+            .overlay {
+                if filteredItems.isEmpty {
+                    emptyStateView
+                        .background(Color(NSColor.windowBackgroundColor))
+                }
+            }
+        } else {
+            Text("Select a category")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
     
     private var emptyStateView: some View {

@@ -7,3 +7,5 @@
 - 维护 O(1) lookup cache 时，任何 source-of-truth 数组增删改都必须同步更新 cache；否则 SwiftUI 刷新后仍会从 stale cache 读旧模型。
 - 当用户指出“在这里加更多选项”时，应优先把当前控件扩展为同位置的系统选项菜单，而不是继续用单一开关或硬编码默认值。
 - 调整默认偏好值时，如果旧默认已经通过 `AppStorage` 落盘，必须换 key 或迁移；只改 initializer 不会影响已有本地值。
+- 用户反馈“太多”时，先限制可见结果数量，不要先做复杂偏好配置；需要可配置时再加。
+- SwiftUI startup crash 如果栈指向 `Window.init` 销毁 `ContentView.environmentObject(...)`，优先检查 View `init` 里手动创建 `@StateObject` 的闭包；能用属性默认初始化就不要放在 init 里。
