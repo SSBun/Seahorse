@@ -49,9 +49,6 @@ struct ContentView: View {
     @StateObject private var toastManager = GlobalToastManager.shared
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     @StateObject private var pasteHandler = PasteHandler(dataStorage: .shared)
-    @State private var isSyncing = false
-    @State private var syncRotation: Double = 0
-    @State private var syncStartTime: Date?
     @State private var isAgentPanelVisible = false
 
     // Cached filtered items - only recalculates when filters change
@@ -238,17 +235,6 @@ struct ContentView: View {
                         Label(selectedKind.rawValue, systemImage: selectedKind.icon)
                     }
 
-                    // Sync button
-                    Button(action: performManualSync) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .rotationEffect(.degrees(syncRotation))
-                            .animation(isSyncing
-                                       ? .linear(duration: 1.0).repeatForever(autoreverses: false)
-                                       : .default,
-                                       value: isSyncing)
-                    }
-                    .help("Sync")
-
                     // Sort menu
                     SortMenuButton(sortPreferenceManager: sortPreferenceManager)
 
@@ -429,12 +415,6 @@ struct ContentView: View {
             let icon = notification.userInfo?["icon"] as? String ?? "checkmark.circle.fill"
             GlobalToastManager.shared.show(message: message, icon: icon)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .autoSyncStarted)) { _ in
-            startSyncAnimation()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .autoSyncEnded)) { _ in
-            stopSyncAnimation()
-        }
         .onPasteCommand(of: [.url, .image, .plainText]) { providers in
             pasteHandler.handlePaste(providers: providers)
         }
@@ -480,52 +460,6 @@ struct ContentView: View {
             .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    private func performManualSync() {
-        guard !isSyncing else { return }
-        startSyncAnimation()
-
-        Task { @MainActor in
-            await ChromeBookmarkSyncService.shared.syncToChrome(from: dataStorage)
-            if let error = ChromeBookmarkSyncService.shared.lastError {
-                GlobalToastManager.shared.show(message: "Chrome sync failed: \(error)", icon: "xmark.circle.fill")
-            } else {
-                let count = ChromeBookmarkSyncService.shared.lastSyncCount
-                let profile = ChromeBookmarkSyncService.shared.lastProfileName ?? "Default"
-                GlobalToastManager.shared.show(message: "Synced \(count) bookmarks to Chrome (\(profile))", icon: "checkmark.circle.fill")
-            }
-            stopSyncAnimation()
-        }
-    }
-    
-    private func startSyncAnimation() {
-        guard !isSyncing else { return }
-        isSyncing = true
-        syncRotation = 0
-        syncStartTime = Date()
-        syncRotation += 360
-    }
-    
-    private func stopSyncAnimation() {
-        guard let start = syncStartTime else {
-            isSyncing = false
-            syncRotation = 0
-            return
-        }
-        let elapsed = Date().timeIntervalSince(start)
-        let minimumDuration: TimeInterval = 1.0
-        if elapsed >= minimumDuration {
-            isSyncing = false
-            syncRotation = 0
-        } else {
-            let remaining = minimumDuration - elapsed
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
-                isSyncing = false
-                syncRotation = 0
-            }
-        }
     }
     
     private func handleDrop(providers: [NSItemProvider]) -> Bool {

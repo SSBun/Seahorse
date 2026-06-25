@@ -9,3 +9,8 @@
 - 调整默认偏好值时，如果旧默认已经通过 `AppStorage` 落盘，必须换 key 或迁移；只改 initializer 不会影响已有本地值。
 - 用户反馈“太多”时，先限制可见结果数量，不要先做复杂偏好配置；需要可配置时再加。
 - SwiftUI startup crash 如果栈指向 `Window.init` 销毁 `ContentView.environmentObject(...)`，优先检查 View `init` 里手动创建 `@StateObject` 的闭包；能用属性默认初始化就不要放在 init 里。
+- 复用单个详情窗口展示网页时，`WKWebView` 必须按 URL 或 item 设置 SwiftUI identity；直接在旧 WebView 上 `load(newURL)` 会让旧页面残留到新页面首帧渲染。
+- bookmark 详情页默认应直接加载网页；不要再用需要二次点击的 preview placeholder 阻断详情查看流程。
+- 解析 image API 返回值时必须拒绝空 base64；`Data(base64Encoded: "")` 会得到 0-byte Data。GPT image models 不要发送 `response_format`，兼容 provider 返回 URL 时要下载再解码。
+- 如果同步功能点击后没有可见效果，先隐藏入口并从 UI 断开调用链；不要保留一个用户可点击但失败无反馈的 toolbar control。
+- 当用户要求“delete all code”时，不要用 `#if false` 保留停用实现；删除文件和调用点，只保留必要任务记录。

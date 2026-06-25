@@ -454,3 +454,147 @@
 - SHA-256：`3e524b5d7527890064b879677f4b37f9a589d3325967b2270a925e41ac40a886`。
 - `hdiutil verify` 通过，app 内部版本为 `1.6.0` / `5`。
 - release commit 标题为 `Bump version to 1.6.0`，本地 tag 为 `v1.6.0`。
+
+# Build And Install DMG
+
+## 假设
+- 当前 HEAD 已经是目标版本 `v1.6.0`，不需要再次 bump 版本号。
+- 用户需要一个新的时间戳 DMG，并把同一 Release app 安装到 `/Applications`。
+- 使用 `hdiutil` 直接生成 DMG，避免复用已知会在 `create-dmg` 分支失败的脚本路径。
+
+## 计划
+- [x] 验证当前版本和工作区状态。
+- [x] 执行 Release clean build。
+- [x] 生成新的 DMG 和 SHA-256。
+- [x] 安装 `Seahorse.app` 到 `/Applications`。
+- [x] 验证安装后的 app 版本和签名。
+
+## 审查记录
+- 当前 HEAD 是 `v1.6.0`，commit 是 `9297d2f`。
+- 当前版本字段是 `MARKETING_VERSION = 1.6.0`，`CURRENT_PROJECT_VERSION = 5`。
+- 开始前工作区没有未提交代码改动。
+- Release clean build 通过；仅有既有 warnings。
+- 新 DMG：`dist/Seahorse-1.6.0_20260625_101255/Seahorse-1.6.0.dmg`。
+- SHA-256：`8b6081c75656c62368f7b96f31893561a0854f2777221fac76f6fda3edfd5cc8`。
+- `hdiutil verify` 通过，DMG 内 app 版本为 `1.6.0` / `5`。
+- 已安装到 `/Applications/Seahorse.app`。
+- 安装后的 app 版本为 `1.6.0` / `5`，`codesign --verify --deep --strict` 通过。
+
+# Detail WebView Clears Old Page
+
+## 假设
+- 详情窗口继续复用同一个窗口实例。
+- 问题来自 bookmark URL 切换时 `WKWebView` 直接复用，旧页面会显示到新页面首帧完成。
+- 最小修复是在 bookmark URL 变化时重置 WebView 状态，并让 SwiftUI 为新 URL 创建新的 `WKWebView`。
+
+## 计划
+- [x] 定位详情窗口和 WebView 复用路径。
+- [x] 修改 WebView URL 切换行为，避免旧页面残留。
+- [x] 更新 lessons，记录复用窗口里的 WebView identity 规则。
+- [x] 构建验证。
+
+## 审查记录
+- 根因：`BookmarkDetailContentView` 保留 `showWebPreview` 状态，`ControllableWebView.updateNSView` 对新 URL 直接 `load`，旧页面会留在同一个 `WKWebView` 中直到新页面渲染。
+- `ControllableWebView` 现在使用 `url.absoluteString` 作为 SwiftUI identity，bookmark URL 变化会创建新的 `WKWebView`。
+- URL 变化时会清空旧 `webView` 引用、导航按钮状态、loading 状态和 snapshot 状态。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。
+
+# Detail WebView Loads By Default
+
+## 假设
+- 用户希望 bookmark 详情页打开后立即加载网页，不需要点击 preview 按钮。
+- 旧的 placeholder 和 `showWebPreview` 状态已经不再需要。
+
+## 计划
+- [x] 移除 preview placeholder 状态和按钮。
+- [x] 让 bookmark 详情页默认直接渲染 WebView。
+- [x] 构建验证。
+
+## 审查记录
+- `BookmarkDetailContentView` 现在始终显示 `webPreview`。
+- 删除了 `showWebPreview` 状态和 `Open Web Preview` placeholder。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。
+
+# Cover Generation Empty Image Fix
+
+## 假设
+- UI 的 `Failed to decode image` 来自 image API 返回了空 image data，而不是 NSImage 解码器本身坏了。
+- GPT image models 不需要、也不应该发送 `response_format`；DALL-E 仍可请求 `b64_json`。
+- 需要兼容返回 URL 的 OpenAI-compatible provider。
+
+## 计划
+- [x] 检查日志和 cover generation 调用链。
+- [x] 复现空 base64 会变成 0 bytes 的 Swift 行为。
+- [x] 修复 image API 请求参数和响应解析。
+- [x] 更新 lessons，记录空 base64 和 GPT image response_format 规则。
+- [x] 构建验证。
+
+## 审查记录
+- 日志显示 `Failed to create NSImage from data (0 bytes)`。
+- `Data(base64Encoded: "")` 会返回 0-byte `Data`，现有代码没有拒绝空 base64。
+- OpenAI 官方 Images API 文档说明 `response_format` 不支持 GPT image models；GPT image models 总是返回 base64。
+- `gpt-image-*` 请求现在不再发送 `response_format`；DALL-E/兼容模型仍请求 `b64_json`。
+- image API 响应解析现在拒绝空 `b64_json`，并兼容 provider 返回 URL 的情况。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。
+
+# Bookmark Sync Options
+
+## 假设
+- 同步 toolbar 入口需要变成菜单，包含 Chrome 和 Safari 两个选项。
+- Chrome 继续使用现有原生 JSON 文件写入逻辑。
+- Safari 不直接改 `Bookmarks.plist`，而是导出标准 bookmarks HTML，并打开 Safari 的 HTML 书签导入面板。
+- Safari 导入面板需要通过 AppleScript/System Events 触发；如果系统权限阻止，则保留已导出的 HTML 文件并提示用户。
+
+## 计划
+- [x] 新增 Safari bookmarks HTML 导出和导入面板打开服务。
+- [x] 将 toolbar sync 按钮改为 Chrome/Safari 菜单。
+- [x] 增加成功/失败 toast。
+- [x] 更新 lessons。
+- [x] 构建验证。
+
+## 审查记录
+- 新增 `SafariBookmarkSyncService`，导出标准 Netscape bookmarks HTML 到 Downloads。
+- Safari 同步会尝试激活 Safari，并通过 System Events 扫描 Safari 菜单里的 HTML 书签导入项。
+- toolbar sync 入口从单个按钮改为菜单，包含 `Sync to Chrome` 和 `Export for Safari Import`。
+- Chrome 同步继续复用现有 `ChromeBookmarkSyncService`。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。
+
+# Disable Browser Bookmark Sync
+
+## 假设
+- 用户点击 sync 后无效果，当前外部浏览器同步不应继续暴露。
+- 需要隐藏 sync button，并从主界面注释/断开 Chrome/Safari 同步逻辑。
+- DataStorage 内部保存通知不是浏览器同步，不能关闭。
+
+## 计划
+- [x] 隐藏 toolbar sync 入口。
+- [x] 从 `ContentView` 移除手动 Chrome/Safari 同步 action 和动画状态。
+- [x] 移除刚新增的 Safari 同步服务文件。
+- [x] 禁用旧的 Chrome 同步服务实现。
+- [x] 更新 lessons。
+- [ ] 构建验证。
+
+## 审查记录
+- toolbar 里原 sync menu 已替换成注释：外部浏览器书签同步暂时禁用。
+- `ContentView` 不再引用 `ChromeBookmarkSyncService` 或 `SafariBookmarkSyncService`。
+- `SafariBookmarkSyncService.swift` 已移除。
+- `ChromeBookmarkSyncService.swift` 通过 `#if false` 整体禁用，避免外部浏览器同步逻辑被编译进 app。
+
+# Delete Browser Bookmark Sync Code
+
+## 假设
+- 用户明确要求删除所有 Chrome/Safari 同步代码，不只是隐藏或禁用。
+- Seahorse 内部数据保存通知不是浏览器同步，不属于本次删除范围。
+
+## 计划
+- [x] 删除 `ChromeBookmarkSyncService.swift`。
+- [x] 确认 `SafariBookmarkSyncService.swift` 不存在。
+- [x] 清理 `ContentView` 里的 sync UI 残留注释。
+- [x] 更新 lessons，记录不要用 `#if false` 替代删除。
+- [x] 构建验证。
+
+## 审查记录
+- Chrome/Safari 浏览器书签同步代码已从 Seahorse 源码移除。
+- `rg` 确认 `ChromeBookmarkSyncService`、`SafariBookmarkSyncService`、sync action 和 sync toolbar 文案在 `Seahorse` 源码中没有残留。
+- 宽泛搜索只剩 HTML 书签导入说明和网络请求 User-Agent 中的浏览器名称，不属于浏览器同步逻辑。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。

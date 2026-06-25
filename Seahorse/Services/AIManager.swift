@@ -425,11 +425,11 @@ actor AIManager {
             prompt: prompt,
             model: Model(settings.model),
             n: 1,
-            responseFormat: .b64_json,
+            responseFormat: imageResponseFormat(for: settings.model),
             size: ._1024x1536
         )
 
-        Log.info("Sending image generation request — model: \(settings.model), size: 1024x1536", category: .ai)
+        Log.info("Sending image generation request — model: \(settings.model), size: 1024x1536, response_format=\(imageResponseFormatDescription(for: settings.model))", category: .ai)
 
         do {
             let result = try await client.images(query: query)
@@ -444,15 +444,7 @@ actor AIManager {
                 Log.debug("Revised prompt: \(revised.prefix(200))", category: .ai)
             }
 
-            guard let b64 = imageData.b64Json else {
-                Log.error("Image API returned no b64_json — url field present: \(imageData.url != nil)", category: .ai)
-                throw AIError.invalidResponse
-            }
-
-            guard let data = Data(base64Encoded: b64) else {
-                Log.error("Failed to decode base64 image data (length: \(b64.count))", category: .ai)
-                throw AIError.invalidResponse
-            }
+            let data = try await imageDataFromResponse(imageData)
 
             Log.info("Cover image generated successfully — \(data.count) bytes", category: .ai)
             return data
@@ -463,6 +455,63 @@ actor AIManager {
             Log.error("Cover image generation failed: \(error.localizedDescription)", category: .ai)
             throw AIError.apiError(error.localizedDescription)
         }
+    }
+
+    private func imageResponseFormat(for model: String) -> ImagesQuery.ResponseFormat? {
+        let normalizedModel = model.lowercased()
+        if normalizedModel.hasPrefix("gpt-image-") {
+            return nil
+        }
+        return .b64_json
+    }
+
+    private func imageResponseFormatDescription(for model: String) -> String {
+        imageResponseFormat(for: model)?.rawValue ?? "default"
+    }
+
+    private func imageDataFromResponse(_ image: ImagesResult.Image) async throws -> Data {
+        if let b64 = image.b64Json?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !b64.isEmpty {
+            guard let data = Data(base64Encoded: b64, options: [.ignoreUnknownCharacters]),
+                  !data.isEmpty else {
+                Log.error("Failed to decode non-empty base64 image data (length: \(b64.count))", category: .ai)
+                throw AIError.invalidResponse
+            }
+            return data
+        }
+
+        if image.b64Json != nil {
+            Log.error("Image API returned empty b64_json", category: .ai)
+        }
+
+        if let urlString = image.url?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !urlString.isEmpty {
+            return try await downloadGeneratedImage(from: urlString)
+        }
+
+        Log.error("Image API returned no usable image data — b64_json present: \(image.b64Json != nil), url present: \(image.url != nil)", category: .ai)
+        throw AIError.invalidResponse
+    }
+
+    private func downloadGeneratedImage(from urlString: String) async throws -> Data {
+        guard let url = URL(string: urlString) else {
+            Log.error("Image API returned invalid image URL: \(urlString)", category: .ai)
+            throw AIError.invalidURL(urlString)
+        }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+        if let httpResponse = response as? HTTPURLResponse,
+           !(200...299).contains(httpResponse.statusCode) {
+            Log.error("Generated image download failed with status \(httpResponse.statusCode)", category: .ai)
+            throw AIError.apiError("Generated image download failed with status \(httpResponse.statusCode)")
+        }
+
+        guard !data.isEmpty else {
+            Log.error("Generated image download returned empty data", category: .ai)
+            throw AIError.invalidResponse
+        }
+
+        return data
     }
 
     private func callAI(client: OpenAI, model: String, prompt: String, temperature: Double = 0.7) async throws -> String {

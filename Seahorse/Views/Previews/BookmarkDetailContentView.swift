@@ -17,7 +17,6 @@ struct BookmarkDetailContentView: View {
     @State private var canGoBack = false
     @State private var canGoForward = false
     @State private var isLoading = false
-    @State private var showWebPreview = false
 
     // Snapshot state
     @State private var isSnapshotMode = false
@@ -31,20 +30,22 @@ struct BookmarkDetailContentView: View {
         dataStorage.item(for: bookmark.id)?.asBookmark ?? bookmark
     }
 
+    private var currentURLString: String {
+        currentBookmark?.url ?? bookmark.url
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Toolbar
             bookmarkToolbar
             loadingBar
-
-            if showWebPreview {
-                webPreview
-            } else {
-                webPreviewPlaceholder
-            }
+            webPreview
         }
         .onAppear {
             Log.info("detail_open bookmark_detail_appear", category: .performance)
+        }
+        .onChange(of: currentURLString) { _, newURLString in
+            resetWebViewForURLChange(newURLString)
         }
     }
 
@@ -61,6 +62,7 @@ struct BookmarkDetailContentView: View {
                         canGoForward: $canGoForward,
                         isLoading: $isLoading
                     )
+                    .id(url.absoluteString)
                     .background(
                         GeometryReader { proxy in
                             Color.clear
@@ -93,33 +95,9 @@ struct BookmarkDetailContentView: View {
         }
     }
 
-    private var webPreviewPlaceholder: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "globe")
-                .font(.system(size: 36))
-                .foregroundStyle(.secondary)
-
-            Text(currentBookmark?.url ?? bookmark.url)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .textSelection(.enabled)
-
-            Button {
-                showWebPreview = true
-            } label: {
-                Label("Open Web Preview", systemImage: "safari")
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(32)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     @ViewBuilder
     private var loadingBar: some View {
-        if showWebPreview && isLoading {
+        if isLoading {
             ProgressView()
                 .progressViewStyle(.linear)
                 .controlSize(.mini)
@@ -192,7 +170,6 @@ struct BookmarkDetailContentView: View {
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.plain)
-            .disabled(!showWebPreview)
             .foregroundStyle(.primary)
             .frame(width: 28, height: 28)
             .background(Color(NSColor.controlBackgroundColor))
@@ -205,7 +182,6 @@ struct BookmarkDetailContentView: View {
                     .font(.system(size: 13, weight: .medium))
             }
             .buttonStyle(.plain)
-            .disabled(!showWebPreview)
             .foregroundStyle(isSnapshotMode ? Color.accentColor : .primary)
             .frame(width: 28, height: 28)
             .background(isSnapshotMode ? Color.accentColor.opacity(0.15) : Color(NSColor.controlBackgroundColor))
@@ -257,6 +233,20 @@ struct BookmarkDetailContentView: View {
         isSnapshotMode = false
         snapshotSelection = nil
         snapshotError = nil
+    }
+
+    private func resetWebViewForURLChange(_ urlString: String) {
+        webView?.stopLoading()
+        webView = nil
+        canGoBack = false
+        canGoForward = false
+        isLoading = true
+        isSnapshotMode = false
+        snapshotSelection = nil
+        snapshotError = nil
+
+        let host = URL(string: urlString)?.host ?? "unknown"
+        Log.info("detail_open webview_reset_for_url host=\(host)", category: .performance)
     }
 
     private func captureSnapshot() {
