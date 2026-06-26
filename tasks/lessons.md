@@ -14,3 +14,4 @@
 - 解析 image API 返回值时必须拒绝空 base64；`Data(base64Encoded: "")` 会得到 0-byte Data。GPT image models 不要发送 `response_format`，兼容 provider 返回 URL 时要下载再解码。
 - 如果同步功能点击后没有可见效果，先隐藏入口并从 UI 断开调用链；不要保留一个用户可点击但失败无反馈的 toolbar control。
 - 当用户要求“delete all code”时，不要用 `#if false` 保留停用实现；删除文件和调用点，只保留必要任务记录。
+- bookmark website 视觉探索时，不要默认走 bento、炫技 hover 或大面积渐变卡片；如果用户说丑/不喜欢，先收敛到真实产品级信息架构和参考站点，再继续改稿。

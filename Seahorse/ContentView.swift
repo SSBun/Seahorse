@@ -47,6 +47,7 @@ struct ContentView: View {
     @StateObject private var diagnosticService = DiagnosticService(dataStorage: .shared)
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
     @StateObject private var toastManager = GlobalToastManager.shared
+    @StateObject private var exportImportManager = ExportImportManager.shared
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     @StateObject private var pasteHandler = PasteHandler(dataStorage: .shared)
     @State private var isAgentPanelVisible = false
@@ -265,6 +266,16 @@ struct ContentView: View {
                                 systemImage: imageGenerationService.isRunning ? "photo.fill" : "photo"
                             )
                         }
+
+                        Divider()
+
+                        Button(action: syncMobileBookmarkPage) {
+                            Label(
+                                exportImportManager.isSyncingBookmarkIndex ? "Syncing Mobile Bookmark Page" : "Sync Mobile Bookmark Page",
+                                systemImage: exportImportManager.isSyncingBookmarkIndex ? "arrow.triangle.2.circlepath" : "iphone"
+                            )
+                        }
+                        .disabled(exportImportManager.isSyncingBookmarkIndex)
                     } label: {
                         Label("Tools", systemImage: "ellipsis.circle")
                     }
@@ -466,6 +477,10 @@ struct ContentView: View {
         // Use PasteHandler to process dropped items
         pasteHandler.handlePaste(providers: providers)
         return true
+    }
+
+    private func syncMobileBookmarkPage() {
+        exportImportManager.syncBookmarkIndexToBackupFolder(dataStorage: dataStorage) { _, _ in }
     }
 
     private func applyGeneratedCover(taskId: UUID, image: NSImage) {

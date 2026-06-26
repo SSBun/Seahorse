@@ -598,3 +598,50 @@
 - `rg` 确认 `ChromeBookmarkSyncService`、`SafariBookmarkSyncService`、sync action 和 sync toolbar 文案在 `Seahorse` 源码中没有残留。
 - 宽泛搜索只剩 HTML 书签导入说明和网络请求 User-Agent 中的浏览器名称，不属于浏览器同步逻辑。
 - `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有既有 warnings。
+
+# Cloudflare D1 Bookmark Sync Design
+
+## 假设
+- Seahorse 负责把本地书签发布到远端数据库，远端 navigation website 只读取这些公开数据。
+- 不把 Cloudflare account API token 直接写进 app；优先通过用户自部署 Worker API 写入 D1。
+- 第一版只同步 bookmarks/categories/tags/metadata，不同步本地图片文件。
+- 用户不需要自己实现 Worker；本任务应包含一个可部署的 Cloudflare Worker + D1 schema。
+- 用户希望先创建 bookmark navigation website，再接 Cloudflare/D1 部署和同步。
+- 用户真实需求是用 iPhone/其他设备访问自己的 Seahorse 书签，不一定需要公开网站或 Cloudflare。
+- 更轻的方案是在 iCloud/备份目录里生成一个自包含 `index.html`，手机直接打开访问。
+
+## 计划
+- [x] 检查 Seahorse 当前书签数据模型和存储入口。
+- [x] 检查 Cloudflare D1 当前接入方式。
+- [ ] 确认 Worker 项目放置位置。
+- [ ] 确认远端写入架构。
+- [ ] 确认 bookmark website 技术形态和首版数据源。
+- [x] 创建单页 HTML 风格选择稿。
+- [x] 将选择稿重做为漂亮 gallery card 风格。
+- [x] 设计 iCloud backup self-contained bookmark HTML 方案。
+- [x] 在 backup/export 目录生成移动端 `index.html`。
+- [x] 增加手动同步移动书签页菜单。
+- [ ] 提出 2-3 个实现方案并选择推荐方案。
+- [ ] 写设计文档并等待 review。
+
+## 审查记录
+- `Bookmark` 包含 title、url、icon、categoryId、isFavorite、addedDate、modifiedDate、notes、tagIds、isParsed 和 `WebMetadata`。
+- `DataStorage` 已有 bookmarks/categories/tags 的集中访问点，适合构建发布 payload。
+- Cloudflare D1 支持 Worker binding 和 REST API；桌面 app 更适合调用自有 Worker API，Worker 再通过 binding 写 D1。
+- bookmark website 先做单页 HTML 风格选择稿，不依赖 Cloudflare/D1。
+- 已创建 `website/style-selection.html`，包含 Workbench Dense、Gallery Nav、Command Library 三个单页风格。
+- `node --check` 验证内联 JS 通过，Chrome headless 已成功渲染首屏截图。
+- 根据用户反馈，默认方案已从 Workbench Dense 改为 Native Mac Grid，视觉贴近 Seahorse 当前 macOS 原生 grid view。
+- 用户不满意当前视觉，希望参考漂亮的 gallery/card UI library 风格重做。
+- `website/style-selection.html` 已重做为 Bento Gallery、Editorial Cards、Resource Pro 三套卡片风格。
+- `node --check`、`git diff --check` 通过，Chrome headless 已成功渲染 Bento Gallery 首屏。
+- 现有 `ExportImportManager` 已在备份/导出目录写入 `Data/items.json`、`Data/categories.json`、`Data/tags.json`；可在导出目录根部额外生成自包含 `index.html`。
+- gallery website 方向已废弃，未保留 `website/style-selection.html`。
+- `ExportImportManager` 现在会在 `backupToDataFolder` 和 `exportData` 成功导出 JSON 后，在导出目录根部写入自包含 `index.html`。
+- `index.html` 内嵌轻量 bookmark payload，不通过 `fetch` 读取 `Data/*.json`，适合从 iCloud Drive/Files 直接打开。
+- 移动 HTML 支持搜索、分类筛选、Favorites 筛选、favicon、标题、域名、描述、分类和标签展示。
+- `git diff --check` 通过；HTML 内嵌 JS 抽取后 `node --check` 通过；Debug build 通过，仅有既有 warnings。
+- 手动同步菜单应写入稳定路径 `Seahorse_Bookmarks/index.html`，不要每次创建新的时间戳备份目录。
+- 主窗口 Tools 菜单已新增 `Sync Mobile Bookmark Page`，点击后更新备份目录下的 `Seahorse_Bookmarks/index.html` 并打开 Finder。
+- 新增同步状态 `isSyncingBookmarkIndex`，同步中禁用菜单项并显示 `Syncing Mobile Bookmark Page`。
+- `git diff --check` 通过；HTML 内嵌 JS 抽取后 `node --check` 通过；Debug build 通过，仅有既有 warnings。
