@@ -99,6 +99,10 @@ struct BasicSettingsView: View {
                 }
                 
                 Divider()
+
+                MCPSettingsSectionView()
+
+                Divider()
                 
                 // Appearance Setting
                 VStack(alignment: .leading, spacing: 10) {

@@ -62,6 +62,7 @@
 ## Playgrounds
 ## User settings
 build/
+node_modules/
 Carthage/Build/
 Dependencies/
 DerivedData/

@@ -1,3 +1,70 @@
+# Seahorse MCP 实现
+
+## 假设
+- 先做可验证纵切：App 内 bridge、Node MCP helper、Settings、生命周期和 smoke test。
+- “随 App 打包 Node runtime”需要构建/发布脚本收口，不在代码里假装系统 Node 就是最终发布形态。
+- helper 不直接读写 JSON，所有写入回到 App 内 `DataStorage`。
+
+## 计划
+- [x] 写入实现计划。
+- [x] 实现 MCP Settings 状态。
+- [x] 实现 App bookmark bridge service。
+- [x] 实现内部 HTTP bridge。
+- [x] 实现 Node MCP helper。
+- [x] 接入 Settings UI 和 helper lifecycle。
+- [x] 跑端到端 smoke test 和构建验证。
+
+## 审查记录
+- 实现计划已写入 docs/superpowers/plans/2026-07-08-seahorse-mcp-implementation.md。
+- 已新增 App 内 MCP settings、bookmark bridge service、内部 HTTP bridge、helper manager 和 Settings UI。
+- 已新增 TypeScript/Node MCP helper，使用稳定版 `@modelcontextprotocol/sdk@1.29.0`。
+- helper 单元测试和 TypeScript build 已通过。
+- Swift Debug build 已通过；保留既有 `seahorse_icon` asset symbol warning。
+- `git diff --check` 已通过。
+- 独立启动 helper 后，`scripts/smoke-mcp.sh smoke-token` 已验证 `/mcp` 初始化和 `tools/list`，返回 8 个预期工具。
+- 真实 App 内 Settings toggle 到 bridge 的手工端到端验证未跑；当前验证覆盖 Swift build、helper 单元测试、helper TypeScript build 和外部 MCP smoke。
+
+# Seahorse MCP 设计
+
+## 假设
+- 第一版 MCP 只面向本机 agents，不支持局域网。
+- MCP server 随 Seahorse App 运行，但协议实现拆到 bundled TypeScript/Node.js helper。
+- CRUD 范围收敛为 bookmarks 的 create/read/update/search/list，不做 delete。
+- tags/categories 第一版只读。
+
+## 计划
+- [x] 澄清信任模型、端口、transport、token 和生命周期。
+- [x] 澄清 bookmark、tag、category 的第一版工具范围。
+- [x] 确认 App/helper/bridge 架构。
+- [x] 写入设计文档。
+
+## 审查记录
+- 设计文档已写入 docs/superpowers/specs/2026-07-08-seahorse-mcp-design.md。
+- 设计采用 Seahorse App + bundled TypeScript/Node.js MCP helper。
+- helper 负责 Streamable HTTP MCP 和外部 token 鉴权；真实数据写入必须回到 App 内 `DataStorage`。
+- 第一版不做 bookmark delete、tag/category 写操作、image/text MCP、LAN、OAuth、Keychain、多用户权限、stdio 或旧 HTTP+SSE。
+
+# 主搜索输入性能修复
+
+## 假设
+- 卡顿发生在主窗口 toolbar 的 `.searchable` 输入，不是 Agent 面板或批量操作弹窗里的搜索框。
+- 最小修复优先避免每次 body 重算都扫描全量数据和重复构造搜索字符串，不引入新搜索引擎或索引库。
+- 如果现有数据缓存已经覆盖部分场景，只修复真正导致输入期间主线程阻塞的共享路径。
+
+## 计划
+- [x] 量化搜索输入时 `filteredItems` 和搜索字符串构造的耗时。
+- [x] 定位每次按键触发的昂贵 SwiftUI 计算/视图重建路径。
+- [x] 做最小修复：复用已有缓存或增加局部缓存，避免输入过程中重复全量过滤。
+- [x] 运行构建、空白检查和最小性能回归检查。
+
+## 审查记录
+- 根因定位在主窗口搜索过滤：每次搜索都会为每个 item 重新 lowercased 字段，并用 `dataStorage.tags.filter` 对全量 tag 做线性扫描。
+- 合成微基准：20,000 items / 2,000 tags 下旧路径约 8564.9 ms；使用 tag cache 和 searchable text cache 后首次约 61.3 ms，缓存命中约 34.1 ms。
+- `ContentView` 现在按 item id 缓存拼好的小写搜索文本，并复用 `DataStorage.tags(for:)` 的 O(1) tag 查询。
+- items 数量、items version、tags 或 `DataStorageItemsUpdated` 变化时会清理搜索文本缓存，避免 stale search。
+- `git diff --check` 通过。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；保留了已有 asset symbol 重名 warning。
+
 # Chrome 原生书签同步
 
 ## 假设

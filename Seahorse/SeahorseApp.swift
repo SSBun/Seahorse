@@ -30,6 +30,7 @@ struct SeahorseApp: App {
 
     // Status Bar Manager
     @State private var statusBarManager: StatusBarManager?
+    @StateObject private var mcpHelperManager = MCPHelperManager.shared
 
     // Item Detail Window State - shared across the single window instance
     @StateObject private var itemDetailState = ItemDetailState()
@@ -55,6 +56,7 @@ struct SeahorseApp: App {
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
+                    mcpHelperManager.startIfNeeded()
                 }
                 .onAppear {
                     // Initialize StatusBarManager
@@ -154,6 +156,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Force save all database data synchronously
         Task { @MainActor in
+            MCPHelperManager.shared.stop()
             DataStorage.shared.forceSaveAllData()
         }
 

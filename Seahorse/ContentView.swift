@@ -55,6 +55,7 @@ struct ContentView: View {
     // Cached filtered items - only recalculates when filters change
     @State private var cachedItems: [AnyCollectionItem] = []
     @State private var lastFilterHash: Int = 0
+    @State private var searchableTextCache: [UUID: String] = [:]
     @State private var searchDebounceTask: Task<Void, Never>?
 
     @State private var windowDelegate = MainWindowDelegate()
@@ -147,8 +148,7 @@ struct ContentView: View {
         if !searchQuery.isEmpty {
             let queryLower = searchQuery.lowercased()
             items = items.filter { item in
-                let searchable = searchableStrings(for: item)
-                return searchable.contains { $0.contains(queryLower) }
+                searchableText(for: item).contains(queryLower)
             }
         }
 
@@ -158,42 +158,40 @@ struct ContentView: View {
         cachedItems = sorted
     }
     
-    private func tagNames(for item: AnyCollectionItem) -> [String] {
-        let tagIds: [UUID] = item.asBookmark?.tagIds ??
-            item.asImageItem?.tagIds ??
-            item.asTextItem?.tagIds ??
-            []
-        
-        guard !tagIds.isEmpty else { return [] }
-        
-        return dataStorage.tags
-            .filter { tagIds.contains($0.id) }
-            .map { $0.name.lowercased() }
-    }
-    
-    private func searchableStrings(for item: AnyCollectionItem) -> [String] {
+    private func searchableText(for item: AnyCollectionItem) -> String {
+        if let cached = searchableTextCache[item.id] {
+            return cached
+        }
+
         var fields: [String] = []
         
         if let bookmark = item.asBookmark {
-            fields.append(bookmark.title.lowercased())
-            fields.append(bookmark.url.lowercased())
+            fields.append(bookmark.title)
+            fields.append(bookmark.url)
             if let notes = bookmark.notes {
-                fields.append(notes.lowercased())
+                fields.append(notes)
             }
         } else if let imageItem = item.asImageItem {
-            fields.append(imageItem.imagePath.lowercased())
+            fields.append(imageItem.imagePath)
             if let notes = imageItem.notes {
-                fields.append(notes.lowercased())
+                fields.append(notes)
             }
         } else if let textItem = item.asTextItem {
-            fields.append(textItem.content.lowercased())
+            fields.append(textItem.content)
             if let notes = textItem.notes {
-                fields.append(notes.lowercased())
+                fields.append(notes)
             }
         }
         
-        fields.append(contentsOf: tagNames(for: item))
-        return fields
+        fields.append(contentsOf: dataStorage.tags(for: item.tagIds).map(\.name))
+
+        let text = fields.joined(separator: "\n").lowercased()
+        searchableTextCache[item.id] = text
+        return text
+    }
+
+    private func clearSearchableTextCache() {
+        searchableTextCache.removeAll(keepingCapacity: true)
     }
     
     var body: some View {
@@ -377,12 +375,19 @@ struct ContentView: View {
         }
         // Watch for data changes (items added/deleted or updated in-place)
         .onChange(of: dataStorage.items.count) { _, _ in
+            clearSearchableTextCache()
             recalculateFilteredItems()
         }
         .onChange(of: dataStorage.itemsVersion) { _, _ in
+            clearSearchableTextCache()
+            recalculateFilteredItems()
+        }
+        .onChange(of: dataStorage.tags) { _, _ in
+            clearSearchableTextCache()
             recalculateFilteredItems()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DataStorageItemsUpdated"))) { _ in
+            clearSearchableTextCache()
             recalculateFilteredItems()
         }
         .sheet(isPresented: $showingAddBookmark) {
