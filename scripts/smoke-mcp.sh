@@ -59,6 +59,7 @@ process.stdin.on("end", () => {
   const expected = [
     "create_bookmark",
     "get_bookmark",
+    "get_bookmarks",
     "list_categories",
     "list_tags",
     "search_bookmarks",

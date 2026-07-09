@@ -2,9 +2,10 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { BridgeClient } from "./bridgeClient.js";
 
-const searchBookmarksShape = {
+export const searchBookmarksShape = {
   query: z.string().default(""),
   limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
   categoryId: z.string().uuid().optional(),
   tagIds: z.array(z.string().uuid()).optional(),
   favoriteOnly: z.boolean().optional(),
@@ -12,6 +13,10 @@ const searchBookmarksShape = {
 
 const getBookmarkShape = {
   id: z.string().uuid(),
+};
+
+export const getBookmarksShape = {
+  ids: z.array(z.string().uuid()).min(1).max(100),
 };
 
 const createBookmarkShape = {
@@ -40,6 +45,7 @@ const searchNameShape = {
 export function registerTools(server: McpServer, bridge: BridgeClient): void {
   registerBridgeTool(server, bridge, "search_bookmarks", searchBookmarksShape);
   registerBridgeTool(server, bridge, "get_bookmark", getBookmarkShape);
+  registerBridgeTool(server, bridge, "get_bookmarks", getBookmarksShape);
   registerBridgeTool(server, bridge, "create_bookmark", createBookmarkShape);
   registerBridgeTool(server, bridge, "update_bookmark", updateBookmarkShape);
   registerBridgeTool(server, bridge, "list_tags", {});

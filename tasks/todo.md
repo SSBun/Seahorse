@@ -1,3 +1,47 @@
+# MCP get_bookmarks
+
+## 假设
+- `get_bookmarks` 用于按 ids 批量读取 bookmark 详情，减少 agent 连续调用 `get_bookmark`。
+- 输入为 `ids: [UUID]`，数量限制为 1...100，避免单次响应过大。
+- 返回结构为 bookmark detail array，按传入 id 顺序返回；不存在的 id 跳过，调用方可用返回的 `id` 自行对比缺失项。
+
+## 计划
+- [x] 在 TypeScript MCP schema 和工具注册里新增 `get_bookmarks`。
+- [x] 在 Swift bridge 里新增 `getBookmarks` 分支和实现。
+- [x] 更新 smoke test 预期工具列表。
+- [x] 增加最小 schema 测试。
+- [x] 跑 helper 测试/build、Swift build 和空白检查。
+
+## 审查记录
+- `get_bookmarks` schema 已新增 `ids`，约束为 UUID array，长度 1...100。
+- Swift bridge 已新增 `getBookmarks`，按传入顺序返回 bookmark detail array，缺失 id 跳过。
+- `scripts/smoke-mcp.sh` 预期工具列表已新增 `get_bookmarks`。
+- `MCPHelper` 的 `npm test` 通过，2 个测试文件、4 个测试通过。
+- `MCPHelper` 的 `npm run build` 通过。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；本次有 Xcode destination warning 和 AppIntents metadata skipped warning。
+- `git diff --check` 通过。
+
+# MCP bookmark 分页
+
+## 假设
+- “related mcp functions” 指当前可查询 bookmarks 的 `search_bookmarks`，不新增重复的 `list_bookmarks` 工具。
+- 保留 `limit <= 100`，新增 `offset >= 0`，让 agent 分批取全量。
+- 返回结构继续保持 array，避免破坏现有 MCP 调用方；调用方用返回数量小于 limit 判断结束。
+
+## 计划
+- [x] 在 TypeScript MCP schema 里给 `search_bookmarks` 增加 `offset`。
+- [x] 在 Swift bridge 的 `searchBookmarks` 里解析并应用 `offset`。
+- [x] 增加最小测试覆盖 offset 参数透传或分页行为。
+- [x] 跑 helper 测试/build、Swift build 和空白检查。
+
+## 审查记录
+- `search_bookmarks` schema 已新增 `offset`，约束为整数且 `>= 0`。
+- Swift bridge 已在排序后应用 `dropFirst(offset).prefix(limit)`，保留 `limit <= 100`。
+- 新增 `MCPHelper/tests/tools.test.ts` 覆盖 `offset` 接受非负数、拒绝负数。
+- `git diff --check` 通过。
+- `MCPHelper` 的 `npm test && npm run build` 通过，2 个测试文件、3 个测试通过。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；本次仅有 Xcode 选择首个匹配 destination 的常规 warning。
+
 # Seahorse MCP 实现
 
 ## 假设

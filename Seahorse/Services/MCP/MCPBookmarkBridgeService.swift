@@ -110,6 +110,8 @@ final class MCPBookmarkBridgeService {
             searchBookmarks(request.payload ?? [:])
         case "get_bookmark":
             getBookmark(request.payload ?? [:])
+        case "get_bookmarks":
+            getBookmarks(request.payload ?? [:])
         case "create_bookmark":
             await createBookmark(request.payload ?? [:])
         case "update_bookmark":
@@ -132,6 +134,7 @@ private extension MCPBookmarkBridgeService {
     func searchBookmarks(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
         let query = payload["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         let limit = min(max(payload["limit"]?.intValue ?? 20, 1), 100)
+        let offset = max(payload["offset"]?.intValue ?? 0, 0)
         let categoryId = payload["categoryId"]?.stringValue.flatMap(UUID.init(uuidString:))
         let tagIds = payload["tagIds"]?.stringArrayValue?.compactMap(UUID.init(uuidString:)) ?? []
         let favoriteOnly = payload["favoriteOnly"]?.boolValue ?? false
@@ -155,6 +158,7 @@ private extension MCPBookmarkBridgeService {
 
         let results = bookmarks
             .sorted { $0.addedDate > $1.addedDate }
+            .dropFirst(offset)
             .prefix(limit)
             .map(bookmarkSummaryJSON)
         return .success(.array(Array(results)))
@@ -166,6 +170,23 @@ private extension MCPBookmarkBridgeService {
             return .failure(code: "not_found", message: "Bookmark not found")
         }
         return .success(bookmarkDetailJSON(bookmark))
+    }
+
+    func getBookmarks(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
+        guard let values = payload["ids"]?.stringArrayValue,
+              !values.isEmpty,
+              values.count <= 100 else {
+            return .failure(code: "validation_error", message: "ids must contain 1 to 100 bookmark ids")
+        }
+
+        let ids = values.compactMap(UUID.init(uuidString:))
+        guard ids.count == values.count else {
+            return .failure(code: "validation_error", message: "ids contains invalid bookmark id")
+        }
+
+        let bookmarksById = Dictionary(uniqueKeysWithValues: dataStorage.bookmarks.map { ($0.id, $0) })
+        let bookmarks = ids.compactMap { bookmarksById[$0] }.map(bookmarkDetailJSON)
+        return .success(.array(bookmarks))
     }
 
     func createBookmark(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {

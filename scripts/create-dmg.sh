@@ -53,10 +53,8 @@ echo -e "${GREEN}Creating DMG: $DMG_NAME${NC}"
 
 # Create temporary directory
 TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
 cp -R "$APP_PATH" "$TMP_DIR/"
-
-# Create Applications symlink for easy installation
-ln -s /Applications "$TMP_DIR/Applications"
 
 # Check if create-dmg is installed
 if command -v create-dmg &> /dev/null; then
@@ -71,15 +69,18 @@ if command -v create-dmg &> /dev/null; then
     --app-drop-link 425 190 \
     --no-internet-enable \
     "$DMG_NAME" \
-    "$TMP_DIR/" 2>/dev/null || true
+    "$TMP_DIR/"
 else
   echo -e "${YELLOW}create-dmg not found, using hdiutil...${NC}"
   echo -e "${YELLOW}Install create-dmg with: brew install create-dmg${NC}"
+  ln -s /Applications "$TMP_DIR/Applications"
   hdiutil create -volname "Seahorse" -srcfolder "$TMP_DIR" -ov -format UDZO "$DMG_NAME"
 fi
 
-# Clean up
-rm -rf "$TMP_DIR"
+if [ ! -f "$DMG_NAME" ]; then
+  echo -e "${RED}Error: DMG was not created: $DMG_NAME${NC}"
+  exit 1
+fi
 
 # Calculate checksum
 shasum -a 256 "$DMG_NAME" > "${DIST_DIR}/${DMG_NAME##*/}.sha256"
@@ -93,4 +94,3 @@ echo -e "${GREEN}To test the DMG:${NC}"
 echo -e "  1. Open $DMG_NAME"
 echo -e "  2. Drag Seahorse to Applications"
 echo -e "  3. Launch from Applications folder"
-
