@@ -15,3 +15,5 @@
 - 如果同步功能点击后没有可见效果，先隐藏入口并从 UI 断开调用链；不要保留一个用户可点击但失败无反馈的 toolbar control。
 - 当用户要求“delete all code”时，不要用 `#if false` 保留停用实现；删除文件和调用点，只保留必要任务记录。
 - bookmark website 视觉探索时，不要默认走 bento、炫技 hover 或大面积渐变卡片；如果用户说丑/不喜欢，先收敛到真实产品级信息架构和参考站点，再继续改稿。
+- 更新项目版本号时不能只改 Xcode `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`；必须先检查是否有版本更新 SOP，并同步审查 README、CHANGELOG、package/npm 版本、Xcode marketing version、build number、release notes 和 tag 计划。
+- 编写版本管理 SOP 时，优先沉淀通用规范和 checklist；不要写成某个项目的一次性 release notes，也不要遗漏标准版本格式、CHANGELOG 规范、source of truth 和发布边界。
