@@ -4,7 +4,16 @@
 
 ## [Unreleased]
 
-- 暂无。
+### 新增
+
+- 新增 MCP `get_bookmarks`，支持按 UUID 批量读取 bookmark。
+- 新增 MCP `delete_item`，支持按 UUID 删除 bookmark、image 或 text 条目。
+- `update_bookmark` 支持使用远程 URL 或本地图片文件更新 poster image。
+
+### 改进
+
+- `search_bookmarks` 新增 `offset`，agent 可配合 `limit` 分页获取全部 bookmark。
+- MCP 图片删除只会清理 Seahorse 内部 `Images` 目录中的文件，并拒绝相邻目录或符号链接逃逸路径。
 
 ## [1.7.0] - 2026-07-09
 

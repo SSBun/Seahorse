@@ -194,6 +194,17 @@ bridge 只监听 `127.0.0.1`，使用独立内部 token。内部 token 第一版
 
 搜索返回 `id`、`name`、颜色等展示所需字段。第一版不允许 agent 创建、更新或删除 tags/categories。
 
+## 后续扩展
+
+后续版本在不改变 App/helper/bridge 边界的前提下新增：
+
+- `get_bookmarks`：按 UUID 批量读取 bookmark。
+- `delete_item`：按全局 UUID 永久删除 bookmark、image 或 text，成功返回被删除条目的 `id` 和 `type`。
+- `search_bookmarks.offset`：与 `limit` 配合分页。
+- `update_bookmark.posterImageURL` 和 `posterImagePath`：更新 bookmark poster image；本地文件复制到 Seahorse `Images` 目录。
+
+`delete_item` 标记为 destructive MCP tool；tag 和 category 继续只读。
+
 ## Settings UX
 
 Settings 新增 MCP 区域：

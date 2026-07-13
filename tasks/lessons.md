@@ -17,3 +17,4 @@
 - bookmark website 视觉探索时，不要默认走 bento、炫技 hover 或大面积渐变卡片；如果用户说丑/不喜欢，先收敛到真实产品级信息架构和参考站点，再继续改稿。
 - 更新项目版本号时不能只改 Xcode `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`；必须先检查是否有版本更新 SOP，并同步审查 README、CHANGELOG、package/npm 版本、Xcode marketing version、build number、release notes 和 tag 计划。
 - 编写版本管理 SOP 时，优先沉淀通用规范和 checklist；不要写成某个项目的一次性 release notes，也不要遗漏标准版本格式、CHANGELOG 规范、source of truth 和发布边界。
+- 为 MCP 设计图片/海报更新能力时，不要只考虑远程 URL；必须同时明确本地文件输入、文件权限、是否复制到 Seahorse Images 存储、以及最终保存字段。

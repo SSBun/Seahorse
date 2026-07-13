@@ -1,3 +1,61 @@
+# MCP 删除全部条目类型
+
+## 假设
+- 新增一个通用 `delete_item`，按全局 UUID 删除 bookmark、image 或 text，不为每种类型复制工具。
+- 删除是永久操作；不存在的 UUID 返回 `not_found`，不会静默成功。
+- 成功响应包含被删除条目的 `id` 和 `type`，方便 agent 校验结果。
+- 图片条目复用 `DataStorage.deleteItem(_:)`，仅清理 Seahorse 内部图片文件；外部路径和远程 URL 不删除。
+- tag 和 category 继续只读，不在本次范围内。
+
+## 计划
+- [x] 增加 `delete_item` schema 红灯测试并确认因工具缺失失败。
+- [x] 注册 MCP 工具并更新工具列表 smoke test。
+- [x] 在 Swift bridge 中按 UUID 定位 `AnyCollectionItem`，复用统一删除入口。
+- [x] 跑相关测试、helper build、Swift build 和空白检查。
+
+## 边界情况
+- [x] 拒绝格式错误的 UUID。
+- [x] 对不存在的 UUID 返回 `not_found`。
+- [x] 删除 bookmark 时同步更新 `bookmarks`、`items` 和 `_itemCache`。
+- [x] 删除 image 时仅清理 Seahorse 内部存储中的本地文件。
+- [x] 相邻目录或经符号链接逃逸到 `Images` 外部的路径不得被删除。
+- [x] 删除 text 时不触发任何文件清理。
+
+## 审查记录
+- 红灯测试：`npm test -- tests/tools.test.ts` 先失败，原因是 `deleteItemShape` 尚未导出。
+- 新增通用 `delete_item(id)`，通过 `DataStorage.item(for:)` 定位全部三类条目并复用 `DataStorage.deleteItem(_:)`。
+- 工具标记 `destructiveHint: true`；合法性错误、条目不存在和底层删除失败分别返回 `validation_error`、`not_found`、`delete_failed`。
+- 图片路径边界改为解析符号链接后的 `Images/` 目录判断，避免相邻目录和链接逃逸。
+- `MCPHelper` 的 `npm test` 通过，2 个测试文件、6 个测试通过。
+- `MCPHelper` 的 `npm run build` 通过；额外检查确认注册工具带有 `destructiveHint: true`。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；仅有 destination 选择和 AppIntents metadata skipped warning。
+- `git diff --check` 通过。
+- 未对用户正在运行的 App 执行真实删除 smoke test，避免破坏现有 bookmark/image/text 数据；需要安装并重启新构建后再做人工删除验证。
+
+# MCP bookmark poster image
+
+## 假设
+- `update_bookmark` 增加 `posterImageURL` 和 `posterImagePath`，不新增单独工具。
+- `posterImageURL` 直接写入 `bookmark.metadata.imageURL`。
+- `posterImagePath` 支持普通绝对路径和 `file://`，复制到 Seahorse `Images` 存储目录后写入文件名。
+- 两者同时传入时优先使用 `posterImagePath`。
+
+## 计划
+- [x] 先增加 TypeScript schema 红灯测试。
+- [x] 扩展 `update_bookmark` schema。
+- [x] 在 Swift bridge 更新 bookmark metadata poster。
+- [x] 跑 helper 测试/build、Swift build 和空白检查。
+
+## 审查记录
+- 红灯测试：`npm test -- tests/tools.test.ts` 先失败，原因是 `updateBookmarkShape` 未导出/未暴露 poster 字段。
+- `update_bookmark` schema 已新增 `posterImageURL` 和 `posterImagePath`。
+- Swift bridge 已支持远程 poster URL；本地 poster path 会复制到 Seahorse `Images` 目录，再把文件名写入 `metadata.imageURL`。
+- 两个字段同时存在时优先使用 `posterImagePath`。
+- `MCPHelper` 的 `npm test` 通过，2 个测试文件、5 个测试通过。
+- `MCPHelper` 的 `npm run build` 通过。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug` 通过；本次有 Xcode destination warning 和 AppIntents metadata skipped warning。
+- `git diff --check` 通过。
+
 # MCP get_bookmarks
 
 ## 假设

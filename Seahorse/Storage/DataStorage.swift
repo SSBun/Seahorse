@@ -157,15 +157,15 @@ class DataStorage: ObservableObject {
     private func deleteImageFile(at path: String) {
         let resolvedPath = StorageManager.shared.resolveImagePath(path)
         // Only delete if the file is in our internal storage directory
-        let imagesDir = StorageManager.shared.getImagesDirectory().path
-        guard resolvedPath.hasPrefix(imagesDir) else {
+        let imagesDirectoryURL = StorageManager.shared.getImagesDirectory().resolvingSymlinksInPath()
+        let fileURL = URL(fileURLWithPath: resolvedPath).resolvingSymlinksInPath()
+        guard fileURL.path.hasPrefix(imagesDirectoryURL.path + "/") else {
             Log.info("Skipping deletion of external image: \(path)", category: .database)
             return
         }
-        
-        let fileURL = URL(fileURLWithPath: resolvedPath)
+
         do {
-            if FileManager.default.fileExists(atPath: resolvedPath) {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.removeItem(at: fileURL)
                 Log.info("✅ Deleted image file: \(fileURL.lastPathComponent)", category: .database)
             }

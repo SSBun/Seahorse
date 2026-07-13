@@ -116,6 +116,8 @@ final class MCPBookmarkBridgeService {
             await createBookmark(request.payload ?? [:])
         case "update_bookmark":
             await updateBookmark(request.payload ?? [:])
+        case "delete_item":
+            deleteItem(request.payload ?? [:])
         case "list_tags":
             .success(.array(dataStorage.tags.map(tagJSON)))
         case "search_tags":
@@ -189,6 +191,26 @@ private extension MCPBookmarkBridgeService {
         return .success(.array(bookmarks))
     }
 
+    func deleteItem(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
+        guard let idString = payload["id"]?.stringValue,
+              let id = UUID(uuidString: idString) else {
+            return .failure(code: "validation_error", message: "id must be a valid item id")
+        }
+        guard let item = dataStorage.item(for: id) else {
+            return .failure(code: "not_found", message: "Item not found")
+        }
+
+        do {
+            try dataStorage.deleteItem(item)
+            return .success(.object([
+                "id": .string(id.uuidString),
+                "type": .string(item.itemType.rawValue)
+            ]))
+        } catch {
+            return .failure(code: "delete_failed", message: error.localizedDescription)
+        }
+    }
+
     func createBookmark(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {
         guard let url = payload["url"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
               !url.isEmpty else {
@@ -245,6 +267,9 @@ private extension MCPBookmarkBridgeService {
             bookmark.tagIds = tagIds
         }
         if let value = payload["isFavorite"]?.boolValue { bookmark.isFavorite = value }
+        if let response = updatePosterImage(payload, bookmark: &bookmark) {
+            return response
+        }
         bookmark.modifiedDate = Date()
 
         do {
@@ -252,6 +277,69 @@ private extension MCPBookmarkBridgeService {
             return .success(bookmarkDetailJSON(bookmark))
         } catch {
             return .failure(code: "validation_error", message: error.localizedDescription)
+        }
+    }
+
+    func updatePosterImage(_ payload: [String: JSONValue], bookmark: inout Bookmark) -> MCPBridgeResponse? {
+        if let path = payload["posterImagePath"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) {
+            guard !path.isEmpty else {
+                return .failure(code: "validation_error", message: "posterImagePath is empty")
+            }
+            guard let filename = copyPosterImageToStorage(path) else {
+                return .failure(code: "validation_error", message: "Could not copy posterImagePath to Seahorse image storage")
+            }
+            setPosterImage(filename, bookmark: &bookmark)
+            return nil
+        }
+
+        if let urlString = payload["posterImageURL"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) {
+            guard let url = URL(string: urlString),
+                  url.scheme == "http" || url.scheme == "https" else {
+                return .failure(code: "validation_error", message: "posterImageURL must be an http or https URL")
+            }
+            setPosterImage(urlString, bookmark: &bookmark)
+        }
+
+        return nil
+    }
+
+    func setPosterImage(_ imagePath: String, bookmark: inout Bookmark) {
+        if bookmark.metadata != nil {
+            bookmark.metadata?.imageURL = imagePath
+        } else {
+            bookmark.metadata = WebMetadata(imageURL: imagePath, url: bookmark.url)
+        }
+    }
+
+    func copyPosterImageToStorage(_ imagePath: String) -> String? {
+        let sourceURL: URL
+        if let url = URL(string: imagePath), url.isFileURL {
+            sourceURL = url
+        } else {
+            sourceURL = URL(fileURLWithPath: imagePath)
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory),
+              !isDirectory.boolValue,
+              FileManager.default.isReadableFile(atPath: sourceURL.path) else {
+            return nil
+        }
+
+        let fileExtension = sourceURL.pathExtension.lowercased()
+        let validExtensions = ["jpg", "jpeg", "png", "gif", "heic", "heif", "bmp", "tiff", "webp"]
+        guard validExtensions.contains(fileExtension) else { return nil }
+
+        let imagesDir = StorageManager.shared.getImagesDirectory()
+        let filename = "\(UUID().uuidString).\(fileExtension)"
+        let destinationURL = imagesDir.appendingPathComponent(filename)
+
+        do {
+            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            return filename
+        } catch {
+            return nil
         }
     }
 }

@@ -58,6 +58,7 @@ process.stdin.on("end", () => {
   const tools = json.result?.tools?.map(tool => tool.name).sort() ?? [];
   const expected = [
     "create_bookmark",
+    "delete_item",
     "get_bookmark",
     "get_bookmarks",
     "list_categories",
