@@ -11,11 +11,13 @@
 		C44392432F7F68FB007B1605 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = C44392422F7F68FB007B1605 /* Highlightr */; };
 		C48F0E792F923C3300D6D2E6 /* ZipArchive in Frameworks */ = {isa = PBXBuildFile; productRef = C48F0E782F923C3300D6D2E6 /* ZipArchive */; };
 		C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C4B4298B2EE00D5600EF6DB2 /* Kingfisher */; };
+		D20000012EC6C12F007D7FD4 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = D20000002EC6C12F007D7FD4 /* CHANGELOG.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		C404BA202EC6C12F007D7FD4 /* Seahorse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Seahorse.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D10000002EC6C12F007D7FD4 /* SeahorseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SeahorseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D20000002EC6C12F007D7FD4 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -69,6 +71,7 @@
 		C404BA172EC6C12F007D7FD4 = {
 			isa = PBXGroup;
 			children = (
+				D20000002EC6C12F007D7FD4 /* CHANGELOG.md */,
 				C404BA222EC6C12F007D7FD4 /* Seahorse */,
 				D10000012EC6C12F007D7FD4 /* SeahorseTests */,
 				C404BA212EC6C12F007D7FD4 /* Products */,
@@ -196,6 +199,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D20000012EC6C12F007D7FD4 /* CHANGELOG.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

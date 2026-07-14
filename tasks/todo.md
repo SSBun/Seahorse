@@ -8,18 +8,23 @@
 - [x] 写入并自审设计规格。
 - [x] 用户复核规格。
 - [x] 编写实施计划。
-- [ ] 实现解析器、资源打包与 sheet UI。
-- [ ] 运行解析测试、macOS 构建、资源检查和空白检查。
+- [x] 实现解析器、资源打包与 sheet UI。
+- [x] 运行解析测试、macOS 构建、资源检查和空白检查。
 
 ## 边界情况
-- [ ] CHANGELOG resource 缺失时显示 fallback。
-- [ ] 当前版本章节不存在或为空时显示 fallback。
-- [ ] 解析必须在下一个版本标题处停止。
-- [ ] 长内容可滚动，sheet 可通过按钮或 Escape 关闭。
-- [ ] 图标按钮包含 tooltip 和无障碍标签。
+- [x] CHANGELOG resource 缺失时显示 fallback。
+- [x] 当前版本章节不存在或为空时显示 fallback。
+- [x] 解析必须在下一个版本标题处停止。
+- [x] 长内容可滚动，sheet 可通过按钮或 Escape 关闭。
+- [x] 图标按钮包含 tooltip 和无障碍标签。
 
 ## 审查记录
 - 设计规格：`docs/superpowers/specs/2026-07-14-current-changelog-panel-design.md`。
+- `ChangelogParser` 精确匹配当前版本标题，只解析 H3 分类和短横线列表，并在下一个 H2 标题处停止；3 项定向测试覆盖版本隔离、精确匹配和空结果。
+- 根目录 `CHANGELOG.md` 已加入 App Resources；Debug 产物内资源与源文件逐字节一致。
+- Advanced Settings 的 `Updates` 标题旁新增 `info.circle`，打开 520×420 原生 sheet；缺失内容显示 fallback。
+- 真实 Debug 进程已验证 tooltip、当前 1.8.0 的新增/改进/修复内容、长内容滚动、关闭按钮和 Escape 关闭。
+- macOS 全量 21 项测试通过，Debug build、`git diff --check` 和资源检查通过；仅保留既有 asset symbol、Swift 并发隔离和 AppIntents metadata warnings。
 
 # Seahorse 1.8.0 本地发布
 

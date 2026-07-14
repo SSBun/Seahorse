@@ -15,6 +15,7 @@ struct AdvancedSettingsView: View {
     @AppStorage("enableSystemNotifications") private var isNotificationEnabled: Bool = false
 
     @State private var showingPermissionAlert = false
+    @State private var showingChangelog = false
 
     var body: some View {
         ScrollView {
@@ -179,8 +180,20 @@ struct AdvancedSettingsView: View {
 
     private var updateSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Updates")
-                .font(.system(size: 16, weight: .semibold))
+            HStack(spacing: 6) {
+                Text("Updates")
+                    .font(.system(size: 16, weight: .semibold))
+
+                Button(action: showChangelog) {
+                    Label("Show Changelog", systemImage: "info.circle")
+                        .labelStyle(.iconOnly)
+                        .font(.body)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .help("Show Changelog")
+            }
 
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -197,6 +210,9 @@ struct AdvancedSettingsView: View {
                 updateStatusView
             }
             .padding(.vertical, 8)
+        }
+        .sheet(isPresented: $showingChangelog) {
+            ChangelogPanelView(version: updateManager.currentVersion)
         }
     }
 
@@ -333,6 +349,10 @@ struct AdvancedSettingsView: View {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    private func showChangelog() {
+        showingChangelog = true
     }
 }
 

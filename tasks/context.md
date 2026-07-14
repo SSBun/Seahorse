@@ -30,3 +30,4 @@
 - 多条 item 更新和数据导入使用批量数据库 API，整批验证通过后才修改内存或持久化数据。
 - 缩略图允许异步下采样，全屏图片查看器保留原始分辨率。
 - macOS 侧边栏的 tags 按本地化标准字母顺序展示；持久化顺序和 Tag 管理页顺序不受影响。
+- Advanced Settings 从 App bundle 的 `CHANGELOG.md` 读取并只展示当前 marketing version 的变更；入口是 `Updates` 标题旁的 `info.circle`。
