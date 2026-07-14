@@ -1,3 +1,25 @@
+# 当前版本变更日志面板
+
+## 目标
+- 在 Advanced Settings 的 `Updates` 标题旁增加图标按钮，打开只显示当前版本内容的原生 changelog sheet。
+
+## 计划
+- [x] 确认内容范围、入口位置和数据源设计。
+- [x] 写入并自审设计规格。
+- [ ] 用户复核规格。
+- [ ] 编写实施计划并实现。
+- [ ] 运行解析测试、macOS 构建、资源检查和空白检查。
+
+## 边界情况
+- [ ] CHANGELOG resource 缺失时显示 fallback。
+- [ ] 当前版本章节不存在或为空时显示 fallback。
+- [ ] 解析必须在下一个版本标题处停止。
+- [ ] 长内容可滚动，sheet 可通过按钮或 Escape 关闭。
+- [ ] 图标按钮包含 tooltip 和无障碍标签。
+
+## 审查记录
+- 设计规格：`docs/superpowers/specs/2026-07-14-current-changelog-panel-design.md`。
+
 # Seahorse 1.8.0 本地发布
 
 ## 目标
