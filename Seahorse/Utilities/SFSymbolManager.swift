@@ -8,23 +8,50 @@
 import Foundation
 import SwiftUI
 
-class SFSymbolManager {
+final class SFSymbolManager: @unchecked Sendable {
     static let shared = SFSymbolManager()
 
     private init() {}
 
-    // MARK: - Available Icons (filtered by system availability)
+    private let catalogLock = NSLock()
+    private var cachedAvailableCatalog: (icons: [String], iconSet: Set<String>, categories: [String: [String]])?
 
-    /// Returns all icons that are actually available on the current system
-    var availableIcons: [String] {
-        // Filter to only include symbols that exist on this macOS version
-        return allIcons.filter { icon in
+    private func catalog() -> (icons: [String], iconSet: Set<String>, categories: [String: [String]]) {
+        catalogLock.lock()
+        defer { catalogLock.unlock() }
+        if let cachedAvailableCatalog {
+            return cachedAvailableCatalog
+        }
+
+        let icons = allIcons.filter { icon in
             #if os(macOS)
             NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
             #else
             UIImage(systemName: icon) != nil
             #endif
         }
+        let iconSet = Set(icons)
+        let categories = getAllCategories().reduce(into: [String: [String]]()) { result, entry in
+            let filtered = entry.value.filter(iconSet.contains)
+            if !filtered.isEmpty {
+                result[entry.key] = filtered
+            }
+        }
+        let catalog = (icons, iconSet, categories)
+        cachedAvailableCatalog = catalog
+        return catalog
+    }
+
+    // MARK: - Available Icons (filtered by system availability)
+
+    /// Returns all icons that are actually available on the current system
+    var availableIcons: [String] {
+        catalog().icons
+    }
+
+    func getAvailableCatalog() -> (icons: [String], categories: [String: [String]]) {
+        let catalog = catalog()
+        return (catalog.icons, catalog.categories)
     }
 
     let allIcons: [String] = Array(Set([
@@ -1832,7 +1859,7 @@ class SFSymbolManager {
     }
 
     func isValidSymbol(_ name: String) -> Bool {
-        availableIcons.contains(name)
+        catalog().iconSet.contains(name)
     }
 
     func searchIcons(query: String) -> [String] {

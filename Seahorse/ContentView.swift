@@ -8,7 +8,6 @@
 
 import SwiftUI
 import UniformTypeIdentifiers
-import Combine
 
 enum ItemKind: String, CaseIterable {
     case all = "All"
@@ -52,11 +51,9 @@ struct ContentView: View {
     @StateObject private var pasteHandler = PasteHandler(dataStorage: .shared)
     @State private var isAgentPanelVisible = false
 
-    // Cached filtered items - only recalculates when filters change
     @State private var cachedItems: [AnyCollectionItem] = []
-    @State private var lastFilterHash: Int = 0
-    @State private var searchableTextCache: [UUID: String] = [:]
     @State private var searchDebounceTask: Task<Void, Never>?
+    @State private var filterTask: Task<Void, Never>?
 
     @State private var windowDelegate = MainWindowDelegate()
     
@@ -72,126 +69,52 @@ struct ContentView: View {
         selectedCategory?.name ?? selectedTag?.name ?? "Bookmarks"
     }
 
-    /// Computes a hash of current filter state to detect changes
-    /// Uses debouncedSearchText for filtering to avoid recalculating on every keystroke
-    private var filterHash: Int {
-        var hasher = Hasher()
-        hasher.combine(selectedCategory?.id)
-        hasher.combine(selectedTag?.id)
-        hasher.combine(selectedKind)
-        hasher.combine(debouncedSearchText)  // Use debounced search
-        hasher.combine(sortPreferenceManager.sortOption)
-        hasher.combine(dataStorage.items.count) // Include item count to detect additions/deletions
-        return hasher.finalize()
-    }
-
     private func recalculateFilteredItems() {
-        var items = dataStorage.items
+        filterTask?.cancel()
+        var criteria = CollectionSearch.Criteria(
+            query: debouncedSearchText,
+            kind: collectionSearchKind,
+            order: collectionSearchOrder
+        )
 
-        // Filter by kind
-        switch selectedKind {
-        case .all:
-            break // Show all items
-        case .bookmark:
-            items = items.filter { $0.asBookmark != nil }
-        case .image:
-            items = items.filter { $0.asImageItem != nil }
-        case .note:
-            items = items.filter { $0.asTextItem != nil }
-        }
-
-        // Filter by category or tag
         if let category = selectedCategory {
-            if category.name != "All Bookmarks" {
-                if category.name == "Favorites" {
-                    items = items.filter { item in
-                        if let bookmark = item.asBookmark {
-                            return bookmark.isFavorite
-                        } else if let imageItem = item.asImageItem {
-                            return imageItem.isFavorite
-                        } else if let textItem = item.asTextItem {
-                            return textItem.isFavorite
-                        }
-                        return false
-                    }
-                } else {
-                    items = items.filter { item in
-                        if let bookmark = item.asBookmark {
-                            return bookmark.categoryId == category.id
-                        } else if let imageItem = item.asImageItem {
-                            return imageItem.categoryId == category.id
-                        } else if let textItem = item.asTextItem {
-                            return textItem.categoryId == category.id
-                        }
-                        return false
-                    }
-                }
+            if category.name == "Favorites" {
+                criteria.favoriteOnly = true
+            } else if category.name != "All Bookmarks" {
+                criteria.categoryID = category.id
             }
         } else if let tag = selectedTag {
-            items = items.filter { item in
-                if let bookmark = item.asBookmark {
-                    return bookmark.tagIds.contains(tag.id)
-                } else if let imageItem = item.asImageItem {
-                    return imageItem.tagIds.contains(tag.id)
-                } else if let textItem = item.asTextItem {
-                    return textItem.tagIds.contains(tag.id)
-                }
-                return false
-            }
+            criteria.tagIDs = [tag.id]
         } else {
             cachedItems = []
             return
         }
 
-        // Filter by search text (title/url/notes + tags) - uses debounced search
-        let searchQuery = debouncedSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !searchQuery.isEmpty {
-            let queryLower = searchQuery.lowercased()
-            items = items.filter { item in
-                searchableText(for: item).contains(queryLower)
-            }
+        let records = dataStorage.searchRecordsSnapshot()
+        filterTask = Task { @MainActor in
+            let results = await CollectionSearch.itemsAsync(in: records, matching: criteria)
+            guard !Task.isCancelled else { return }
+            cachedItems = results
         }
-
-        // Apply sorting to all items uniformly
-        let sorted = sortPreferenceManager.sortOption.sort(items)
-
-        cachedItems = sorted
-    }
-    
-    private func searchableText(for item: AnyCollectionItem) -> String {
-        if let cached = searchableTextCache[item.id] {
-            return cached
-        }
-
-        var fields: [String] = []
-        
-        if let bookmark = item.asBookmark {
-            fields.append(bookmark.title)
-            fields.append(bookmark.url)
-            if let notes = bookmark.notes {
-                fields.append(notes)
-            }
-        } else if let imageItem = item.asImageItem {
-            fields.append(imageItem.imagePath)
-            if let notes = imageItem.notes {
-                fields.append(notes)
-            }
-        } else if let textItem = item.asTextItem {
-            fields.append(textItem.content)
-            if let notes = textItem.notes {
-                fields.append(notes)
-            }
-        }
-        
-        fields.append(contentsOf: dataStorage.tags(for: item.tagIds).map(\.name))
-
-        let text = fields.joined(separator: "\n").lowercased()
-        searchableTextCache[item.id] = text
-        return text
     }
 
-    private func clearSearchableTextCache() {
-        searchableTextCache.removeAll(keepingCapacity: true)
+    private var collectionSearchKind: CollectionSearch.Kind {
+        switch selectedKind {
+        case .all: .all
+        case .bookmark: .bookmark
+        case .image: .image
+        case .note: .text
+        }
+    }
+
+    private var collectionSearchOrder: CollectionSearch.Order {
+        switch sortPreferenceManager.sortOption {
+        case .none: .none
+        case .nameAscending: .nameAscending
+        case .newestFirst: .newestFirst
+        case .oldestFirst: .oldestFirst
+        case .groupBySite: .groupBySite
+        }
     }
     
     var body: some View {
@@ -374,21 +297,12 @@ struct ContentView: View {
             recalculateFilteredItems()
         }
         // Watch for data changes (items added/deleted or updated in-place)
-        .onChange(of: dataStorage.items.count) { _, _ in
-            clearSearchableTextCache()
-            recalculateFilteredItems()
-        }
         .onChange(of: dataStorage.itemsVersion) { _, _ in
-            clearSearchableTextCache()
             recalculateFilteredItems()
         }
-        .onChange(of: dataStorage.tags) { _, _ in
-            clearSearchableTextCache()
-            recalculateFilteredItems()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("DataStorageItemsUpdated"))) { _ in
-            clearSearchableTextCache()
-            recalculateFilteredItems()
+        .onDisappear {
+            searchDebounceTask?.cancel()
+            filterTask?.cancel()
         }
         .sheet(isPresented: $showingAddBookmark) {
             AddBookmarkView()
@@ -490,31 +404,17 @@ struct ContentView: View {
 
     private func applyGeneratedCover(taskId: UUID, image: NSImage) {
         guard let _ = imageGenerationService.applyImage(taskId: taskId) else { return }
-
+        guard let task = imageGenerationService.tasks.first(where: { $0.id == taskId }) else { return }
         let imagesDir = StorageManager.shared.getImagesDirectory()
-        do {
-            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-        } catch {
-            Log.error("Failed to create images directory: \(error)", category: .ai)
-            return
-        }
-
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
-
-        let filename = "preview-\(UUID().uuidString).png"
-        let fileURL = imagesDir.appendingPathComponent(filename)
-        do {
-            try pngData.write(to: fileURL)
-        } catch {
-            Log.error("Failed to write preview image to disk: \(error)", category: .ai)
-            return
-        }
-
-        // Find the bookmark and update its metadata
-        if let task = imageGenerationService.tasks.first(where: { $0.id == taskId }),
-           let bookmark = dataStorage.bookmarks.first(where: { $0.id == task.bookmarkId }) {
+        Task { @MainActor in
+            guard let filename = try? await ImageFileService.shared.savePNG(
+                image,
+                to: imagesDir,
+                prefix: "preview"
+            ), let bookmark = dataStorage.item(for: task.bookmarkId)?.asBookmark else {
+                Log.error("Failed to write preview image to disk", category: .ai)
+                return
+            }
             var updated = bookmark
             if updated.metadata != nil {
                 updated.metadata?.imageURL = filename

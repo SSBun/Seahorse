@@ -59,6 +59,21 @@ class ExportImportManager: ObservableObject {
         let colorHex: String
     }
 
+    private struct ExportSnapshot {
+        let items: [AnyCollectionItem]
+        let categories: [Category]
+        let tags: [Tag]
+        let bookmarks: [Bookmark]
+        let sourceImagesDirectory: URL
+    }
+
+    private struct ImportedData {
+        let items: [AnyCollectionItem]
+        let categories: [Category]
+        let tags: [Tag]
+        let imagesCopied: Int
+    }
+
     // MARK: - Backup Methods
 
     /// Get the parent directory of the current storage location
@@ -68,24 +83,19 @@ class ExportImportManager: ObservableObject {
     }
 
     /// Scan for existing backup folders in the backup directory
-    func scanBackupFolders() -> [URL] {
+    func scanBackupFolders() async -> [URL] {
         let backupDir = getBackupDirectory()
-        let fileManager = FileManager.default
-
-        guard fileManager.fileExists(atPath: backupDir.path) else {
-            return []
-        }
-
-        do {
-            let contents = try fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: nil)
-            return contents.filter { url in
-                let name = url.lastPathComponent
-                return name.hasPrefix("Seahorse_Export_") && url.hasDirectoryPath
-            }.sorted { $0.lastPathComponent > $1.lastPathComponent } // Most recent first
-        } catch {
-            print("❌ Failed to scan backup folders: \(error)")
-            return []
-        }
+        return await Task.detached(priority: .utility) {
+            let fileManager = FileManager.default
+            guard fileManager.fileExists(atPath: backupDir.path) else { return [] }
+            do {
+                return try fileManager.contentsOfDirectory(at: backupDir, includingPropertiesForKeys: nil)
+                    .filter { $0.lastPathComponent.hasPrefix("Seahorse_Export_") && $0.hasDirectoryPath }
+                    .sorted { $0.lastPathComponent > $1.lastPathComponent }
+            } catch {
+                return []
+            }
+        }.value
     }
 
     /// Format backup folder name for display (e.g., "2026-4-2-193055" -> "2026-04-02 19:30:55")
@@ -108,60 +118,14 @@ class ExportImportManager: ObservableObject {
     func backupToDataFolder(dataStorage: DataStorage, completion: @escaping (Bool, URL?) -> Void) {
         isBackingUp = true
         lastError = nil
+        let backupDirectory = getBackupDirectory()
+        let snapshot = exportSnapshot(from: dataStorage)
 
         Task {
             do {
-                let backupDir = getBackupDirectory()
-
-                // Create backup folder with timestamp
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-M-d-HHmmss"
-                let timestamp = formatter.string(from: Date())
-                let exportDirectory = backupDir.appendingPathComponent("Seahorse_Export_\(timestamp)", isDirectory: true)
-
-                // Create directory structure
-                try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
-
-                // Get source storage directories
-                let storageManager = StorageManager.shared
-                let sourceImagesDir = storageManager.getImagesDirectory()
-
-                // Create destination directories
-                let destDataDir = exportDirectory.appendingPathComponent("Data", isDirectory: true)
-                let destImagesDir = exportDirectory.appendingPathComponent("Images", isDirectory: true)
-                try FileManager.default.createDirectory(at: destDataDir, withIntermediateDirectories: true)
-                try FileManager.default.createDirectory(at: destImagesDir, withIntermediateDirectories: true)
-
-                // Export JSON data files
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
-                // Export all items
-                let itemsData = try encoder.encode(dataStorage.items)
-                try itemsData.write(to: destDataDir.appendingPathComponent("items.json"))
-
-                // Export categories.json
-                let categoriesData = try encoder.encode(dataStorage.categories)
-                try categoriesData.write(to: destDataDir.appendingPathComponent("categories.json"))
-
-                // Export tags.json
-                let tagsData = try encoder.encode(dataStorage.tags)
-                try tagsData.write(to: destDataDir.appendingPathComponent("tags.json"))
-
-                // Export preferences.json
-                let preferencesData = try encoder.encode([String: String]())
-                try preferencesData.write(to: destDataDir.appendingPathComponent("preferences.json"))
-
-                try writeBookmarkIndexHTML(dataStorage: dataStorage, to: exportDirectory)
-
-                // Copy Images directory
-                if FileManager.default.fileExists(atPath: sourceImagesDir.path) {
-                    let imageFiles = try FileManager.default.contentsOfDirectory(at: sourceImagesDir, includingPropertiesForKeys: nil)
-                    for imageFile in imageFiles {
-                        let destFile = destImagesDir.appendingPathComponent(imageFile.lastPathComponent)
-                        try FileManager.default.copyItem(at: imageFile, to: destFile)
-                    }
-                }
+                let exportDirectory = try await Task.detached(priority: .utility) {
+                    try Self.writeFullExport(snapshot, to: backupDirectory)
+                }.value
 
                 print("✅ Backup successful: \(exportDirectory.path)")
 
@@ -185,12 +149,15 @@ class ExportImportManager: ObservableObject {
 
         isSyncingBookmarkIndex = true
         lastError = nil
+        let outputDirectory = getBackupDirectory().appendingPathComponent("Seahorse_Bookmarks", isDirectory: true)
+        let snapshot = exportSnapshot(from: dataStorage)
 
         Task {
             do {
-                let outputDirectory = getBackupDirectory().appendingPathComponent("Seahorse_Bookmarks", isDirectory: true)
-                try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-                try writeBookmarkIndexHTML(dataStorage: dataStorage, to: outputDirectory)
+                try await Task.detached(priority: .utility) {
+                    try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+                    try Self.writeBookmarkIndexHTML(snapshot: snapshot, to: outputDirectory)
+                }.value
 
                 await MainActor.run {
                     self.isSyncingBookmarkIndex = false
@@ -258,70 +225,17 @@ class ExportImportManager: ObservableObject {
             
             self.isExporting = true
             self.lastError = nil
+            let snapshot = self.exportSnapshot(from: dataStorage)
             
             Task {
                 do {
-                    // Start accessing security-scoped resource
-                    let hasAccess = url.startAccessingSecurityScopedResource()
-                    defer {
-                        if hasAccess {
-                            url.stopAccessingSecurityScopedResource()
+                    let exportDirectory = try await Task.detached(priority: .utility) {
+                        let hasAccess = url.startAccessingSecurityScopedResource()
+                        defer {
+                            if hasAccess { url.stopAccessingSecurityScopedResource() }
                         }
-                    }
-                    
-                    print("🔓 Accessing security-scoped resource for export: \(hasAccess)")
-                    print("  Export URL: \(url.path)")
-                    
-                    // Create Seahorse subfolder with timestamp (e.g., Seahorse_Export_2026-4-2-193055)
-                    let formatter = DateFormatter()
-                    formatter.dateFormat = "yyyy-M-d-HHmmss"
-                    let timestamp = formatter.string(from: Date())
-                    let exportDirectory = url.appendingPathComponent("Seahorse_Export_\(timestamp)", isDirectory: true)
-                    
-                    // Create directory structure
-                    try FileManager.default.createDirectory(at: exportDirectory, withIntermediateDirectories: true)
-                    
-                    // Get source storage directories
-                    let storageManager = StorageManager.shared
-                    let sourceImagesDir = storageManager.getImagesDirectory()
-                    
-                    // Create destination directories
-                    let destDataDir = exportDirectory.appendingPathComponent("Data", isDirectory: true)
-                    let destImagesDir = exportDirectory.appendingPathComponent("Images", isDirectory: true)
-                    try FileManager.default.createDirectory(at: destDataDir, withIntermediateDirectories: true)
-                    try FileManager.default.createDirectory(at: destImagesDir, withIntermediateDirectories: true)
-                    
-                    // Export JSON data files
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                    
-                    // Export all items (including bookmarks, images and text items)
-                    let itemsData = try encoder.encode(dataStorage.items)
-                    try itemsData.write(to: destDataDir.appendingPathComponent("items.json"))
-                    
-                    // Export categories.json
-                    let categoriesData = try encoder.encode(dataStorage.categories)
-                    try categoriesData.write(to: destDataDir.appendingPathComponent("categories.json"))
-                    
-                    // Export tags.json
-                    let tagsData = try encoder.encode(dataStorage.tags)
-                    try tagsData.write(to: destDataDir.appendingPathComponent("tags.json"))
-                    
-                    // Export preferences.json
-                    let preferencesData = try encoder.encode([String: String]())
-                    try preferencesData.write(to: destDataDir.appendingPathComponent("preferences.json"))
-
-                    try self.writeBookmarkIndexHTML(dataStorage: dataStorage, to: exportDirectory)
-                    
-                    // Copy Images directory (all local image files)
-                    if FileManager.default.fileExists(atPath: sourceImagesDir.path) {
-                        let imageFiles = try FileManager.default.contentsOfDirectory(at: sourceImagesDir, includingPropertiesForKeys: nil)
-                        for imageFile in imageFiles {
-                            let destFile = destImagesDir.appendingPathComponent(imageFile.lastPathComponent)
-                            try FileManager.default.copyItem(at: imageFile, to: destFile)
-                        }
-                        print("✅ Copied \(imageFiles.count) image file(s)")
-                    }
+                        return try Self.writeFullExport(snapshot, to: url)
+                    }.value
                     
                     print("✅ Export successful: \(exportDirectory.path)")
                     
@@ -398,121 +312,164 @@ class ExportImportManager: ObservableObject {
     
     /// Import from folder (complete storage structure including images)
     private func importFromFolder(_ folderURL: URL, into dataStorage: DataStorage) async throws {
-        let decoder = JSONDecoder()
-        let fileManager = FileManager.default
-        
-        // Check for Data/Images subdirectories
-        let dataDir = folderURL.appendingPathComponent("Data", isDirectory: true)
-        let imagesDir = folderURL.appendingPathComponent("Images", isDirectory: true)
-        
-        guard fileManager.fileExists(atPath: dataDir.path) else {
-            throw NSError(domain: "Seahorse", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid export format: Data directory not found"])
-        }
-        
-        // Read JSON files from Data directory
-        let categoriesURL = dataDir.appendingPathComponent("categories.json")
-        let tagsURL = dataDir.appendingPathComponent("tags.json")
-        let itemsURL = dataDir.appendingPathComponent("items.json")
-        
-        var categories: [Category] = []
-        var tags: [Tag] = []
-        var items: [AnyCollectionItem] = []
-        
-        // Load items.json (required)
-        guard fileManager.fileExists(atPath: itemsURL.path) else {
-            throw NSError(domain: "Seahorse", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid export format: items.json not found"])
-        }
-        
-        let itemsData = try Data(contentsOf: itemsURL)
-        items = try decoder.decode([AnyCollectionItem].self, from: itemsData)
-        
-        // Load categories if file exists
-        if fileManager.fileExists(atPath: categoriesURL.path) {
-            let data = try Data(contentsOf: categoriesURL)
-            categories = try decoder.decode([Category].self, from: data)
-        }
-        
-        // Load tags if file exists
-        if fileManager.fileExists(atPath: tagsURL.path) {
-            let data = try Data(contentsOf: tagsURL)
-            tags = try decoder.decode([Tag].self, from: data)
-        }
-        
-        // Copy images if Images directory exists
-        var imagesCopied = 0
-        if fileManager.fileExists(atPath: imagesDir.path) {
-            let storageManager = StorageManager.shared
-            let destImagesDir = storageManager.getImagesDirectory()
-            
-            // Ensure destination directory exists
-            try fileManager.createDirectory(at: destImagesDir, withIntermediateDirectories: true)
-            
-            // Copy all image files
-            let imageFiles = try fileManager.contentsOfDirectory(at: imagesDir, includingPropertiesForKeys: nil)
-            for imageFile in imageFiles {
-                // Skip directories
-                var isDirectory: ObjCBool = false
-                guard fileManager.fileExists(atPath: imageFile.path, isDirectory: &isDirectory), !isDirectory.boolValue else {
-                    continue
-                }
-                
-                let destFile = destImagesDir.appendingPathComponent(imageFile.lastPathComponent)
-                
-                // Skip if file already exists
-                if fileManager.fileExists(atPath: destFile.path) {
-                    continue
-                }
-                
-                try fileManager.copyItem(at: imageFile, to: destFile)
-                imagesCopied += 1
-            }
-            print("✅ Copied \(imagesCopied) image file(s)")
-        }
-        
-        // Merge imported data
-        await MainActor.run {
-            self.mergeItemsData(items: items, categories: categories, tags: tags, into: dataStorage)
-            
-            self.isImporting = false
-            
-            var message = "Data imported: \(items.count) items, \(categories.count) categories, \(tags.count) tags"
-            if imagesCopied > 0 {
-                message += ", \(imagesCopied) images"
-            }
-            
-            NotificationCenter.default.post(
-                name: NSNotification.Name("ShowToast"),
-                object: nil,
-                userInfo: ["message": message]
+        let destinationImagesDirectory = StorageManager.shared.getImagesDirectory()
+        let imported = try await Task.detached(priority: .utility) {
+            try Self.loadImportedData(
+                from: folderURL,
+                destinationImagesDirectory: destinationImagesDirectory
             )
+        }.value
+
+        try mergeItemsData(
+            items: imported.items,
+            categories: imported.categories,
+            tags: imported.tags,
+            into: dataStorage
+        )
+        isImporting = false
+
+        var message = "Data imported: \(imported.items.count) items, \(imported.categories.count) categories, \(imported.tags.count) tags"
+        if imported.imagesCopied > 0 {
+            message += ", \(imported.imagesCopied) images"
         }
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ShowToast"),
+            object: nil,
+            userInfo: ["message": message]
+        )
     }
     
-    private func mergeItemsData(items: [AnyCollectionItem], categories: [Category], tags: [Tag], into dataStorage: DataStorage) {
-        // Import categories (skip duplicates by name)
-        for category in categories {
-            if !dataStorage.categories.contains(where: { $0.name.lowercased() == category.name.lowercased() }) {
-                try? dataStorage.addCategory(category)
-            }
+    private func mergeItemsData(
+        items: [AnyCollectionItem],
+        categories: [Category],
+        tags: [Tag],
+        into dataStorage: DataStorage
+    ) throws {
+        var categoryNames = Set(dataStorage.categories.map { $0.name.lowercased() })
+        let newCategories = categories.filter { categoryNames.insert($0.name.lowercased()).inserted }
+
+        var tagNames = Set(dataStorage.tags.map { $0.name.lowercased() })
+        let newTags = tags.filter { tagNames.insert($0.name.lowercased()).inserted }
+
+        var itemIDs = Set(dataStorage.items.map(\.id))
+        var bookmarkURLs = Set(dataStorage.bookmarks.map { BookmarkURLNormalizer.normalize($0.url) })
+        let newItems = items.filter { item in
+            guard itemIDs.insert(item.id).inserted else { return false }
+            guard let bookmark = item.asBookmark else { return true }
+            return bookmarkURLs.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted
         }
 
-        // Import tags (skip duplicates by name)
-        for tag in tags {
-            if !dataStorage.tags.contains(where: { $0.name.lowercased() == tag.name.lowercased() }) {
-                try? dataStorage.addTag(tag)
-            }
-        }
-
-        // Import all items (skip duplicates by ID)
-        for item in items {
-            if !dataStorage.items.contains(where: { $0.id == item.id }) {
-                dataStorage.addItem(item)
-            }
-        }
+        try dataStorage.importData(categories: newCategories, tags: newTags, items: newItems)
     }
 
-    private func writeBookmarkIndexHTML(dataStorage: DataStorage, to exportDirectory: URL) throws {
-        let payload = bookmarkIndexPayload(from: dataStorage)
+    private func exportSnapshot(from dataStorage: DataStorage) -> ExportSnapshot {
+        ExportSnapshot(
+            items: dataStorage.items,
+            categories: dataStorage.categories,
+            tags: dataStorage.tags,
+            bookmarks: dataStorage.bookmarks,
+            sourceImagesDirectory: StorageManager.shared.getImagesDirectory()
+        )
+    }
+
+    nonisolated private static func writeFullExport(
+        _ snapshot: ExportSnapshot,
+        to parentDirectory: URL
+    ) throws -> URL {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-M-d-HHmmss"
+        let exportDirectory = parentDirectory.appendingPathComponent(
+            "Seahorse_Export_\(formatter.string(from: Date()))",
+            isDirectory: true
+        )
+        let dataDirectory = exportDirectory.appendingPathComponent("Data", isDirectory: true)
+        let imagesDirectory = exportDirectory.appendingPathComponent("Images", isDirectory: true)
+        try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: imagesDirectory, withIntermediateDirectories: true)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(snapshot.items).write(
+            to: dataDirectory.appendingPathComponent("items.json"),
+            options: .atomic
+        )
+        try encoder.encode(snapshot.categories).write(
+            to: dataDirectory.appendingPathComponent("categories.json"),
+            options: .atomic
+        )
+        try encoder.encode(snapshot.tags).write(
+            to: dataDirectory.appendingPathComponent("tags.json"),
+            options: .atomic
+        )
+        try encoder.encode([String: String]()).write(
+            to: dataDirectory.appendingPathComponent("preferences.json"),
+            options: .atomic
+        )
+        try writeBookmarkIndexHTML(snapshot: snapshot, to: exportDirectory)
+
+        if FileManager.default.fileExists(atPath: snapshot.sourceImagesDirectory.path) {
+            for source in try FileManager.default.contentsOfDirectory(
+                at: snapshot.sourceImagesDirectory,
+                includingPropertiesForKeys: nil
+            ) {
+                try FileManager.default.copyItem(
+                    at: source,
+                    to: imagesDirectory.appendingPathComponent(source.lastPathComponent)
+                )
+            }
+        }
+        return exportDirectory
+    }
+
+    nonisolated private static func loadImportedData(
+        from folderURL: URL,
+        destinationImagesDirectory: URL
+    ) throws -> ImportedData {
+        let fileManager = FileManager.default
+        let dataDirectory = folderURL.appendingPathComponent("Data", isDirectory: true)
+        let sourceImagesDirectory = folderURL.appendingPathComponent("Images", isDirectory: true)
+        let itemsURL = dataDirectory.appendingPathComponent("items.json")
+        guard fileManager.fileExists(atPath: dataDirectory.path),
+              fileManager.fileExists(atPath: itemsURL.path) else {
+            throw NSError(
+                domain: "Seahorse",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid export format: Data/items.json not found"]
+            )
+        }
+
+        let decoder = JSONDecoder()
+        let items = try decoder.decode([AnyCollectionItem].self, from: Data(contentsOf: itemsURL))
+        let categoriesURL = dataDirectory.appendingPathComponent("categories.json")
+        let tagsURL = dataDirectory.appendingPathComponent("tags.json")
+        let categories = fileManager.fileExists(atPath: categoriesURL.path)
+            ? try decoder.decode([Category].self, from: Data(contentsOf: categoriesURL))
+            : []
+        let tags = fileManager.fileExists(atPath: tagsURL.path)
+            ? try decoder.decode([Tag].self, from: Data(contentsOf: tagsURL))
+            : []
+
+        var imagesCopied = 0
+        if fileManager.fileExists(atPath: sourceImagesDirectory.path) {
+            try fileManager.createDirectory(at: destinationImagesDirectory, withIntermediateDirectories: true)
+            for source in try fileManager.contentsOfDirectory(at: sourceImagesDirectory, includingPropertiesForKeys: nil) {
+                var isDirectory: ObjCBool = false
+                guard fileManager.fileExists(atPath: source.path, isDirectory: &isDirectory),
+                      !isDirectory.boolValue else { continue }
+                let destination = destinationImagesDirectory.appendingPathComponent(source.lastPathComponent)
+                guard !fileManager.fileExists(atPath: destination.path) else { continue }
+                try fileManager.copyItem(at: source, to: destination)
+                imagesCopied += 1
+            }
+        }
+        return ImportedData(items: items, categories: categories, tags: tags, imagesCopied: imagesCopied)
+    }
+
+    nonisolated private static func writeBookmarkIndexHTML(
+        snapshot: ExportSnapshot,
+        to exportDirectory: URL
+    ) throws {
+        let payload = bookmarkIndexPayload(from: snapshot)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let data = try encoder.encode(payload)
@@ -524,12 +481,12 @@ class ExportImportManager: ObservableObject {
         try html.write(to: exportDirectory.appendingPathComponent("index.html"), atomically: true, encoding: .utf8)
     }
 
-    private func bookmarkIndexPayload(from dataStorage: DataStorage) -> BookmarkIndexPayload {
+    nonisolated private static func bookmarkIndexPayload(from snapshot: ExportSnapshot) -> BookmarkIndexPayload {
         let dateFormatter = ISO8601DateFormatter()
-        let categoryById = Dictionary(uniqueKeysWithValues: dataStorage.categories.map { ($0.id, $0) })
-        let tagById = Dictionary(uniqueKeysWithValues: dataStorage.tags.map { ($0.id, $0) })
+        let categoryById = Dictionary(uniqueKeysWithValues: snapshot.categories.map { ($0.id, $0) })
+        let tagById = Dictionary(uniqueKeysWithValues: snapshot.tags.map { ($0.id, $0) })
 
-        let categories = dataStorage.categories.map {
+        let categories = snapshot.categories.map {
             BookmarkIndexCategory(
                 id: $0.id.uuidString,
                 name: $0.name,
@@ -538,7 +495,7 @@ class ExportImportManager: ObservableObject {
             )
         }
 
-        let tags = dataStorage.tags.map {
+        let tags = snapshot.tags.map {
             BookmarkIndexTag(
                 id: $0.id.uuidString,
                 name: $0.name,
@@ -546,7 +503,7 @@ class ExportImportManager: ObservableObject {
             )
         }
 
-        let bookmarks = dataStorage.bookmarks.map { bookmark in
+        let bookmarks = snapshot.bookmarks.map { bookmark in
             let category = categoryById[bookmark.categoryId]
             let bookmarkTags = bookmark.tagIds.compactMap { tagById[$0] }
             return BookmarkIndexBookmark(
@@ -575,14 +532,14 @@ class ExportImportManager: ObservableObject {
         )
     }
 
-    private func domainName(from urlString: String) -> String {
+    nonisolated private static func domainName(from urlString: String) -> String {
         guard let url = URL(string: urlString), let host = url.host else {
             return urlString
         }
         return host.replacingOccurrences(of: "^www\\.", with: "", options: .regularExpression)
     }
 
-    private func bookmarkIndexHTML(json: String) -> String {
+    nonisolated private static func bookmarkIndexHTML(json: String) -> String {
         """
         <!doctype html>
         <html lang="zh-CN">

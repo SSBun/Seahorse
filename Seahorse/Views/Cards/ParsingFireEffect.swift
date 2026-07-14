@@ -39,12 +39,14 @@ struct ParsingFireEffect: View {
 private struct FireParticleCanvas: View {
     let size: CGSize
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var particles: [Particle] = []
     @State private var startTime = Date()
+    @State private var lastUpdate = Date()
     @State private var glowPhase: CGFloat = 0
 
-    private let particleCount = 40
-    private let timer = Timer.publish(every: 0.03, on: .main, in: .common).autoconnect()
+    private let particleCount = 28
+    private let timer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
 
     var body: some View {
         ZStack {
@@ -124,10 +126,14 @@ private struct FireParticleCanvas: View {
             }
         }
         .onAppear {
+            startTime = Date()
+            lastUpdate = startTime
             initializeParticles()
         }
         .onReceive(timer) { _ in
-            updateParticles()
+            if !reduceMotion {
+                updateParticles()
+            }
         }
     }
 
@@ -183,14 +189,17 @@ private struct FireParticleCanvas: View {
     }
 
     private func updateParticles() {
-        let dt: CGFloat = 0.03
-        glowPhase = (sin(Date().timeIntervalSince(startTime) * 3) + 1) / 2
+        let now = Date()
+        let elapsed = now.timeIntervalSince(startTime)
+        let dt = CGFloat(min(max(now.timeIntervalSince(lastUpdate), 0), 0.1))
+        lastUpdate = now
+        glowPhase = (sin(elapsed * 3) + 1) / 2
 
         for i in particles.indices {
             let p = particles[i]
 
             // Move upward with slight drift
-            let dx = cos(p.angle) * p.speed * dt + CGFloat(sin(p.phase + Date().timeIntervalSince(startTime) * 2)) * 0.5
+            let dx = cos(p.angle) * p.speed * dt + CGFloat(sin(p.phase + elapsed * 2)) * 0.5
             let dy = -p.speed * dt
             particles[i].x += dx
             particles[i].y += dy
@@ -206,10 +215,10 @@ private struct FireParticleCanvas: View {
             }
 
             // Shrink as it rises
-            particles[i].size = max(1, particles[i].size - 0.03)
+            particles[i].size = max(1, particles[i].size - dt)
 
             // Shift hue toward yellow as it rises
-            particles[i].hue = min(0.16, particles[i].hue + 0.0003)
+            particles[i].hue = min(0.16, particles[i].hue + Double(dt) * 0.01)
         }
 
         // Respawn dead particles

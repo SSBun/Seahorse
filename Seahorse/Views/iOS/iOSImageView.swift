@@ -5,56 +5,32 @@
 //
 
 import SwiftUI
+import Kingfisher
 
 struct iOSImageView: View {
     let imagePath: String
 
     var body: some View {
-        Group {
-            if imagePath.hasPrefix("http://") || imagePath.hasPrefix("https://") {
-                remoteImage
-            } else {
-                localImage
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var remoteImage: some View {
-        if let url = URL(string: imagePath) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                case .failure:
-                    placeholder
-                case .empty:
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                @unknown default:
+        if let url = imageURL {
+            KFImage.url(url)
+                .cacheOriginalImage()
+                .placeholder {
                     ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 200)
                 }
-            }
-        } else {
-            placeholder
-        }
-    }
-
-    @ViewBuilder
-    private var localImage: some View {
-        let resolvedPath = StorageManager.shared.resolveImagePath(imagePath)
-        #if canImport(UIKit)
-        if let uiImage = UIImage(contentsOfFile: resolvedPath) {
-            Image(uiImage: uiImage)
+                .onFailure { _ in }
                 .resizable()
                 .scaledToFit()
         } else {
             placeholder
         }
-        #endif
+    }
+
+    private var imageURL: URL? {
+        if let url = URL(string: imagePath), url.scheme == "http" || url.scheme == "https" {
+            return url
+        }
+        return URL(fileURLWithPath: StorageManager.shared.resolveImagePath(imagePath))
     }
 
     private var placeholder: some View {

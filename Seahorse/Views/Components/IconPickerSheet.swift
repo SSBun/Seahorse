@@ -181,27 +181,11 @@ struct IconPickerSheet: View {
         isLoading = true
 
         Task.detached(priority: .userInitiated) {
-            // Filter available icons on background thread
-            let allIcons = SFSymbolManager.shared.allIcons
-            let available = allIcons.filter { icon in
-                NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
-            }
-
-            // Get categorized icons
-            let categories = SFSymbolManager.shared.getAllCategories()
-            var filteredCategories: [String: [String]] = [:]
-            for (category, icons) in categories {
-                let categoryAvailable = icons.filter { icon in
-                    NSImage(systemSymbolName: icon, accessibilityDescription: nil) != nil
-                }
-                if !categoryAvailable.isEmpty {
-                    filteredCategories[category] = categoryAvailable
-                }
-            }
+            let catalog = SFSymbolManager.shared.getAvailableCatalog()
 
             await MainActor.run {
-                self.availableIcons = available
-                self.categorizedIcons = filteredCategories
+                self.availableIcons = catalog.icons
+                self.categorizedIcons = catalog.categories
                 self.isLoading = false
             }
         }

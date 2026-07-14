@@ -285,7 +285,7 @@ struct BookmarkDetailContentView: View {
         snapshotError = nil
 
         webView.takeSnapshot(with: config) { image, error in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.isSavingSnapshot = false
 
                 if let error = error {
@@ -298,7 +298,12 @@ struct BookmarkDetailContentView: View {
                     return
                 }
 
-                guard let path = saveImageToStorage(image) else {
+                let imagesDirectory = StorageManager.shared.getImagesDirectory()
+                guard let path = try? await ImageFileService.shared.savePNG(
+                    image,
+                    to: imagesDirectory,
+                    prefix: "snapshot"
+                ) else {
                     self.snapshotError = "Could not save snapshot image."
                     Log.error("snapshot_save failed to write image bookmark=\(bookmark.id.uuidString)", category: .ui)
                     return
@@ -307,34 +312,6 @@ struct BookmarkDetailContentView: View {
                 updatePreviewImagePath(path)
                 exitSnapshotMode()
             }
-        }
-    }
-
-    private func saveImageToStorage(_ image: NSImage) -> String? {
-        let imagesDir = StorageManager.shared.getImagesDirectory()
-        do {
-            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-        } catch {
-            snapshotError = "Failed to prepare storage directory."
-            return nil
-        }
-
-        guard let tiffData = image.tiffRepresentation,
-              let bitmapImage = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
-            snapshotError = "Unable to convert snapshot to PNG."
-            return nil
-        }
-
-        let filename = "snapshot-\(UUID().uuidString).png"
-        let fileURL = imagesDir.appendingPathComponent(filename)
-
-        do {
-            try pngData.write(to: fileURL)
-            return filename // store filename only for portability
-        } catch {
-            snapshotError = "Failed to write snapshot: \(error.localizedDescription)"
-            return nil
         }
     }
 

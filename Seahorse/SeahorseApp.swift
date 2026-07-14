@@ -150,15 +150,13 @@ final class ItemDetailState: ObservableObject {
 }
 
 // App Delegate for handling quit events
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         Log.info("Syncing data before quit...", category: .general)
 
-        // Force save all database data synchronously
-        Task { @MainActor in
-            MCPHelperManager.shared.stop()
-            DataStorage.shared.forceSaveAllData()
-        }
+        MCPHelperManager.shared.stop()
+        DataStorage.shared.forceSaveAllData()
 
         Log.info("Data sync complete", category: .general)
         return .terminateNow

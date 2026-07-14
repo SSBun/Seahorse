@@ -19,6 +19,10 @@ class JSONStorage: DatabaseProtocol {
     
     // Thread-safe access
     private let queue = DispatchQueue(label: "com.seahorse.database", attributes: .concurrent)
+    private let writeQueue = DispatchQueue(label: "com.seahorse.database.writer")
+    private let saveDelay: TimeInterval
+    private let writeData: (Data, URL) throws -> Void
+    private var itemsSaveGeneration = 0
     
     // File URLs for persistence
     private let itemsURL: URL
@@ -26,10 +30,20 @@ class JSONStorage: DatabaseProtocol {
     private let tagsURL: URL
     private let preferencesURL: URL
     
-    init() {
-        // Use StorageManager for all paths
-        let dataDirectory = StorageManager.shared.getDataDirectory()
-        
+    convenience init() {
+        self.init(dataDirectory: StorageManager.shared.getDataDirectory())
+    }
+
+    init(
+        dataDirectory: URL,
+        saveDelay: TimeInterval = 0.25,
+        writeData: @escaping (Data, URL) throws -> Void = { data, url in
+            try data.write(to: url, options: .atomic)
+        }
+    ) {
+        self.saveDelay = saveDelay
+        self.writeData = writeData
+
         // Ensure directory exists
         do {
             try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
@@ -45,10 +59,7 @@ class JSONStorage: DatabaseProtocol {
         
         // Load data from storage
         loadData()
-        
-        // Ensure all data is written on startup
-        ensureDataPersistence()
-        
+
         Log.info("✅ Database initialized. Storage location: \(dataDirectory.path)", category: .database)
     }
     // Security-scoped resource is now managed by StorageManager
@@ -119,8 +130,6 @@ class JSONStorage: DatabaseProtocol {
                 
                 let loaded = try JSONDecoder().decode([AnyCollectionItem].self, from: data)
                 items = loaded.map { normalizeItemPaths($0) }
-                // Persist normalized paths so future reads stay portable
-                saveItemsToDisk()
                 Log.info("  ✓ Loaded \(items.count) items", category: .database)
             } catch {
                 Log.error("  ❌ Failed to load items: \(error)", category: .database)
@@ -144,41 +153,6 @@ class JSONStorage: DatabaseProtocol {
         }
     }
     
-    /// Ensure all data is persisted to preference folder on startup
-    private func ensureDataPersistence() {
-        print("💾 Ensuring data persistence to preference folder...")
-        
-        // Save all data to ensure files exist in preference folder
-        queue.sync(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            
-            // Save items
-            if let data = try? encoder.encode(self.items) {
-                try? data.write(to: self.itemsURL)
-                print("  ✓ Saved \(self.items.count) items to: \(self.itemsURL.lastPathComponent)")
-            }
-            
-            // Save categories
-            if let data = try? encoder.encode(self.categories) {
-                try? data.write(to: self.categoriesURL)
-                print("  ✓ Saved \(self.categories.count) categories to: \(self.categoriesURL.lastPathComponent)")
-            }
-            
-            // Save tags
-            if let data = try? encoder.encode(self.tags) {
-                try? data.write(to: self.tagsURL)
-                print("  ✓ Saved \(self.tags.count) tags to: \(self.tagsURL.lastPathComponent)")
-            }
-            
-            // Save preferences
-            if let data = try? encoder.encode(self.preferences) {
-                try? data.write(to: self.preferencesURL)
-                print("  ✓ Saved \(self.preferences.count) preferences to: \(self.preferencesURL.lastPathComponent)")
-            }
-        }
-    }
-    
     private func createDefaultCategories() -> [Category] {
         return [
             Category(name: "All Bookmarks", icon: "folder.fill", color: .blue),
@@ -189,43 +163,47 @@ class JSONStorage: DatabaseProtocol {
     }
     
     private func saveItemsToDisk() {
-        queue.async(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let normalized = self.items.map { self.normalizeItemPaths($0) }
-            if let data = try? encoder.encode(normalized) {
-                try? data.write(to: self.itemsURL)
+        writeQueue.async {
+            self.itemsSaveGeneration += 1
+            let generation = self.itemsSaveGeneration
+
+            self.writeQueue.asyncAfter(deadline: .now() + self.saveDelay) {
+                guard generation == self.itemsSaveGeneration else { return }
+                let items = self.queue.sync {
+                    self.items.map { self.normalizeItemPaths($0) }
+                }
+                self.write(items, to: self.itemsURL)
             }
         }
     }
     
     private func saveCategoriesToDisk() {
-        queue.async(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            if let data = try? encoder.encode(self.categories) {
-                try? data.write(to: self.categoriesURL)
-            }
+        writeQueue.async {
+            let categories = self.queue.sync { self.categories }
+            self.write(categories, to: self.categoriesURL)
         }
     }
     
     private func saveTagsToDisk() {
-        queue.async(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            if let data = try? encoder.encode(self.tags) {
-                try? data.write(to: self.tagsURL)
-            }
+        writeQueue.async {
+            let tags = self.queue.sync { self.tags }
+            self.write(tags, to: self.tagsURL)
         }
     }
     
     private func savePreferencesToDisk() {
-        queue.async(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            if let data = try? encoder.encode(self.preferences) {
-                try? data.write(to: self.preferencesURL)
-            }
+        writeQueue.async {
+            let preferences = self.queue.sync { self.preferences }
+            self.write(preferences, to: self.preferencesURL)
+        }
+    }
+
+    private func write<Value: Encodable>(_ value: Value, to url: URL) {
+        do {
+            let data = try JSONEncoder().encode(value)
+            try writeData(data, url)
+        } catch {
+            Log.error("❌ Failed to save \(url.lastPathComponent): \(error)", category: .database)
         }
     }
     
@@ -356,6 +334,53 @@ class JSONStorage: DatabaseProtocol {
         }
         saveItemsToDisk()
     }
+
+    func updateItems(_ updatedItems: [AnyCollectionItem]) throws {
+        try queue.sync(flags: .barrier) {
+            var updatesByID: [UUID: AnyCollectionItem] = [:]
+            for item in updatedItems {
+                guard updatesByID.updateValue(item, forKey: item.id) == nil else {
+                    throw DatabaseError.duplicateEntry
+                }
+                guard items.contains(where: { $0.id == item.id }) else {
+                    throw DatabaseError.notFound
+                }
+            }
+
+            let candidate = items.map { updatesByID[$0.id] ?? $0 }
+            try validateUniqueBookmarkURLs(candidate)
+            items = candidate.map(normalizeItemPaths)
+        }
+        saveItemsToDisk()
+    }
+
+    func saveImportedData(
+        categories importedCategories: [Category],
+        tags importedTags: [Tag],
+        items importedItems: [AnyCollectionItem]
+    ) throws {
+        try queue.sync(flags: .barrier) {
+            let candidateItems = items + importedItems
+            let candidateCategories = categories + importedCategories
+            let candidateTags = tags + importedTags
+            guard Set(candidateItems.map(\.id)).count == candidateItems.count else {
+                throw DatabaseError.duplicateEntry
+            }
+            guard Set(candidateCategories.map(\.id)).count == candidateCategories.count,
+                  Set(candidateCategories.map { $0.name.lowercased() }).count == candidateCategories.count,
+                  Set(candidateTags.map(\.id)).count == candidateTags.count,
+                  Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count else {
+                throw DatabaseError.duplicateEntry
+            }
+            try validateUniqueBookmarkURLs(candidateItems)
+            categories = candidateCategories
+            tags = candidateTags
+            items = candidateItems.map(normalizeItemPaths)
+        }
+        saveCategoriesToDisk()
+        saveTagsToDisk()
+        saveItemsToDisk()
+    }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
         try queue.sync(flags: .barrier) {
@@ -365,6 +390,15 @@ class JSONStorage: DatabaseProtocol {
             items.remove(at: index)
         }
         saveItemsToDisk()
+    }
+
+    private func validateUniqueBookmarkURLs(_ items: [AnyCollectionItem]) throws {
+        var urls = Set<String>()
+        for bookmark in items.compactMap(\.asBookmark) {
+            guard urls.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted else {
+                throw DatabaseError.duplicateBookmarkURL
+            }
+        }
     }
     
     // MARK: - Category Operations
@@ -505,30 +539,21 @@ class JSONStorage: DatabaseProtocol {
     
     /// Force save all data synchronously (used before migration)
     func forceSaveAllData() {
-        queue.sync(flags: .barrier) {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            
-            // Save items
-            if let data = try? encoder.encode(self.items) {
-                try? data.write(to: self.itemsURL)
-            }
-            
-            // Save categories
-            if let data = try? encoder.encode(self.categories) {
-                try? data.write(to: self.categoriesURL)
-            }
-            
-            // Save tags
-            if let data = try? encoder.encode(self.tags) {
-                try? data.write(to: self.tagsURL)
-            }
-            
-            // Save preferences
-            if let data = try? encoder.encode(self.preferences) {
-                try? data.write(to: self.preferencesURL)
-            }
+        let snapshot = queue.sync {
+            (
+                items.map { normalizeItemPaths($0) },
+                categories,
+                tags,
+                preferences
+            )
+        }
+
+        writeQueue.sync {
+            itemsSaveGeneration += 1
+            write(snapshot.0, to: itemsURL)
+            write(snapshot.1, to: categoriesURL)
+            write(snapshot.2, to: tagsURL)
+            write(snapshot.3, to: preferencesURL)
         }
     }
 }
-

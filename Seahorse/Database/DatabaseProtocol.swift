@@ -21,7 +21,9 @@ protocol DatabaseProtocol {
     func fetchAllItems() throws -> [AnyCollectionItem]
     func saveItem(_ item: AnyCollectionItem) throws
     func updateItem(_ item: AnyCollectionItem) throws
+    func updateItems(_ items: [AnyCollectionItem]) throws
     func deleteItem(_ item: AnyCollectionItem) throws
+    func saveImportedData(categories: [Category], tags: [Tag], items: [AnyCollectionItem]) throws
     
     // Category operations
     func saveCategory(_ category: Category) throws
@@ -71,4 +73,3 @@ enum DatabaseError: Error, LocalizedError {
         }
     }
 }
-

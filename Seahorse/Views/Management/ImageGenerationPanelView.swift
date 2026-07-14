@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ImageGenerationPanelView.swift
 //  Seahorse
@@ -151,3 +152,4 @@ struct ImageGenerationPanelView: View {
         }
     }
 }
+#endif

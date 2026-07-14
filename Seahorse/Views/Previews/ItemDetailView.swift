@@ -11,6 +11,19 @@ import CoreGraphics
 import ImageIO
 import UniformTypeIdentifiers
 import OSLog
+import Kingfisher
+
+private struct ImageDetailMetadata {
+    let dimensions: String?
+    let fileSize: String?
+    let path: String
+}
+
+private struct TextDetailMetadata {
+    let characters: Int
+    let words: Int
+    let lines: Int
+}
 
 struct ItemDetailView: View {
     @EnvironmentObject var dataStorage: DataStorage
@@ -30,6 +43,10 @@ struct ItemDetailView: View {
     @State private var showingAlert = false
     @State private var isPreviewDropTarget = false
     @State private var showingEditSheet = false
+    @State private var titleSaveTask: Task<Void, Never>?
+    @State private var notesSaveTask: Task<Void, Never>?
+    @State private var imageDetailMetadata: ImageDetailMetadata?
+    @State private var textDetailMetadata: TextDetailMetadata?
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     
     // Extract specific item types
@@ -42,7 +59,7 @@ struct ItemDetailView: View {
     private var textItem: TextItem? {
         dataStorage.item(for: item.id)?.asTextItem ?? item.asTextItem
     }
-    
+
     var body: some View {
         HSplitView {
             // Left: Content Area
@@ -61,6 +78,12 @@ struct ItemDetailView: View {
             loadItemData()
             let elapsed = (ProcessInfo.processInfo.systemUptime - startedAt) * 1000
             Log.info("detail_open loadItemData_done item_type=\(item.itemType.rawValue) elapsed_ms=\(String(format: "%.1f", elapsed))", category: .performance)
+        }
+        .onDisappear {
+            flushPendingTextEdits()
+        }
+        .task(id: dataStorage.itemsVersion) {
+            await refreshDetailMetadata()
         }
         .confirmationDialog(
             "Delete Tag",
@@ -208,7 +231,7 @@ struct ItemDetailView: View {
                         .stroke(Color(NSColor.separatorColor), lineWidth: 1)
                 )
                 .onChange(of: bookmarkTitle) { oldValue, newValue in
-                    updateBookmarkTitle(newValue)
+                    scheduleBookmarkTitleUpdate(newValue)
                 }
         }
     }
@@ -407,7 +430,7 @@ struct ItemDetailView: View {
                 )
                 .scrollContentBackground(.hidden)
                 .onChange(of: notes) { oldValue, newValue in
-                    updateNotes(newValue)
+                    scheduleNotesUpdate(newValue)
                 }
         }
     }
@@ -434,29 +457,17 @@ struct ItemDetailView: View {
                         metadataRow(label: "Domain", value: domain)
                     }
                 } else if let imageItem = imageItem {
-                    // Image dimensions
-                    if let size = imageItem.imageSize {
-                        metadataRow(label: "Dimensions", value: "\(Int(size.width)) × \(Int(size.height)) px")
-                    } else {
-                        // Try to get size from actual image file
-                        if let imageSize = getImageSize(imageItem.imagePath) {
-                            metadataRow(label: "Dimensions", value: "\(Int(imageSize.width)) × \(Int(imageSize.height)) px")
-                        }
+                    if let dimensions = imageDetailMetadata?.dimensions {
+                        metadataRow(label: "Dimensions", value: dimensions)
                     }
-                    // File size
-                    if let fileSize = getFileSize(imageItem.imagePath) {
+                    if let fileSize = imageDetailMetadata?.fileSize {
                         metadataRow(label: "File Size", value: fileSize)
                     }
-                    // File path (truncated if too long)
-                    let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
-                    let pathDisplay = resolvedPath.count > 50 
-                        ? "..." + String(resolvedPath.suffix(47))
-                        : resolvedPath
-                    metadataRow(label: "Path", value: pathDisplay)
-                } else if let textItem = textItem {
-                    metadataRow(label: "Characters", value: "\(textItem.content.count)")
-                    metadataRow(label: "Words", value: "\(textItem.content.split(separator: " ").count)")
-                    metadataRow(label: "Lines", value: "\(textItem.content.components(separatedBy: .newlines).count)")
+                    metadataRow(label: "Path", value: imageDetailMetadata?.path ?? imageItem.imagePath)
+                } else if textItem != nil, let metadata = textDetailMetadata {
+                    metadataRow(label: "Characters", value: "\(metadata.characters)")
+                    metadataRow(label: "Words", value: "\(metadata.words)")
+                    metadataRow(label: "Lines", value: "\(metadata.lines)")
                 }
             }
         }
@@ -600,15 +611,15 @@ struct ItemDetailView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 let resolvedPath = StorageManager.shared.resolveImagePath(path)
-                if let image = NSImage(contentsOfFile: resolvedPath) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color(NSColor.textBackgroundColor))
-                } else {
-                    placeholderPreview
-                }
+                KFImage.url(URL(fileURLWithPath: resolvedPath))
+                    .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 600, height: 320)))
+                    .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2)
+                    .placeholder { ProgressView().scaleEffect(0.8) }
+                    .onFailure { _ in }
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(NSColor.textBackgroundColor))
             }
         } else {
             placeholderPreview
@@ -643,8 +654,17 @@ struct ItemDetailView: View {
         if let fileProvider = providers.first(where: { $0.canLoadObject(ofClass: URL.self) }) {
             fileProvider.loadObject(ofClass: URL.self) { object, _ in
                 guard let url = object, url.isFileURL else { return }
-                if let image = NSImage(contentsOf: url) {
-                    persistPreviewImage(image)
+                Task { @MainActor in
+                    do {
+                        let filename = try await ImageFileService.shared.copyImage(
+                            from: url,
+                            to: StorageManager.shared.getImagesDirectory()
+                        )
+                        applyPreviewImagePath(filename)
+                    } catch {
+                        alertMessage = "Failed to save preview image."
+                        showingAlert = true
+                    }
                 }
             }
             return true
@@ -661,40 +681,19 @@ struct ItemDetailView: View {
     }
 
     private func persistPreviewImage(_ image: NSImage) {
-        DispatchQueue.main.async {
-            guard let path = savePreviewImage(image) else { return }
-            applyPreviewImagePath(path)
-        }
-    }
-    
-    private func savePreviewImage(_ image: NSImage) -> String? {
         let imagesDir = StorageManager.shared.getImagesDirectory()
-        do {
-            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-        } catch {
-            alertMessage = "Failed to prepare image directory."
-            showingAlert = true
-            return nil
-        }
-        
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
-            alertMessage = "Unable to read dropped image."
-            showingAlert = true
-            return nil
-        }
-        
-        let filename = "preview-\(UUID().uuidString).png"
-        let fileURL = imagesDir.appendingPathComponent(filename)
-        
-        do {
-            try pngData.write(to: fileURL)
-            return filename // store filename for portability
-        } catch {
-            alertMessage = "Failed to save preview image."
-            showingAlert = true
-            return nil
+        Task { @MainActor in
+            do {
+                let path = try await ImageFileService.shared.savePNG(
+                    image,
+                    to: imagesDir,
+                    prefix: "preview"
+                )
+                applyPreviewImagePath(path)
+            } catch {
+                alertMessage = "Failed to save preview image."
+                showingAlert = true
+            }
         }
     }
     
@@ -768,18 +767,22 @@ struct ItemDetailView: View {
     }
     
     private func updateNotes(_ newNotes: String) {
+        let normalizedNotes = newNotes.isEmpty ? nil : newNotes
         var updatedItem = item
         
         if var bookmark = bookmark {
-            bookmark.notes = newNotes.isEmpty ? nil : newNotes
+            guard bookmark.notes != normalizedNotes else { return }
+            bookmark.notes = normalizedNotes
             bookmark.modifiedDate = Date()
             updatedItem = AnyCollectionItem(bookmark)
         } else if var imageItem = imageItem {
-            imageItem.notes = newNotes.isEmpty ? nil : newNotes
+            guard imageItem.notes != normalizedNotes else { return }
+            imageItem.notes = normalizedNotes
             imageItem.modifiedDate = Date()
             updatedItem = AnyCollectionItem(imageItem)
         } else if var textItem = textItem {
-            textItem.notes = newNotes.isEmpty ? nil : newNotes
+            guard textItem.notes != normalizedNotes else { return }
+            textItem.notes = normalizedNotes
             textItem.modifiedDate = Date()
             updatedItem = AnyCollectionItem(textItem)
         }
@@ -796,29 +799,35 @@ struct ItemDetailView: View {
     
     private func updateBookmarkTitle(_ newTitle: String) {
         guard var bookmark = bookmark else { return }
+        guard bookmark.title != newTitle else { return }
         bookmark.title = newTitle
         bookmark.modifiedDate = Date()
         dataStorage.updateItem(AnyCollectionItem(bookmark))
     }
-    
-    private func getImageSize(_ path: String) -> CGSize? {
-        // Check if it's a remote URL
-        if let url = URL(string: path), (url.scheme == "http" || url.scheme == "https") {
-            // For remote images, we can't easily get size without loading
-            return nil
+
+    private func scheduleBookmarkTitleUpdate(_ title: String) {
+        titleSaveTask?.cancel()
+        titleSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            updateBookmarkTitle(title)
         }
-        
-        let resolvedPath = StorageManager.shared.resolveImagePath(path)
-        
-        // For local images
-        guard let imageSource = CGImageSourceCreateWithURL(URL(fileURLWithPath: resolvedPath) as CFURL, nil),
-              let imageProperties = CGImageSourceCopyPropertiesAtIndex(imageSource, 0, nil) as? [String: Any],
-              let width = imageProperties[kCGImagePropertyPixelWidth as String] as? CGFloat,
-              let height = imageProperties[kCGImagePropertyPixelHeight as String] as? CGFloat else {
-            return nil
+    }
+
+    private func scheduleNotesUpdate(_ notes: String) {
+        notesSaveTask?.cancel()
+        notesSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            updateNotes(notes)
         }
-        
-        return CGSize(width: width, height: height)
+    }
+
+    private func flushPendingTextEdits() {
+        titleSaveTask?.cancel()
+        notesSaveTask?.cancel()
+        updateBookmarkTitle(bookmarkTitle)
+        updateNotes(notes)
     }
     
     private var itemTypeLabel: String {
@@ -830,64 +839,104 @@ struct ItemDetailView: View {
     }
     
     private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        date.formatted(date: .abbreviated, time: .shortened)
     }
-    
-    private func getFileSize(_ path: String) -> String? {
-        // Check if it's a remote URL
-        if let url = URL(string: path), (url.scheme == "http" || url.scheme == "https") {
-            // Remote URL, can't get file size
-            return nil
+
+    private func refreshDetailMetadata() async {
+        if let imageItem {
+            let imagePath = imageItem.imagePath
+            let knownSize = imageItem.imageSize
+            let isRemote = URL(string: imagePath).map { $0.scheme == "http" || $0.scheme == "https" } ?? false
+            let resolvedPath = isRemote ? imagePath : StorageManager.shared.resolveImagePath(imagePath)
+            let metadata = await Task.detached(priority: .utility) {
+                Self.loadImageMetadata(path: resolvedPath, knownSize: knownSize, isRemote: isRemote)
+            }.value
+            guard self.imageItem?.imagePath == imagePath else { return }
+            imageDetailMetadata = metadata
+            textDetailMetadata = nil
+        } else if let textItem {
+            let content = textItem.content
+            let metadata = await Task.detached(priority: .utility) {
+                Self.loadTextMetadata(content)
+            }.value
+            guard self.textItem?.content == content else { return }
+            textDetailMetadata = metadata
+            imageDetailMetadata = nil
+        } else {
+            imageDetailMetadata = nil
+            textDetailMetadata = nil
         }
-        
-        let resolvedPath = StorageManager.shared.resolveImagePath(path)
-        
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: resolvedPath),
-              let fileSize = attributes[.size] as? Int64 else {
-            return nil
-        }
-        
-        return ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
     }
-    
-    private func deleteTag(_ tag: Tag) {
-        // Remove tag from all items first
-        let itemsWithTag = dataStorage.items.filter { item in
-            if let bookmark = item.asBookmark {
-                return bookmark.tagIds.contains(tag.id)
-            } else if let imageItem = item.asImageItem {
-                return imageItem.tagIds.contains(tag.id)
-            } else if let textItem = item.asTextItem {
-                return textItem.tagIds.contains(tag.id)
+
+    private static func loadImageMetadata(
+        path: String,
+        knownSize: CGSize?,
+        isRemote: Bool
+    ) -> ImageDetailMetadata {
+        var size = knownSize
+        var fileSize: String?
+
+        if !isRemote {
+            if size == nil,
+               let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+               let width = properties[kCGImagePropertyPixelWidth as String] as? CGFloat,
+               let height = properties[kCGImagePropertyPixelHeight as String] as? CGFloat {
+                size = CGSize(width: width, height: height)
             }
-            return false
+            if let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+               let bytes = attributes[.size] as? Int64 {
+                fileSize = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+            }
         }
-        
-        for item in itemsWithTag {
+
+        let dimensions = size.map { "\(Int($0.width)) × \(Int($0.height)) px" }
+        let displayPath = path.count > 50 ? "..." + String(path.suffix(47)) : path
+        return ImageDetailMetadata(dimensions: dimensions, fileSize: fileSize, path: displayPath)
+    }
+
+    private static func loadTextMetadata(_ content: String) -> TextDetailMetadata {
+        var words = 0
+        var insideWord = false
+        for character in content {
+            if character == " " {
+                insideWord = false
+            } else if !insideWord {
+                words += 1
+                insideWord = true
+            }
+        }
+        let lines = content.unicodeScalars.reduce(1) { count, scalar in
+            CharacterSet.newlines.contains(scalar) ? count + 1 : count
+        }
+        return TextDetailMetadata(characters: content.count, words: words, lines: lines)
+    }
+
+    private func deleteTag(_ tag: Tag) {
+        let updatedItems = dataStorage.items.compactMap { item -> AnyCollectionItem? in
             if var bookmark = item.asBookmark {
+                guard bookmark.tagIds.contains(tag.id) else { return nil }
                 bookmark.removeTag(tag.id)
                 bookmark.modifiedDate = Date()
-                dataStorage.updateItem(AnyCollectionItem(bookmark))
+                return AnyCollectionItem(bookmark)
             } else if var imageItem = item.asImageItem {
+                guard imageItem.tagIds.contains(tag.id) else { return nil }
                 imageItem.removeTag(tag.id)
                 imageItem.modifiedDate = Date()
-                dataStorage.updateItem(AnyCollectionItem(imageItem))
+                return AnyCollectionItem(imageItem)
             } else if var textItem = item.asTextItem {
+                guard textItem.tagIds.contains(tag.id) else { return nil }
                 textItem.removeTag(tag.id)
                 textItem.modifiedDate = Date()
-                dataStorage.updateItem(AnyCollectionItem(textItem))
+                return AnyCollectionItem(textItem)
             }
+            return nil
         }
-        
-        // Also remove from selectedTagIds if it's selected
-        selectedTagIds.remove(tag.id)
-        
-        // Then delete the tag
+
         do {
+            try dataStorage.updateItems(updatedItems)
             try dataStorage.deleteTag(tag)
+            selectedTagIds.remove(tag.id)
             tagToDelete = nil
         } catch {
             alertMessage = error.localizedDescription

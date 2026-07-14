@@ -88,26 +88,9 @@ class BatchParsingService: ObservableObject {
     private func performConcurrentParsing(bookmarks: [Bookmark], dataStorage: DataStorage) async {
         let maxConcurrentTasks = 5
         var bookmarkIndex = 0
-        
-        // Use an actor for thread-safe access to shared mutable state
-        actor ParsingCoordinator {
-            var completedCount = 0
-            var failedCount = 0
-            
-            func recordSuccess() {
-                completedCount += 1
-            }
-            
-            func recordFailure() {
-                failedCount += 1
-            }
-            
-            func getStats() -> (completed: Int, failed: Int) {
-                return (completedCount, failedCount)
-            }
-        }
-        
-        let coordinator = ParsingCoordinator()
+        var succeeded = 0
+        var failed = 0
+        var parsedBookmarks: [AnyCollectionItem] = []
         
         await withTaskGroup(of: (Int, Result<Bookmark, Error>).self) { group in
             // Start initial batch of concurrent tasks
@@ -132,30 +115,19 @@ class BatchParsingService: ObservableObject {
                     break
                 }
                 
-                // Record result in coordinator
+                // Collect successful results for one database commit after parsing.
                 switch result {
                 case .success(let updatedBookmark):
-                    // Save to database on main actor
-                    await MainActor.run {
-                        do {
-                            try dataStorage.updateBookmark(updatedBookmark)
-                        } catch {
-                            Log.error("Failed to save bookmark: \(error)", category: .parsing)
-                        }
-                    }
-                    await coordinator.recordSuccess()
+                    parsedBookmarks.append(AnyCollectionItem(updatedBookmark))
+                    succeeded += 1
                     
                 case .failure(let error):
                     Log.error("Failed to parse bookmark: \(error)", category: .parsing)
-                    await coordinator.recordFailure()
+                    failed += 1
                 }
                 
-                // Update UI on main actor
-                let stats = await coordinator.getStats()
-                await MainActor.run {
-                    self.completedCount = stats.completed + stats.failed
-                    self.progress = Double(self.completedCount) / Double(self.totalCount)
-                }
+                completedCount = succeeded + failed
+                progress = Double(completedCount) / Double(totalCount)
                 
                 // Spawn next task if there are more bookmarks to parse
                 if bookmarkIndex < bookmarks.count {
@@ -170,11 +142,17 @@ class BatchParsingService: ObservableObject {
                     }
                     
                     // Update current bookmark for UI display
-                    await MainActor.run {
-                        self.currentBookmark = bookmarks[nextIndex]
-                    }
+                    currentBookmark = bookmarks[nextIndex]
                 }
             }
+        }
+
+        let liveBookmarks = parsedBookmarks.filter { dataStorage.item(for: $0.id) != nil }
+        guard !liveBookmarks.isEmpty else { return }
+        do {
+            try dataStorage.updateItems(liveBookmarks)
+        } catch {
+            Log.error("Failed to save parsed bookmarks: \(error)", category: .parsing)
         }
     }
     
@@ -269,4 +247,3 @@ class BatchParsingService: ObservableObject {
         completedCount = 0
     }
 }
-

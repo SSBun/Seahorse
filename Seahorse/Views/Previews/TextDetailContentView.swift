@@ -12,6 +12,7 @@ struct TextDetailContentView: View {
     let textItem: TextItem
     @EnvironmentObject var dataStorage: DataStorage
     @State private var textContent: String = ""
+    @State private var saveTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,7 +33,7 @@ struct TextDetailContentView: View {
                 MarkdownTextEditor(text: $textContent, isEditable: true, fontSize: 14, minHeight: 400)
                     .frame(minHeight: 400)
                     .onChange(of: textContent) { oldValue, newValue in
-                        saveTextContent(newValue)
+                        scheduleTextContentSave(newValue)
                     }
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -45,10 +46,24 @@ struct TextDetailContentView: View {
         .onAppear {
             textContent = textItem.content
         }
+        .onDisappear {
+            saveTask?.cancel()
+            saveTextContent(textContent)
+        }
+    }
+
+    private func scheduleTextContentSave(_ content: String) {
+        saveTask?.cancel()
+        saveTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            saveTextContent(content)
+        }
     }
 
     private func saveTextContent(_ newContent: String) {
-        var updatedItem = textItem
+        var updatedItem = dataStorage.item(for: textItem.id)?.asTextItem ?? textItem
+        guard newContent != updatedItem.content else { return }
         updatedItem.content = newContent
         updatedItem.modifiedDate = Date()
         dataStorage.updateItem(AnyCollectionItem(updatedItem))

@@ -182,11 +182,13 @@ private final class MCPBridgeConnection {
             return
         }
 
-        Task { @MainActor in
+        Task {
             do {
                 let bridgeRequest = try JSONDecoder().decode(MCPBridgeRequest.self, from: request.body)
                 let response = await bridgeService.handle(bridgeRequest)
-                let data = try JSONEncoder().encode(response)
+                let data = try await Task.detached(priority: .userInitiated) {
+                    try JSONEncoder().encode(response)
+                }.value
                 send(status: response.ok ? 200 : 400, data: data)
             } catch {
                 send(status: 400, body: ["error": error.localizedDescription])

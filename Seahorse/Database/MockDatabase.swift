@@ -76,6 +76,47 @@ class MockDatabase: DatabaseProtocol {
             items[index] = item
         }
     }
+
+    func updateItems(_ updatedItems: [AnyCollectionItem]) throws {
+        var updatesByID: [UUID: AnyCollectionItem] = [:]
+        for item in updatedItems {
+            guard updatesByID.updateValue(item, forKey: item.id) == nil else {
+                throw DatabaseError.duplicateEntry
+            }
+            guard items.contains(where: { $0.id == item.id }) else {
+                throw DatabaseError.notFound
+            }
+        }
+        let candidate = items.map { updatesByID[$0.id] ?? $0 }
+        try validateUniqueBookmarkURLs(candidate)
+        items = candidate
+    }
+
+    func saveImportedData(categories: [Category], tags: [Tag], items: [AnyCollectionItem]) throws {
+        let candidateItems = self.items + items
+        let candidateCategories = self.categories + categories
+        let candidateTags = self.tags + tags
+        guard Set(candidateItems.map(\.id)).count == candidateItems.count,
+              Set(candidateCategories.map(\.id)).count == candidateCategories.count,
+              Set(candidateCategories.map { $0.name.lowercased() }).count == candidateCategories.count,
+              Set(candidateTags.map(\.id)).count == candidateTags.count,
+              Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count else {
+            throw DatabaseError.duplicateEntry
+        }
+        try validateUniqueBookmarkURLs(candidateItems)
+        self.categories = candidateCategories
+        self.tags = candidateTags
+        self.items = candidateItems
+    }
+
+    private func validateUniqueBookmarkURLs(_ items: [AnyCollectionItem]) throws {
+        var urls = Set<String>()
+        for bookmark in items.compactMap(\.asBookmark) {
+            guard urls.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted else {
+                throw DatabaseError.duplicateBookmarkURL
+            }
+        }
+    }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
         items.removeAll { $0.id == item.id }

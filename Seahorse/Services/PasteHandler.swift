@@ -317,68 +317,27 @@ class PasteHandler: ObservableObject {
     
     #if os(macOS)
     private func createImageItem(from image: NSImage) {
-        DispatchQueue.main.async { [weak self] in
+        let imagesDirectory = StorageManager.shared.getImagesDirectory()
+        Task { [weak self] in
             guard let self = self else { return }
-
-            // Save image to storage
-            guard let imagePath = self.saveImageToStorage(image) else {
-                Log.error("Failed to save pasted image", category: .paste)
-                return
-            }
-
-            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id
-                ?? self.dataStorage.categories.first?.id
-                ?? UUID()
-
-            let imageItem = ImageItem(
-                imagePath: imagePath,
-                categoryId: defaultCategoryId,
-                isFavorite: false,
-                notes: nil,
-                tagIds: [],
-                isParsed: false,
-                thumbnailPath: nil,
-                imageSize: nil
-            )
-
             do {
-                try self.dataStorage.addItem(AnyCollectionItem(imageItem))
-                Log.info("Created image item from paste", category: .paste)
+                let imagePath = try await ImageFileService.shared.savePNG(image, to: imagesDirectory)
+                self.createStoredImageItem(path: imagePath, source: "paste")
             } catch {
-                Log.error("Failed to create image item: \(error)", category: .paste)
+                Log.error("Failed to save pasted image", category: .paste)
             }
         }
     }
     #else
     private func createImageItem(from image: UIImage) {
-        DispatchQueue.main.async { [weak self] in
+        let imagesDirectory = StorageManager.shared.getImagesDirectory()
+        Task { [weak self] in
             guard let self = self else { return }
-
-            guard let imagePath = self.saveImageToStorage(image) else {
-                Log.error("Failed to save pasted image", category: .paste)
-                return
-            }
-
-            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id
-                ?? self.dataStorage.categories.first?.id
-                ?? UUID()
-
-            let imageItem = ImageItem(
-                imagePath: imagePath,
-                categoryId: defaultCategoryId,
-                isFavorite: false,
-                notes: nil,
-                tagIds: [],
-                isParsed: false,
-                thumbnailPath: nil,
-                imageSize: nil
-            )
-
             do {
-                try self.dataStorage.addItem(AnyCollectionItem(imageItem))
-                Log.info("Created image item from paste", category: .paste)
+                let imagePath = try await ImageFileService.shared.savePNG(image, to: imagesDirectory)
+                self.createStoredImageItem(path: imagePath, source: "paste")
             } catch {
-                Log.error("Failed to create image item: \(error)", category: .paste)
+                Log.error("Failed to save pasted image", category: .paste)
             }
         }
     }
@@ -413,37 +372,29 @@ class PasteHandler: ObservableObject {
     }
     
     private func createImageItemFromLocalPath(_ filePath: String) {
-        DispatchQueue.main.async { [weak self] in
+        let imagesDirectory = StorageManager.shared.getImagesDirectory()
+        let sourceURL = URL(fileURLWithPath: filePath)
+        Task { [weak self] in
             guard let self = self else { return }
-            
-            // Copy local file to internal storage
-            guard let copiedPath = self.copyImageToStorage(from: filePath) else {
-                Log.error("Failed to copy local image file", category: .paste)
-                return
-            }
-            
-            let defaultCategoryId = self.dataStorage.categories.first(where: { $0.name == "None" })?.id 
-                ?? self.dataStorage.categories.first?.id 
-                ?? UUID()
-            
-            let imageItem = ImageItem(
-                imagePath: copiedPath,
-                categoryId: defaultCategoryId,
-                isFavorite: false,
-                notes: nil,
-                tagIds: [],
-                isParsed: false,
-                thumbnailPath: nil,
-                imageSize: nil
-            )
-            
             do {
-                try self.dataStorage.addItem(AnyCollectionItem(imageItem))
-                Log.info("Created image item from local file: \(filePath)", category: .paste)
+                let copiedPath = try await ImageFileService.shared.copyImage(
+                    from: sourceURL,
+                    to: imagesDirectory
+                )
+                self.createStoredImageItem(path: copiedPath, source: filePath)
             } catch {
-                Log.error("Failed to create image item: \(error)", category: .paste)
+                Log.error("Failed to copy local image file", category: .paste)
             }
         }
+    }
+
+    private func createStoredImageItem(path: String, source: String) {
+        let defaultCategoryId = dataStorage.categories.first(where: { $0.name == "None" })?.id
+            ?? dataStorage.categories.first?.id
+            ?? UUID()
+        let imageItem = ImageItem(imagePath: path, categoryId: defaultCategoryId)
+        dataStorage.addItem(AnyCollectionItem(imageItem))
+        Log.info("Created image item from \(source)", category: .paste)
     }
     
     private func createTextItem(from text: String) {
@@ -474,82 +425,6 @@ class PasteHandler: ObservableObject {
     
     // MARK: - Helper Methods
     
-    #if os(macOS)
-    private func saveImageToStorage(_ image: NSImage) -> String? {
-        guard let storageDir = getImagesStorageDirectory() else { return nil }
-        guard let tiffData = image.tiffRepresentation else { return nil }
-        guard let bitmapImage = NSBitmapImageRep(data: tiffData) else { return nil }
-
-        let filename = "\(UUID().uuidString).png"
-        let fileURL = storageDir.appendingPathComponent(filename)
-
-        if let pngData = bitmapImage.representation(using: .png, properties: [:]) {
-            do {
-                try pngData.write(to: fileURL)
-                return filename // store only filename for portability
-            } catch {
-                Log.error("Failed to save image: \(error)", category: .paste)
-                return nil
-            }
-        }
-
-        return nil
-    }
-    #else
-    private func saveImageToStorage(_ image: UIImage) -> String? {
-        guard let storageDir = getImagesStorageDirectory() else { return nil }
-        guard let pngData = image.pngData() else { return nil }
-
-        let filename = "\(UUID().uuidString).png"
-        let fileURL = storageDir.appendingPathComponent(filename)
-
-        do {
-            try pngData.write(to: fileURL)
-            return filename
-        } catch {
-            Log.error("Failed to save image: \(error)", category: .paste)
-            return nil
-        }
-    }
-    #endif
-    
-    private func getImagesStorageDirectory() -> URL? {
-        let imagesDir = StorageManager.shared.getImagesDirectory()
-        
-        try? FileManager.default.createDirectory(
-            at: imagesDir,
-            withIntermediateDirectories: true
-        )
-        
-        return imagesDir
-    }
-    
-    private func copyImageToStorage(from sourcePath: String) -> String? {
-        guard let storageDir = getImagesStorageDirectory() else { return nil }
-
-        let sourceURL = URL(fileURLWithPath: sourcePath)
-
-        // Get original file extension
-        let fileExtension = sourceURL.pathExtension.lowercased()
-
-        // Only copy if it's an image file
-        let validExtensions = ["jpg", "jpeg", "png", "gif", "heic", "heif", "bmp", "tiff", "webp"]
-        guard validExtensions.contains(fileExtension) else { return nil }
-
-        // Generate unique filename with original extension
-        let filename = "\(UUID().uuidString).\(fileExtension)"
-        let destinationURL = storageDir.appendingPathComponent(filename)
-
-        do {
-            // Copy file directly to preserve format and metadata
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            return filename // store only filename for portability
-        } catch {
-            Log.error("Failed to copy image: \(error)", category: .paste)
-            return nil
-        }
-    }
-
     // MARK: - Category Detection
 
     private func getDefaultCategoryForURL(_ urlString: String) -> UUID {

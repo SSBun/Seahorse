@@ -1,3 +1,4 @@
+#if os(macOS)
 //
 //  ImageGenerationService.swift
 //  Seahorse
@@ -124,3 +125,4 @@ final class ImageGenerationService: ObservableObject {
         }
     }
 }
+#endif

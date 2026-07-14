@@ -35,6 +35,7 @@ class DataStorage: ObservableObject {
     private var _categoryCache: [UUID: Category] = [:]
     private var _tagCache: [UUID: Tag] = [:]
     private var _itemCache: [UUID: AnyCollectionItem] = [:]
+    private var _searchRecordCache: [UUID: CollectionSearch.Record] = [:]
 
     /// O(1) category lookup by ID
     func category(for id: UUID) -> Category? {
@@ -51,11 +52,49 @@ class DataStorage: ObservableObject {
         return ids.compactMap { _tagCache[$0] }
     }
 
-    /// Rebuild lookup caches - call after data loads or changes
-    private func rebuildCaches() {
+    private func rebuildCategoryCache() {
         _categoryCache = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+    }
+
+    private func rebuildTagCache() {
         _tagCache = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
+    }
+
+    private func rebuildItemCache() {
         _itemCache = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+    }
+
+    private func rebuildSearchRecordCache() {
+        _searchRecordCache = Dictionary(
+            uniqueKeysWithValues: CollectionSearch.makeRecords(items: items, tagsByID: _tagCache)
+                .map { ($0.item.id, $0) }
+        )
+    }
+
+    private func updateSearchRecord(for item: AnyCollectionItem) {
+        let order = items.firstIndex(where: { $0.id == item.id }) ?? items.count
+        _searchRecordCache[item.id] = CollectionSearch.makeRecord(
+            item: item,
+            tagsByID: _tagCache,
+            originalOrder: order
+        )
+    }
+
+    private func refreshSearchRecords(referencing tagID: UUID) {
+        for (index, item) in items.enumerated() where item.tagIds.contains(tagID) {
+            _searchRecordCache[item.id] = CollectionSearch.makeRecord(
+                item: item,
+                tagsByID: _tagCache,
+                originalOrder: index
+            )
+        }
+    }
+
+    func searchRecordsSnapshot() -> [CollectionSearch.Record] {
+        items.enumerated().compactMap { index, item in
+            guard let record = _searchRecordCache[item.id] else { return nil }
+            return record.withOriginalOrder(index)
+        }
     }
 
     /// O(1) item lookup by ID
@@ -63,7 +102,7 @@ class DataStorage: ObservableObject {
         return _itemCache[id]
     }
     
-    private init(database: DatabaseProtocol = JSONStorage()) {
+    init(database: DatabaseProtocol = JSONStorage()) {
         self.database = database
         loadInitialData()
     }
@@ -83,7 +122,10 @@ class DataStorage: ObservableObject {
             bookmarks = items.compactMap { $0.asBookmark }
 
             // Build lookup caches for O(1) access
-            rebuildCaches()
+            rebuildCategoryCache()
+            rebuildTagCache()
+            rebuildItemCache()
+            rebuildSearchRecordCache()
 
             Log.info("✅ Loaded \(items.count) items (\(bookmarks.count) bookmarks)", category: .database)
         } catch {
@@ -100,11 +142,13 @@ class DataStorage: ObservableObject {
             try database.saveItem(item)
             items.append(item)
             _itemCache[item.id] = item
+            updateSearchRecord(for: item)
             
             // Also add to type-specific array if it's a bookmark
             if let bookmark = item.asBookmark {
                 bookmarks.append(bookmark)
             }
+            itemsVersion += 1
             
             // Post notification for menu icon shaking animation
             NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
@@ -123,6 +167,7 @@ class DataStorage: ObservableObject {
                 items[index] = item
             }
             _itemCache[item.id] = item
+            updateSearchRecord(for: item)
 
             // Also update type-specific array if it's a bookmark
             if let bookmark = item.asBookmark,
@@ -132,9 +177,45 @@ class DataStorage: ObservableObject {
 
             // Post notification for UI refresh (e.g., favorite toggle)
             NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
+            itemsVersion += 1
         } catch {
             Log.error("❌ Failed to update item: \(error)", category: .database)
         }
+    }
+
+    func updateItems(_ updatedItems: [AnyCollectionItem]) throws {
+        guard !updatedItems.isEmpty else { return }
+        var updatesByID: [UUID: AnyCollectionItem] = [:]
+        for item in updatedItems {
+            guard updatesByID.updateValue(item, forKey: item.id) == nil else {
+                throw DatabaseError.duplicateEntry
+            }
+        }
+        try database.updateItems(updatedItems)
+        items = items.map { updatesByID[$0.id] ?? $0 }
+        bookmarks = items.compactMap(\.asBookmark)
+        rebuildItemCache()
+        rebuildSearchRecordCache()
+        itemsVersion += 1
+        NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
+    }
+
+    func importData(
+        categories newCategories: [Category],
+        tags newTags: [Tag],
+        items newItems: [AnyCollectionItem]
+    ) throws {
+        guard !newCategories.isEmpty || !newTags.isEmpty || !newItems.isEmpty else { return }
+        try database.saveImportedData(categories: newCategories, tags: newTags, items: newItems)
+        categories.append(contentsOf: newCategories)
+        tags.append(contentsOf: newTags)
+        items.append(contentsOf: newItems)
+        bookmarks = items.compactMap(\.asBookmark)
+        rebuildCategoryCache()
+        rebuildTagCache()
+        rebuildItemCache()
+        rebuildSearchRecordCache()
+        itemsVersion += 1
     }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
@@ -147,6 +228,8 @@ class DataStorage: ObservableObject {
         try database.deleteItem(item)
         items.removeAll { $0.id == item.id }
         _itemCache.removeValue(forKey: item.id)
+        _searchRecordCache.removeValue(forKey: item.id)
+        itemsVersion += 1
         
         // Also delete from type-specific array if it's a bookmark
         if let bookmark = item.asBookmark {
@@ -187,6 +270,8 @@ class DataStorage: ObservableObject {
         let item = AnyCollectionItem(bookmark)
         items.append(item) // Also add to items array
         _itemCache[bookmark.id] = item
+        updateSearchRecord(for: item)
+        itemsVersion += 1
         DLog("DataStorage: addBookmark success id=\(bookmark.id.uuidString) bookmarks=\(bookmarks.count) items=\(items.count)", category: .database)
         
         // Post notification for menu icon shaking animation
@@ -212,6 +297,7 @@ class DataStorage: ObservableObject {
             items[itemIndex] = item
         }
         _itemCache[bookmark.id] = item
+        updateSearchRecord(for: item)
         // Increment version to notify views of in-place update
         itemsVersion += 1
         DLog("DataStorage: updateBookmark success id=\(bookmark.id.uuidString)", category: .database)
@@ -222,6 +308,8 @@ class DataStorage: ObservableObject {
         bookmarks.removeAll { $0.id == bookmark.id }
         items.removeAll { $0.id == bookmark.id } // Also remove from items array
         _itemCache.removeValue(forKey: bookmark.id)
+        _searchRecordCache.removeValue(forKey: bookmark.id)
+        itemsVersion += 1
     }
     
     func fetchBookmarks(for category: Category) throws -> [Bookmark] {
@@ -271,7 +359,7 @@ class DataStorage: ObservableObject {
         }
         try database.saveCategory(category)
         categories.append(category)
-        rebuildCaches()
+        rebuildCategoryCache()
     }
 
     func updateCategory(_ category: Category) throws {
@@ -279,13 +367,13 @@ class DataStorage: ObservableObject {
         if let index = categories.firstIndex(where: { $0.id == category.id }) {
             categories[index] = category
         }
-        rebuildCaches()
+        rebuildCategoryCache()
     }
 
     func deleteCategory(_ category: Category) throws {
         try database.deleteCategory(category)
         categories.removeAll { $0.id == category.id }
-        rebuildCaches()
+        rebuildCategoryCache()
     }
     
     func categoryExists(name: String, excluding: UUID? = nil) -> Bool {
@@ -306,7 +394,9 @@ class DataStorage: ObservableObject {
         }
         try database.saveTag(tag)
         tags.append(tag)
-        rebuildCaches()
+        rebuildTagCache()
+        refreshSearchRecords(referencing: tag.id)
+        itemsVersion += 1
     }
 
     func updateTag(_ tag: Tag) throws {
@@ -314,13 +404,17 @@ class DataStorage: ObservableObject {
         if let index = tags.firstIndex(where: { $0.id == tag.id }) {
             tags[index] = tag
         }
-        rebuildCaches()
+        rebuildTagCache()
+        refreshSearchRecords(referencing: tag.id)
+        itemsVersion += 1
     }
 
     func deleteTag(_ tag: Tag) throws {
         try database.deleteTag(tag)
         tags.removeAll { $0.id == tag.id }
-        rebuildCaches()
+        rebuildTagCache()
+        refreshSearchRecords(referencing: tag.id)
+        itemsVersion += 1
     }
     
     func tagExists(name: String, excluding: UUID? = nil) -> Bool {

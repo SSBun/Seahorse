@@ -124,8 +124,9 @@ class NotificationService: NSObject, ObservableObject {
             return "Image"
         } else if let textItem = item.asTextItem {
             // Use first line or first 50 characters
-            let firstLine = textItem.content.components(separatedBy: .newlines).first ?? textItem.content
-            return firstLine.count > 50 ? String(firstLine.prefix(50)) + "..." : firstLine
+            let firstLine = textItem.firstLine
+            let candidate = firstLine.prefix(51)
+            return candidate.count > 50 ? String(candidate.prefix(50)) + "..." : String(candidate)
         }
         return "Item"
     }
@@ -173,4 +174,3 @@ extension NotificationService: UNUserNotificationCenterDelegate {
         completionHandler()
     }
 }
-

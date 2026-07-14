@@ -10,7 +10,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Kingfisher
 
-struct StandardListItemView: View, Equatable {
+struct StandardListItemView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
     @Environment(\.openWindow) var openWindow
@@ -18,11 +18,6 @@ struct StandardListItemView: View, Equatable {
     @State private var isHovered = false
     @State private var showingEditSheet = false
     private let rowHeight: CGFloat = 64
-
-    // Equatable - only compare item ID to prevent unnecessary re-renders
-    static func == (lhs: StandardListItemView, rhs: StandardListItemView) -> Bool {
-        lhs.item.id == rhs.item.id
-    }
 
     // Extract specific item types
     private var bookmark: Bookmark? { item.asBookmark }
@@ -40,8 +35,9 @@ struct StandardListItemView: View, Equatable {
             }
             return imageItem.imagePath
         } else if let textItem = textItem {
-            if let firstLine = textItem.content.components(separatedBy: .newlines).first, !firstLine.isEmpty {
-                return firstLine
+            let firstLine = textItem.firstLine
+            if !firstLine.isEmpty {
+                return String(firstLine)
             }
             return textItem.contentPreview
         }

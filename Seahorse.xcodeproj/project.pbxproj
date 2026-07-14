@@ -15,6 +15,7 @@
 
 /* Begin PBXFileReference section */
 		C404BA202EC6C12F007D7FD4 /* Seahorse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Seahorse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000002EC6C12F007D7FD4 /* SeahorseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SeahorseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -36,6 +37,11 @@
 			path = Seahorse;
 			sourceTree = "<group>";
 		};
+		D10000012EC6C12F007D7FD4 /* SeahorseTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = SeahorseTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -50,6 +56,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D100000D2EC6C12F007D7FD4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -57,6 +70,7 @@
 			isa = PBXGroup;
 			children = (
 				C404BA222EC6C12F007D7FD4 /* Seahorse */,
+				D10000012EC6C12F007D7FD4 /* SeahorseTests */,
 				C404BA212EC6C12F007D7FD4 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -65,11 +79,22 @@
 			isa = PBXGroup;
 			children = (
 				C404BA202EC6C12F007D7FD4 /* Seahorse.app */,
+				D10000002EC6C12F007D7FD4 /* SeahorseTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXContainerItemProxy section */
+		D10000122EC6C12F007D7FD4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C404BA182EC6C12F007D7FD4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C404BA1F2EC6C12F007D7FD4;
+			remoteInfo = Seahorse;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXNativeTarget section */
 		C404BA1F2EC6C12F007D7FD4 /* Seahorse */ = {
@@ -98,6 +123,29 @@
 			productReference = C404BA202EC6C12F007D7FD4 /* Seahorse.app */;
 			productType = "com.apple.product-type.application";
 		};
+		D100000F2EC6C12F007D7FD4 /* SeahorseTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D10000112EC6C12F007D7FD4 /* Build configuration list for PBXNativeTarget "SeahorseTests" */;
+			buildPhases = (
+				D100000C2EC6C12F007D7FD4 /* Sources */,
+				D100000D2EC6C12F007D7FD4 /* Frameworks */,
+				D100000E2EC6C12F007D7FD4 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D10000132EC6C12F007D7FD4 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				D10000012EC6C12F007D7FD4 /* SeahorseTests */,
+			);
+			name = SeahorseTests;
+			packageProductDependencies = (
+			);
+			productName = SeahorseTests;
+			productReference = D10000002EC6C12F007D7FD4 /* SeahorseTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -110,6 +158,10 @@
 				TargetAttributes = {
 					C404BA1F2EC6C12F007D7FD4 = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					D100000F2EC6C12F007D7FD4 = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = C404BA1F2EC6C12F007D7FD4;
 					};
 				};
 			};
@@ -134,12 +186,20 @@
 			projectRoot = "";
 			targets = (
 				C404BA1F2EC6C12F007D7FD4 /* Seahorse */,
+				D100000F2EC6C12F007D7FD4 /* SeahorseTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		C404BA1E2EC6C12F007D7FD4 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D100000E2EC6C12F007D7FD4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -156,7 +216,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D100000C2EC6C12F007D7FD4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D10000132EC6C12F007D7FD4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C404BA1F2EC6C12F007D7FD4 /* Seahorse */;
+			targetProxy = D10000122EC6C12F007D7FD4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		C404BA2D2EC6C130007D7FD4 /* Debug */ = {
@@ -353,6 +428,36 @@
 			};
 			name = Release;
 		};
+		D100000A2EC6C12F007D7FD4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.csl.cool.SeahorseTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Seahorse.app/Contents/MacOS/Seahorse";
+			};
+			name = Debug;
+		};
+		D100000B2EC6C12F007D7FD4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.2;
+				PRODUCT_BUNDLE_IDENTIFIER = com.csl.cool.SeahorseTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Seahorse.app/Contents/MacOS/Seahorse";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -370,6 +475,15 @@
 			buildConfigurations = (
 				C404BA302EC6C130007D7FD4 /* Debug */,
 				C404BA312EC6C130007D7FD4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D10000112EC6C12F007D7FD4 /* Build configuration list for PBXNativeTarget "SeahorseTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D100000A2EC6C12F007D7FD4 /* Debug */,
+				D100000B2EC6C12F007D7FD4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

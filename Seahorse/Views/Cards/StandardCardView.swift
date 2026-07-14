@@ -13,7 +13,7 @@ import AppKit
 import UniformTypeIdentifiers
 import Kingfisher
 
-struct StandardCardView: View, Equatable {
+struct StandardCardView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
     @EnvironmentObject var autoParsingService: AutoParsingService
@@ -23,11 +23,6 @@ struct StandardCardView: View, Equatable {
     @State private var isHovered = false
     @State private var showingEditSheet = false
 
-    // Equatable - only compare item ID to prevent unnecessary re-renders
-    static func == (lhs: StandardCardView, rhs: StandardCardView) -> Bool {
-        lhs.item.id == rhs.item.id
-    }
-    
     // Extract specific item types - O(1) lookup via DataStorage cache
     private var bookmark: Bookmark? { dataStorage.item(for: item.id)?.asBookmark }
     private var imageItem: ImageItem? { dataStorage.item(for: item.id)?.asImageItem }
@@ -44,8 +39,9 @@ struct StandardCardView: View, Equatable {
             }
             return imageItem.imagePath
         } else if let textItem = textItem {
-            if let firstLine = textItem.content.components(separatedBy: .newlines).first, !firstLine.isEmpty {
-                return firstLine
+            let firstLine = textItem.firstLine
+            if !firstLine.isEmpty {
+                return String(firstLine)
             }
             return textItem.contentPreview
         }

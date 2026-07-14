@@ -22,36 +22,37 @@ enum SortOption: String, CaseIterable, Identifiable {
         case .none:
             return items
         case .nameAscending:
-            return items.sorted { item1, item2 in
-                let name1 = extractSortableName(from: item1)
-                let name2 = extractSortableName(from: item2)
-                return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
-            }
+            let keyed = items.enumerated().map { ($0.offset, $0.element, extractSortableName(from: $0.element)) }
+            return keyed.sorted { left, right in
+                let (leftIndex, _, leftName) = left
+                let (rightIndex, _, rightName) = right
+                return compare(leftName, rightName, leftIndex: leftIndex, rightIndex: rightIndex)
+            }.map { $0.1 }
         case .newestFirst:
-            return items.sorted { item1, item2 in
-                item1.addedDate > item2.addedDate
-            }
+            return items.enumerated().sorted { left, right in
+                left.element.addedDate == right.element.addedDate
+                    ? left.offset < right.offset
+                    : left.element.addedDate > right.element.addedDate
+            }.map(\.element)
         case .oldestFirst:
-            return items.sorted { item1, item2 in
-                item1.addedDate < item2.addedDate
-            }
+            return items.enumerated().sorted { left, right in
+                left.element.addedDate == right.element.addedDate
+                    ? left.offset < right.offset
+                    : left.element.addedDate < right.element.addedDate
+            }.map(\.element)
         case .groupBySite:
-            return items.sorted { item1, item2 in
-                // Extract domain or type identifier for grouping
-                let domain1 = extractGroupingKey(from: item1)
-                let domain2 = extractGroupingKey(from: item2)
-                
-                // First sort by domain/type
-                let domainComparison = domain1.localizedCaseInsensitiveCompare(domain2)
+            let keyed = items.enumerated().map {
+                ($0.offset, $0.element, extractSortableName(from: $0.element), extractGroupingKey(from: $0.element))
+            }
+            return keyed.sorted { left, right in
+                let (leftIndex, _, leftName, leftGroup) = left
+                let (rightIndex, _, rightName, rightGroup) = right
+                let domainComparison = leftGroup.localizedCaseInsensitiveCompare(rightGroup)
                 if domainComparison != .orderedSame {
                     return domainComparison == .orderedAscending
                 }
-                
-                // Then by name within the same group
-                let name1 = extractSortableName(from: item1)
-                let name2 = extractSortableName(from: item2)
-                return name1.localizedCaseInsensitiveCompare(name2) == .orderedAscending
-            }
+                return compare(leftName, rightName, leftIndex: leftIndex, rightIndex: rightIndex)
+            }.map { $0.1 }
         }
     }
     
@@ -67,10 +68,7 @@ enum SortOption: String, CaseIterable, Identifiable {
             if let notes = textItem.notes, !notes.isEmpty {
                 return notes
             } else {
-                // Get first line or first 50 characters
-                let lines = textItem.content.components(separatedBy: .newlines)
-                let firstLine = lines.first ?? textItem.content
-                return String(firstLine.prefix(50))
+                return String(textItem.firstLine.prefix(50))
             }
         }
         return ""
@@ -103,5 +101,9 @@ enum SortOption: String, CaseIterable, Identifiable {
         
         return domain
     }
-}
 
+    private func compare(_ left: String, _ right: String, leftIndex: Int, rightIndex: Int) -> Bool {
+        let comparison = left.localizedCaseInsensitiveCompare(right)
+        return comparison == .orderedSame ? leftIndex < rightIndex : comparison == .orderedAscending
+    }
+}

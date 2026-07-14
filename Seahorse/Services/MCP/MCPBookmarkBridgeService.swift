@@ -91,10 +91,94 @@ enum JSONValue: Codable {
     }
 }
 
+private struct MCPBookmarkSearchKey: Equatable {
+    let query: String
+    let categoryID: UUID?
+    let tagIDs: Set<UUID>
+    let favoriteOnly: Bool
+}
+
+private struct MCPBookmarkSearchCache {
+    let version: Int
+    let key: MCPBookmarkSearchKey
+    let bookmarks: [Bookmark]
+}
+
+private struct MCPBookmarkSerializationContext {
+    let categoriesByID: [UUID: Category]
+    let tagsByID: [UUID: Tag]
+
+    func summaries(_ bookmarks: [Bookmark]) -> [JSONValue] {
+        let formatter = ISO8601DateFormatter()
+        return bookmarks.map { bookmark in
+            .object([
+                "id": .string(bookmark.id.uuidString),
+                "title": .string(bookmark.title),
+                "url": .string(bookmark.url),
+                "notesPreview": .string(String((bookmark.notes ?? "").prefix(240))),
+                "category": categoryJSON(categoriesByID[bookmark.categoryId]),
+                "tags": .array(bookmark.tagIds.compactMap { tagsByID[$0] }.map(tagJSON)),
+                "isFavorite": .bool(bookmark.isFavorite),
+                "addedDate": .string(formatter.string(from: bookmark.addedDate)),
+                "modifiedDate": bookmark.modifiedDate.map { .string(formatter.string(from: $0)) } ?? .null
+            ])
+        }
+    }
+
+    func details(_ bookmarks: [Bookmark]) -> [JSONValue] {
+        let formatter = ISO8601DateFormatter()
+        return bookmarks.map { bookmark in
+            var object: [String: JSONValue] = [
+                "id": .string(bookmark.id.uuidString),
+                "title": .string(bookmark.title),
+                "url": .string(bookmark.url),
+                "notes": bookmark.notes.map(JSONValue.string) ?? .null,
+                "category": categoryJSON(categoriesByID[bookmark.categoryId]),
+                "tags": .array(bookmark.tagIds.compactMap { tagsByID[$0] }.map(tagJSON)),
+                "isFavorite": .bool(bookmark.isFavorite),
+                "addedDate": .string(formatter.string(from: bookmark.addedDate)),
+                "modifiedDate": bookmark.modifiedDate.map { .string(formatter.string(from: $0)) } ?? .null
+            ]
+            if let metadata = bookmark.metadata {
+                object["metadata"] = .object([
+                    "title": metadata.title.map(JSONValue.string) ?? .null,
+                    "description": metadata.description.map(JSONValue.string) ?? .null,
+                    "imageURL": metadata.imageURL.map(JSONValue.string) ?? .null,
+                    "faviconURL": metadata.faviconURL.map(JSONValue.string) ?? .null,
+                    "siteName": metadata.siteName.map(JSONValue.string) ?? .null,
+                    "url": metadata.url.map(JSONValue.string) ?? .null
+                ])
+            } else {
+                object["metadata"] = .null
+            }
+            return .object(object)
+        }
+    }
+
+    private func categoryJSON(_ category: Category?) -> JSONValue {
+        guard let category else { return .null }
+        return .object([
+            "id": .string(category.id.uuidString),
+            "name": .string(category.name),
+            "icon": .string(category.icon),
+            "colorHex": .string(category.colorHex)
+        ])
+    }
+
+    private func tagJSON(_ tag: Tag) -> JSONValue {
+        .object([
+            "id": .string(tag.id.uuidString),
+            "name": .string(tag.name),
+            "colorHex": .string(tag.colorHex)
+        ])
+    }
+}
+
 @MainActor
 final class MCPBookmarkBridgeService {
     private let dataStorage: DataStorage
     private let dateFormatter = ISO8601DateFormatter()
+    private var searchCache: MCPBookmarkSearchCache?
 
     init(dataStorage: DataStorage) {
         self.dataStorage = dataStorage
@@ -107,11 +191,11 @@ final class MCPBookmarkBridgeService {
     func handle(_ request: MCPBridgeRequest) async -> MCPBridgeResponse {
         switch request.action {
         case "search_bookmarks":
-            searchBookmarks(request.payload ?? [:])
+            await searchBookmarks(request.payload ?? [:])
         case "get_bookmark":
-            getBookmark(request.payload ?? [:])
+            await getBookmark(request.payload ?? [:])
         case "get_bookmarks":
-            getBookmarks(request.payload ?? [:])
+            await getBookmarks(request.payload ?? [:])
         case "create_bookmark":
             await createBookmark(request.payload ?? [:])
         case "update_bookmark":
@@ -133,48 +217,62 @@ final class MCPBookmarkBridgeService {
 }
 
 private extension MCPBookmarkBridgeService {
-    func searchBookmarks(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
-        let query = payload["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+    func searchBookmarks(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {
+        let query = payload["query"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let limit = min(max(payload["limit"]?.intValue ?? 20, 1), 100)
         let offset = max(payload["offset"]?.intValue ?? 0, 0)
         let categoryId = payload["categoryId"]?.stringValue.flatMap(UUID.init(uuidString:))
         let tagIds = payload["tagIds"]?.stringArrayValue?.compactMap(UUID.init(uuidString:)) ?? []
         let favoriteOnly = payload["favoriteOnly"]?.boolValue ?? false
 
-        var bookmarks = dataStorage.bookmarks
-        if let categoryId {
-            bookmarks = bookmarks.filter { $0.categoryId == categoryId }
-        }
-        if !tagIds.isEmpty {
-            let selectedTagIds = Set(tagIds)
-            bookmarks = bookmarks.filter { !selectedTagIds.isDisjoint(with: Set($0.tagIds)) }
-        }
-        if favoriteOnly {
-            bookmarks = bookmarks.filter(\.isFavorite)
-        }
-        if !query.isEmpty {
-            bookmarks = bookmarks.filter { bookmark in
-                bookmarkSearchText(bookmark).contains(query)
+        let key = MCPBookmarkSearchKey(
+            query: query,
+            categoryID: categoryId,
+            tagIDs: Set(tagIds),
+            favoriteOnly: favoriteOnly
+        )
+        let version = dataStorage.itemsVersion
+        let bookmarks: [Bookmark]
+        if let searchCache, searchCache.version == version, searchCache.key == key {
+            bookmarks = searchCache.bookmarks
+        } else {
+            let records = dataStorage.searchRecordsSnapshot()
+            let criteria = CollectionSearch.Criteria(
+                query: query,
+                kind: .bookmark,
+                categoryID: categoryId,
+                favoriteOnly: favoriteOnly,
+                tagIDs: Set(tagIds),
+                order: .newestFirst
+            )
+            bookmarks = await CollectionSearch.itemsAsync(in: records, matching: criteria)
+                .compactMap(\.asBookmark)
+            if dataStorage.itemsVersion == version {
+                searchCache = MCPBookmarkSearchCache(version: version, key: key, bookmarks: bookmarks)
             }
         }
 
-        let results = bookmarks
-            .sorted { $0.addedDate > $1.addedDate }
-            .dropFirst(offset)
-            .prefix(limit)
-            .map(bookmarkSummaryJSON)
-        return .success(.array(Array(results)))
+        let page = Array(bookmarks.dropFirst(min(offset, bookmarks.count)).prefix(limit))
+        let context = serializationContext()
+        let results = await Task.detached(priority: .userInitiated) {
+            context.summaries(page)
+        }.value
+        return .success(.array(results))
     }
 
-    func getBookmark(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
+    func getBookmark(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {
         guard let id = payload["id"]?.stringValue.flatMap(UUID.init(uuidString:)),
-              let bookmark = dataStorage.bookmarks.first(where: { $0.id == id }) else {
+              let bookmark = dataStorage.item(for: id)?.asBookmark else {
             return .failure(code: "not_found", message: "Bookmark not found")
         }
-        return .success(bookmarkDetailJSON(bookmark))
+        let context = serializationContext()
+        let detail = await Task.detached(priority: .userInitiated) {
+            context.details([bookmark])[0]
+        }.value
+        return .success(detail)
     }
 
-    func getBookmarks(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
+    func getBookmarks(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {
         guard let values = payload["ids"]?.stringArrayValue,
               !values.isEmpty,
               values.count <= 100 else {
@@ -186,9 +284,12 @@ private extension MCPBookmarkBridgeService {
             return .failure(code: "validation_error", message: "ids contains invalid bookmark id")
         }
 
-        let bookmarksById = Dictionary(uniqueKeysWithValues: dataStorage.bookmarks.map { ($0.id, $0) })
-        let bookmarks = ids.compactMap { bookmarksById[$0] }.map(bookmarkDetailJSON)
-        return .success(.array(bookmarks))
+        let bookmarks = ids.compactMap { dataStorage.item(for: $0)?.asBookmark }
+        let context = serializationContext()
+        let details = await Task.detached(priority: .userInitiated) {
+            context.details(bookmarks)
+        }.value
+        return .success(.array(details))
     }
 
     func deleteItem(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
@@ -245,7 +346,7 @@ private extension MCPBookmarkBridgeService {
 
     func updateBookmark(_ payload: [String: JSONValue]) async -> MCPBridgeResponse {
         guard let id = payload["id"]?.stringValue.flatMap(UUID.init(uuidString:)),
-              var bookmark = dataStorage.bookmarks.first(where: { $0.id == id }) else {
+              var bookmark = dataStorage.item(for: id)?.asBookmark else {
             return .failure(code: "not_found", message: "Bookmark not found")
         }
 
@@ -267,7 +368,7 @@ private extension MCPBookmarkBridgeService {
             bookmark.tagIds = tagIds
         }
         if let value = payload["isFavorite"]?.boolValue { bookmark.isFavorite = value }
-        if let response = updatePosterImage(payload, bookmark: &bookmark) {
+        if let response = await updatePosterImage(payload, bookmark: &bookmark) {
             return response
         }
         bookmark.modifiedDate = Date()
@@ -280,12 +381,21 @@ private extension MCPBookmarkBridgeService {
         }
     }
 
-    func updatePosterImage(_ payload: [String: JSONValue], bookmark: inout Bookmark) -> MCPBridgeResponse? {
+    func updatePosterImage(_ payload: [String: JSONValue], bookmark: inout Bookmark) async -> MCPBridgeResponse? {
         if let path = payload["posterImagePath"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) {
             guard !path.isEmpty else {
                 return .failure(code: "validation_error", message: "posterImagePath is empty")
             }
-            guard let filename = copyPosterImageToStorage(path) else {
+            let sourceURL: URL
+            if let url = URL(string: path), url.isFileURL {
+                sourceURL = url
+            } else {
+                sourceURL = URL(fileURLWithPath: path)
+            }
+            guard let filename = try? await ImageFileService.shared.copyImage(
+                from: sourceURL,
+                to: StorageManager.shared.getImagesDirectory()
+            ) else {
                 return .failure(code: "validation_error", message: "Could not copy posterImagePath to Seahorse image storage")
             }
             setPosterImage(filename, bookmark: &bookmark)
@@ -311,37 +421,6 @@ private extension MCPBookmarkBridgeService {
         }
     }
 
-    func copyPosterImageToStorage(_ imagePath: String) -> String? {
-        let sourceURL: URL
-        if let url = URL(string: imagePath), url.isFileURL {
-            sourceURL = url
-        } else {
-            sourceURL = URL(fileURLWithPath: imagePath)
-        }
-
-        var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: sourceURL.path, isDirectory: &isDirectory),
-              !isDirectory.boolValue,
-              FileManager.default.isReadableFile(atPath: sourceURL.path) else {
-            return nil
-        }
-
-        let fileExtension = sourceURL.pathExtension.lowercased()
-        let validExtensions = ["jpg", "jpeg", "png", "gif", "heic", "heif", "bmp", "tiff", "webp"]
-        guard validExtensions.contains(fileExtension) else { return nil }
-
-        let imagesDir = StorageManager.shared.getImagesDirectory()
-        let filename = "\(UUID().uuidString).\(fileExtension)"
-        let destinationURL = imagesDir.appendingPathComponent(filename)
-
-        do {
-            try FileManager.default.createDirectory(at: imagesDir, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            return filename
-        } catch {
-            return nil
-        }
-    }
 }
 
 private extension MCPBookmarkBridgeService {
@@ -357,25 +436,11 @@ private extension MCPBookmarkBridgeService {
         return .success(.array(categories.map(categoryJSON)))
     }
 
-    func bookmarkSearchText(_ bookmark: Bookmark) -> String {
-        var parts = [bookmark.title, bookmark.url]
-        if let notes = bookmark.notes { parts.append(notes) }
-        parts.append(contentsOf: dataStorage.tags(for: bookmark.tagIds).map(\.name))
-        return parts.joined(separator: "\n").lowercased()
-    }
-
-    func bookmarkSummaryJSON(_ bookmark: Bookmark) -> JSONValue {
-        .object([
-            "id": .string(bookmark.id.uuidString),
-            "title": .string(bookmark.title),
-            "url": .string(bookmark.url),
-            "notesPreview": .string(String((bookmark.notes ?? "").prefix(240))),
-            "category": categoryJSON(dataStorage.category(for: bookmark.categoryId)),
-            "tags": .array(dataStorage.tags(for: bookmark.tagIds).map(tagJSON)),
-            "isFavorite": .bool(bookmark.isFavorite),
-            "addedDate": .string(dateFormatter.string(from: bookmark.addedDate)),
-            "modifiedDate": bookmark.modifiedDate.map { .string(dateFormatter.string(from: $0)) } ?? .null
-        ])
+    func serializationContext() -> MCPBookmarkSerializationContext {
+        MCPBookmarkSerializationContext(
+            categoriesByID: Dictionary(uniqueKeysWithValues: dataStorage.categories.map { ($0.id, $0) }),
+            tagsByID: Dictionary(uniqueKeysWithValues: dataStorage.tags.map { ($0.id, $0) })
+        )
     }
 
     func bookmarkDetailJSON(_ bookmark: Bookmark) -> JSONValue {

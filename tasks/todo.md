@@ -1,3 +1,72 @@
+# 全项目性能优化实现
+
+## 目标
+- 完成 `docs/analysis/performance-audit.md` 中 P0、P1、P2 问题的根因修复，并为 P3 扩展性建立可量化的升级门槛。
+- 不新增第三方依赖，不迁移 SQLite/SwiftData，不改变 MCP 工具契约。
+
+## 计划
+- [x] 建立 Swift 性能回归测试和可重复数据 fixture。
+- [x] 合并 JSON 写入，支持同步 flush，并删除启动冗余写入。
+- [x] 详情编辑改为 draft + debounce/flush，避免按键级 CRUD。
+- [x] 统一 macOS、iOS、MCP 纯搜索核心，支持取消和非主 actor 计算。
+- [x] 缓存 MCP 稳定分页结果，并复用 O(1) item cache。
+- [x] 本地图片加载改为异步下采样，移除同步图标磁盘读取。
+- [x] 将粘贴、截图、生成封面和 MCP poster 的图片编码/复制移出主 actor。
+- [x] 将导入导出的 JSON/HTML/文件 I/O 移出主 actor。
+- [x] 增加批量更新路径，收敛删标签和导入的 N 次全量写。
+- [x] 预计算排序键，缓存详情元数据，减少长文本全量遍历。
+- [x] 拆分 lookup cache 重建，降低解析动画刷新率，缓存 SF Symbol 可用性。
+- [x] 运行 Swift/MCP 测试、性能基准、macOS/iOS 构建和空白检查。
+
+## 边界情况
+- [x] App 退出、窗口关闭和迁移存储位置前，所有 debounce/coalesced write 必须 flush。
+- [x] 旧搜索 task 不得覆盖新查询，tag/title/url/notes 变更不得留下 stale index。
+- [x] 后台任务只处理不可变快照，`DataStorage` 与 SwiftUI 状态仍只在主 actor 修改。
+- [x] 图片查看器保留放大清晰度；缩略图才强制下采样。
+- [x] 批量更新不得改变重复 URL、部分失败和图片删除语义。
+- [x] 性能优化不得依赖 ID-only `Equatable` 而隐藏 payload 更新。
+
+## 审查记录
+- JSON 持久化已改为延迟合并、紧凑原子写入和同步 flush；启动不再重写现有数据，批量更新与导入在写入前完成整体验证。
+- macOS、iOS 与 MCP 共用 `CollectionSearch` 和预计算搜索记录；搜索支持任务取消、稳定排序、分页及按 `itemsVersion` 失效的 MCP 结果缓存。
+- 图片编码、复制和缩略图读取已移出主 actor；全屏查看器仍加载原图，避免缩放质量退化。
+- 导入、导出、备份与目录扫描使用不可变快照在后台执行；删标签、批量 AI 解析和导入改为批量持久化。
+- 排序键、详情元数据、SF Symbol 目录和 lookup cache 已按用途预计算或拆分；解析动画降低到 20 Hz。
+- macOS 全量测试通过：18 项；覆盖搜索取消与索引失效、JSON 合并写和批量原子性、图片 I/O、长文本处理。
+- 搜索基准：300 条 p95 0.67 ms，3,000 条 p95 5.59 ms，10,000 条 p95 33.47 ms；当前不满足迁移数据库的必要性。
+- iOS Simulator Debug 构建通过；MCP helper 的 6 项测试和 TypeScript 构建通过；`git diff --check` 通过。
+- 仍需在真实用户操作下用 Instruments 采集 Time Profiler、Main Thread 和文件 I/O；该动态测量不阻塞当前 P0、P1、P2 修复。
+
+# 全项目性能审计
+
+## 假设
+- 审计目标是运行时性能：启动、交互、滚动、搜索、图片、存储、网络、并发和 MCP。
+- 只报告有具体代码证据且值得测量或修改的优化点，不把纯风格建议列为性能问题。
+- 本轮只生成分析报告，不修改业务源码。
+
+## 计划
+- [x] 建立项目结构、核心数据流和热点调用地图。
+- [x] 扫描 Swift/SwiftUI、存储、图片、网络、MCP 与依赖使用中的性能模式。
+- [x] 阅读高风险热点及直接调用方，区分真实瓶颈、条件性风险和无需处理项。
+- [x] 生成按优先级排序的性能审计报告与摘要。
+- [x] 复核每项建议的证据、影响、验证方法和最小修复方向。
+
+## 边界情况
+- [x] 避免建议会造成 stale cache、数据竞争、主线程越界或图片质量下降的优化。
+- [x] 区分数据量较小时无收益的微优化与随数据量增长会恶化的算法问题。
+- [x] 对缺少 Instruments/基准数据的结论明确标记为“需测量”，不宣称已证实。
+- [x] 不在报告或命令输出中记录 token、凭据或用户数据。
+
+## 审查记录
+- CodeGraph 已索引 105 个文件、1,197 个节点和 2,885 条边；性能热路径集中在 `DataStorage`、`JSONStorage`、三套搜索和图片 I/O。
+- 本机仅核对了性能相关的聚合指标：287 条 item、`items.json` 约 438 KB、存储位于 iCloud Drive；未记录条目内容或凭据。
+- 完整报告位于 `docs/analysis/performance-audit.md`，摘要与仓库地图位于同目录的 `SUMMARY.md` 和 `repo-map.md`。
+- 已对写入合并的退出丢数据、后台搜索乱序、索引失效、图片质量和 actor 数据竞争五个最可能失败模式给出缓解。
+- `xcodebuild build -project Seahorse.xcodeproj -scheme Seahorse -configuration Debug CODE_SIGNING_ALLOWED=NO` 通过，仅有 destination 选择和 AppIntents metadata skipped 提示。
+- `MCPHelper` 的 `npm test` 通过，2 个测试文件、6 个测试通过。
+- `git diff --check` 通过。
+- 本轮未运行 Instruments 或构造 3,000/10,000 条性能 fixture；报告已将静态证实与需动态量化的建议分开。
+
 # MCP 删除全部条目类型
 
 ## 假设

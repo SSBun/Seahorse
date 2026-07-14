@@ -361,7 +361,9 @@ struct BasicSettingsView: View {
     }
 
     private func refreshBackupList() {
-        backupFolders = exportImportManager.scanBackupFolders()
+        Task {
+            backupFolders = await exportImportManager.scanBackupFolders()
+        }
     }
 
     private func restoreFromBackup(_ backup: URL) {
@@ -448,7 +450,9 @@ struct BackupListView: View {
     }
 
     private func refreshBackups() {
-        backupFolders = exportImportManager.scanBackupFolders()
+        Task {
+            backupFolders = await exportImportManager.scanBackupFolders()
+        }
     }
 
     private func restoreBackup(_ backup: URL) {

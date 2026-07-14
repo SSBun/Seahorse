@@ -42,40 +42,27 @@ struct iOSHomePageView: View {
     @State private var selectedTagIds: Set<UUID> = []
     @State private var sortOrder: iOSSortOrder = .newestFirst
     @State private var showingFilter = false
-
-    private var filteredItems: [AnyCollectionItem] {
-        let items = dataStorage.items.filter { item in
-            let matchesKind = kindMatches(item)
-            let matchesSearch = searchText.isEmpty || itemMatchesSearch(item, searchText)
-            let matchesCategory = selectedCategory == nil || item.categoryId == selectedCategory?.id
-            let matchesTags = selectedTagIds.isEmpty || !item.tagIds.filter { selectedTagIds.contains($0) }.isEmpty
-            return matchesKind && matchesSearch && matchesCategory && matchesTags
-        }
-        return items.sorted { a, b in
-            switch sortOrder {
-            case .newestFirst: return a.addedDate > b.addedDate
-            case .oldestFirst: return a.addedDate < b.addedDate
-            }
-        }
-    }
+    @State private var filteredItems: [AnyCollectionItem] = []
+    @State private var searchTask: Task<Void, Never>?
+    @State private var filterTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
-            List(filteredItems) { item in
-                NavigationLink {
-                    iOSItemDetailView(item: item)
-                } label: {
-                    iOSItemListRow(
-                        item: item,
-                        category: dataStorage.category(for: item.categoryId)
-                    )
-                }
-            }
+            observedCollectionList
+        }
+    }
+
+    private var styledCollectionList: some View {
+        collectionList
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .background(Color(.systemBackground))
             .navigationTitle("Seahorse")
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
+    }
+
+    private var presentedCollectionList: some View {
+        styledCollectionList
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -98,6 +85,40 @@ struct iOSHomePageView: View {
                     sortOrder: $sortOrder
                 )
             }
+    }
+
+    private var observedCollectionList: some View {
+        presentedCollectionList
+            .onAppear { recalculateFilteredItems() }
+            .onChange(of: searchText) { query in
+                searchTask?.cancel()
+                searchTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard !Task.isCancelled else { return }
+                    recalculateFilteredItems(query: query)
+                }
+            }
+            .onChange(of: selectedKind) { _ in recalculateFilteredItems() }
+            .onChange(of: selectedCategory) { _ in recalculateFilteredItems() }
+            .onChange(of: selectedTagIds) { _ in recalculateFilteredItems() }
+            .onChange(of: sortOrder) { _ in recalculateFilteredItems() }
+            .onChange(of: dataStorage.itemsVersion) { _ in recalculateFilteredItems() }
+            .onDisappear {
+                searchTask?.cancel()
+                filterTask?.cancel()
+            }
+    }
+
+    private var collectionList: some View {
+        List(filteredItems) { item in
+            NavigationLink {
+                iOSItemDetailView(item: item)
+            } label: {
+                iOSItemListRow(
+                    item: item,
+                    category: dataStorage.category(for: item.categoryId)
+                )
+            }
         }
     }
 
@@ -105,12 +126,30 @@ struct iOSHomePageView: View {
         selectedKind != .all || selectedCategory != nil || !selectedTagIds.isEmpty
     }
 
-    private func kindMatches(_ item: AnyCollectionItem) -> Bool {
+    private var searchKind: CollectionSearch.Kind {
         switch selectedKind {
-        case .all: return true
-        case .bookmark: return item.itemType == .bookmark
-        case .image: return item.itemType == .image
-        case .text: return item.itemType == .text
+        case .all: .all
+        case .bookmark: .bookmark
+        case .image: .image
+        case .text: .text
+        }
+    }
+
+    private func recalculateFilteredItems(query: String? = nil) {
+        filterTask?.cancel()
+        let records = dataStorage.searchRecordsSnapshot()
+        let criteria = CollectionSearch.Criteria(
+            query: query ?? searchText,
+            kind: searchKind,
+            categoryID: selectedCategory?.id,
+            tagIDs: selectedTagIds,
+            order: sortOrder == .newestFirst ? .newestFirst : .oldestFirst
+        )
+
+        filterTask = Task { @MainActor in
+            let results = await CollectionSearch.itemsAsync(in: records, matching: criteria)
+            guard !Task.isCancelled else { return }
+            filteredItems = results
         }
     }
 
@@ -130,21 +169,6 @@ struct iOSHomePageView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func itemMatchesSearch(_ item: AnyCollectionItem, _ query: String) -> Bool {
-        let lowerQuery = query.lowercased()
-        switch item.itemType {
-        case .bookmark:
-            guard let bookmark = item.asBookmark else { return false }
-            return bookmark.title.lowercased().contains(lowerQuery)
-                || bookmark.url.lowercased().contains(lowerQuery)
-        case .image:
-            return "image".contains(lowerQuery)
-        case .text:
-            guard let textItem = item.asTextItem else { return false }
-            return textItem.content.lowercased().contains(lowerQuery)
-                || (textItem.notes?.lowercased().contains(lowerQuery) ?? false)
-        }
-    }
 }
 
 // MARK: - Filter View

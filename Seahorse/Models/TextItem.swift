@@ -20,13 +20,20 @@ struct TextItem: CollectionItem {
     // Text-specific properties
     var content: String // The actual text content
     
+    var firstLine: Substring {
+        guard let newline = content.rangeOfCharacter(from: .newlines) else {
+            return content[...]
+        }
+        return content[..<newline.lowerBound]
+    }
+
     // Computed property for preview (first 200 characters)
     var contentPreview: String {
-        if content.count <= 200 {
+        let candidate = content.prefix(201)
+        guard candidate.count > 200 else {
             return content
         }
-        let index = content.index(content.startIndex, offsetBy: 200)
-        return String(content[..<index]) + "..."
+        return String(candidate.prefix(200)) + "..."
     }
     
     // CollectionItem protocol requirement

@@ -12,6 +12,7 @@ import Kingfisher
 struct BookmarkIconView: View {
     let iconString: String
     let size: CGFloat
+    @State private var dataImage: NSImage?
     
     init(iconString: String, size: CGFloat = 32) {
         self.iconString = iconString
@@ -25,7 +26,6 @@ struct BookmarkIconView: View {
                 KFImage(URL(string: iconString))
                     .setProcessor(DownsamplingImageProcessor(size: CGSize(width: size * 2, height: size * 2)))
                     .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
-                    .loadDiskFileSynchronously()
                     .cacheOriginalImage()
                     .placeholder {
                         ProgressView()
@@ -38,11 +38,8 @@ struct BookmarkIconView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } else if iconString.hasPrefix("data:image") {
-                // Data URL (base64 encoded image)
-                if let dataURL = URL(string: iconString),
-                   let data = try? Data(contentsOf: dataURL),
-                   let nsImage = NSImage(data: data) {
-                    Image(nsImage: nsImage)
+                if let dataImage {
+                    Image(nsImage: dataImage)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } else {
@@ -55,9 +52,35 @@ struct BookmarkIconView: View {
                 // SF Symbol
                 Image(systemName: iconString)
                     .font(.system(size: size))
-                    .foregroundStyle(.white)
+                .foregroundStyle(.white)
             }
         }
+        .task(id: iconString) {
+            guard iconString.hasPrefix("data:image") else {
+                dataImage = nil
+                return
+            }
+            dataImage = await Task.detached(priority: .utility) {
+                DataIconCache.image(for: iconString)
+            }.value
+        }
+    }
+}
+
+private enum DataIconCache {
+    static let cache = NSCache<NSString, NSImage>()
+
+    static func image(for value: String) -> NSImage? {
+        if let cached = cache.object(forKey: value as NSString) {
+            return cached
+        }
+        guard let separator = value.firstIndex(of: ","),
+              let data = Data(base64Encoded: String(value[value.index(after: separator)...])),
+              let image = NSImage(data: data) else {
+            return nil
+        }
+        cache.setObject(image, forKey: value as NSString)
+        return image
     }
 }
 
