@@ -1,3 +1,35 @@
+# Seahorse 1.8.0 本地发布
+
+## 目标
+- 将 App 从 `1.7.0 (6)` 更新到 minor 版本 `1.8.0 (7)`，生成并验证 DMG，备份旧 App 后安装到 `/Applications`。
+
+## 计划
+- [x] 更新 Xcode marketing version、build number 和 CHANGELOG。
+- [x] 构建并测试 MCP helper。
+- [x] 运行 Swift 测试和 Release 构建。
+- [x] 使用现有 `scripts/create-dmg.sh` 生成 DMG 与 SHA256。
+- [x] 验证 DMG、App 版本和签名。
+- [x] 正常退出运行中的 Seahorse 与 helper，备份并安装到 `/Applications`。
+- [x] 提交本地发布变更并确认工作区状态。
+
+## 边界情况
+- [x] `/Applications/Seahorse.app` 覆盖前必须保留时间戳备份。
+- [x] 不热覆盖运行中的 App 或 helper。
+- [x] `MCPHelper/package.json` 是私有 helper 的独立版本，不随 App marketing version 更新。
+- [x] README、Info.plist、installer 和 lockfile 无需版本同步时必须有检查证据。
+- [x] 未执行 notarization、GitHub Release upload、远端 tag 或 push。
+
+## 审查记录
+- App 版本由 Xcode `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION` 管理，已从 `1.7.0 (6)` 更新为 `1.8.0 (7)`；Info.plist 使用构建设置，不含硬编码版本。
+- `CHANGELOG.md` 已发布 Unreleased 内容并补充性能优化、侧边栏排序和 MCP handler 修复；README 无写死版本。
+- MCP helper 2 个测试文件、7 项测试通过，TypeScript 构建通过；private package version `0.1.0` 与 lockfile 无需改变。
+- Swift macOS 18 项测试通过，Release build 成功；保留既有 asset symbol、Swift concurrency 和 deprecated API warnings。
+- DMG 位于 `dist/Seahorse-1.8.0_20260714_152037/Seahorse-1.8.0.dmg`，`hdiutil verify` 与 SHA256 校验通过。
+- SHA256：`0218c8c13d3aff76d84125e2d6a10592fb1da03ac9134628afe9e14d04946b33`。
+- 已将旧 App 备份到 `/Applications/Seahorse-1.7.0-backup-20260714_152318.app`，并安装 `/Applications/Seahorse.app`；安装版本为 `1.8.0 (7)`，`codesign --verify --deep --strict` 通过。
+- App 使用 Apple Development 签名，未使用 Developer ID Application 签名，且未 notarized；该 DMG 仅作为本地安装包验证。
+- 现有 release SOP 不覆盖 GitHub Release upload，且用户未单独确认 tag/push，因此未执行远端动作。
+
 # 侧边栏 Tag 字母排序
 
 ## 目标

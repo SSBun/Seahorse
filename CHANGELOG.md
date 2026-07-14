@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-07-14
+
 ### 新增
 
 - 新增 MCP `get_bookmarks`，支持按 UUID 批量读取 bookmark。
@@ -14,6 +16,12 @@
 
 - `search_bookmarks` 新增 `offset`，agent 可配合 `limit` 分页获取全部 bookmark。
 - MCP 图片删除只会清理 Seahorse 内部 `Images` 目录中的文件，并拒绝相邻目录或符号链接逃逸路径。
+- 优化搜索、JSON 持久化、图片处理、导入导出和批量操作性能。
+- 侧边栏 tags 按本地化字母顺序展示。
+
+### 修复
+
+- 修复 MCP SDK 工具注册参数歧义导致的 `typedHandler is not a function`。
 
 ## [1.7.0] - 2026-07-09
 
@@ -44,6 +52,7 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/SSBun/Seahorse/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/SSBun/Seahorse/releases/tag/v1.6.0

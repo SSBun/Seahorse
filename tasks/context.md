@@ -20,6 +20,7 @@
 - tag 和 category 的 MCP 能力当前只读。
 
 ## Decisions and Conventions
+- Seahorse App 当前版本为 `1.8.0`，build number 为 `7`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
 - MCP helper 使用 SDK `registerTool()` 配置对象注册 schema、annotations 和 handler，避免旧 `tool()` API 对普通对象的重载歧义。
