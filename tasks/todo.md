@@ -1,3 +1,47 @@
+# 侧边栏 Tag 字母排序
+
+## 目标
+- 侧边栏 `TAGS` 区域按 tag 名称的本地化字母顺序稳定展示，不改变持久化顺序和管理页拖拽顺序。
+
+## 计划
+- [x] 在 `SidebarView` 展示边界生成排序后的 tags。
+- [x] 保持 tag 选择与数据模型不变。
+- [x] 运行 macOS 构建和空白检查。
+
+## 边界情况
+- [x] 大小写、数字和本地化字符使用系统标准比较规则。
+- [x] 空 tag 列表保持正常。
+- [x] 排序不写回 `DataStorage`。
+
+## 审查记录
+- `SidebarView.sortedTags` 使用 `localizedStandardCompare`，`ForEach` 只消费排序后的展示副本。
+- 未修改 `DataStorage.tags`、Tag 管理页或拖拽重排逻辑。
+- macOS Debug 构建和 `git diff --check` 通过；仅保留既有 `seahorse_icon` asset symbol warning。
+
+# MCP 工具 handler 注册修复
+
+## 目标
+- 用真实 MCP tool call 复现 `typedHandler is not a function`，改用无重载歧义的 SDK 注册 API，并验证普通工具与 destructive annotation。
+
+## 计划
+- [x] 用 SDK 内存 transport 复现带参数工具调用失败。
+- [x] 增加工具调用回归测试并确认修复前失败。
+- [x] 改用 `registerTool()` 注册 schema、annotations 和 handler。
+- [x] 运行 MCP 全量测试、TypeScript 构建和空白检查。
+
+## 边界情况
+- [x] 零参数工具仍能调用。
+- [x] 参数 schema 仍执行校验和默认值处理。
+- [x] `delete_item` 仍暴露 `destructiveHint: true`。
+- [x] bridge 错误仍通过 MCP tool result 返回，不被注册层吞掉。
+
+## 审查记录
+- SDK 内存 transport 在修复前稳定复现：参数化 `search_bookmarks` 返回 `typedHandler is not a function`，零参数工具正常。
+- 共享注册函数改用 `registerTool(name, { inputSchema, annotations }, handler)`，并传入显式 Zod object，避免 `tool()` 的 schema/annotations 重载歧义。
+- 回归测试覆盖参数默认值、零参数调用、destructive annotation 和 bridge 错误传播；MCP helper 2 个测试文件、7 项测试通过。
+- TypeScript 构建与 `git diff --check` 通过。
+- 已让 Seahorse 重启 helper，并对运行中的 `http://127.0.0.1:17373/mcp` 执行真实 `search_bookmarks`，调用成功。
+
 # 全项目性能优化实现
 
 ## 目标

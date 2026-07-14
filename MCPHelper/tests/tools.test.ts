@@ -1,6 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { deleteItemShape, getBookmarksShape, searchBookmarksShape, updateBookmarkShape } from "../src/tools.js";
+import type { BridgeClient } from "../src/bridgeClient.js";
+import {
+  deleteItemShape,
+  getBookmarksShape,
+  registerTools,
+  searchBookmarksShape,
+  updateBookmarkShape,
+} from "../src/tools.js";
 
 const deleteItemSchema = z.object(deleteItemShape);
 const searchBookmarksSchema = z.object(searchBookmarksShape);
@@ -49,5 +59,34 @@ describe("delete_item schema", () => {
 
     expect(deleteItemSchema.parse({ id })).toEqual({ id });
     expect(() => deleteItemSchema.parse({ id: "not-an-id" })).toThrow();
+  });
+});
+
+describe("tool registration", () => {
+  it("invokes parameterized and zero-argument handlers and preserves annotations", async () => {
+    const call = vi.fn(async (name: string, args: Record<string, unknown>) => ({ name, args }));
+    const server = new McpServer({ name: "test-server", version: "1.0.0" });
+    registerTools(server, { call } as unknown as BridgeClient);
+
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    const searchResult = await client.callTool({ name: "search_bookmarks", arguments: {} });
+    expect(searchResult.isError).not.toBe(true);
+    expect(call).toHaveBeenCalledWith("search_bookmarks", { query: "" });
+
+    const tagsResult = await client.callTool({ name: "list_tags", arguments: {} });
+    expect(tagsResult.isError).not.toBe(true);
+    expect(call).toHaveBeenCalledWith("list_tags", {});
+
+    const tools = await client.listTools();
+    expect(tools.tools.find((tool) => tool.name === "delete_item")?.annotations?.destructiveHint).toBe(true);
+
+    call.mockRejectedValueOnce(new Error("bridge unavailable"));
+    const errorResult = await client.callTool({ name: "list_categories", arguments: {} });
+    expect(errorResult.isError).toBe(true);
+
+    await Promise.all([client.close(), server.close()]);
   });
 });

@@ -22,8 +22,10 @@
 ## Decisions and Conventions
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
+- MCP helper 使用 SDK `registerTool()` 配置对象注册 schema、annotations 和 handler，避免旧 `tool()` API 对普通对象的重载歧义。
 - MCP 使用通用 `delete_item(id)` 删除 bookmark、image 或 text；tag 和 category 不提供写操作。
 - 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内的文件。
 - `JSONStorage` 对频繁 item 更新进行延迟合并；App 退出、存储迁移和显式 `forceSaveAllData()` 会同步写入最新快照。
 - 多条 item 更新和数据导入使用批量数据库 API，整批验证通过后才修改内存或持久化数据。
 - 缩略图允许异步下采样，全屏图片查看器保留原始分辨率。
+- macOS 侧边栏的 tags 按本地化标准字母顺序展示；持久化顺序和 Tag 管理页顺序不受影响。

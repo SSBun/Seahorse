@@ -69,7 +69,7 @@ function registerBridgeTool<TShape extends z.ZodRawShape>(
   shape: TShape,
   annotations: ToolAnnotations = {},
 ): void {
-  server.tool(name, shape as any, annotations, async (args: Record<string, unknown>) => {
+  server.registerTool(name, { inputSchema: z.object(shape), annotations }, async (args) => {
     const result = await bridge.call(name, args);
     return {
       content: [

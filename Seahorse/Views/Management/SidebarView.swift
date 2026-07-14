@@ -37,6 +37,10 @@ struct SidebarView: View {
         categories
     }
 
+    private var sortedTags: [Tag] {
+        tags.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     var body: some View {
         List(selection: $selectedItem) {
             Section {
@@ -84,7 +88,7 @@ struct SidebarView: View {
             }
 
             Section {
-                ForEach(tags) { tag in
+                ForEach(sortedTags) { tag in
                     HStack(spacing: 6) {
                         Circle()
                             .fill(tag.color)
