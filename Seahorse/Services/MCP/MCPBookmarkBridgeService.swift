@@ -299,15 +299,18 @@ private extension MCPBookmarkBridgeService {
               let id = UUID(uuidString: idString) else {
             return .failure(code: "validation_error", message: "id must be a valid item id")
         }
-        guard let item = dataStorage.item(for: id) else {
+        guard let item = dataStorage.itemIncludingDeleted(for: id) else {
             return .failure(code: "not_found", message: "Item not found")
         }
+        let wasAlreadyInTrash = item.isDeleted
 
         do {
             try dataStorage.deleteItem(item)
             return .success(.object([
                 "id": .string(id.uuidString),
-                "type": .string(item.itemType.rawValue)
+                "type": .string(item.itemType.rawValue),
+                "movedToTrash": .bool(!wasAlreadyInTrash),
+                "alreadyInTrash": .bool(wasAlreadyInTrash)
             ]))
         } catch {
             return .failure(code: "delete_failed", message: error.localizedDescription)
@@ -359,7 +362,6 @@ private extension MCPBookmarkBridgeService {
 
         do {
             try dataStorage.addBookmark(bookmark)
-            fetchMetadata(for: bookmark)
             return .success(bookmarkDetailJSON(bookmark))
         } catch {
             return .failure(code: "validation_error", message: error.localizedDescription)
@@ -515,24 +517,5 @@ private extension MCPBookmarkBridgeService {
         dataStorage.categories.first(where: { $0.name == "None" })?.id ?? dataStorage.categories.first?.id
     }
 
-    func fetchMetadata(for bookmark: Bookmark) {
-        guard let url = URL(string: bookmark.url) else { return }
-        Task {
-            if let metadata = try? await OpenGraphService.shared.fetchMetadata(url: url) {
-                var updated = bookmark
-                updated.metadata = metadata
-                if let title = metadata.title, !title.isEmpty, updated.title == "Untitled" {
-                    updated.title = title
-                }
-                if updated.notes == nil {
-                    updated.notes = metadata.description
-                }
-                if let favicon = metadata.faviconURL {
-                    updated.icon = favicon
-                }
-                try? dataStorage.updateBookmark(updated)
-            }
-        }
-    }
 }
 #endif

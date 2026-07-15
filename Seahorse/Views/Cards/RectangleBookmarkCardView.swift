@@ -139,7 +139,7 @@ struct RectangleBookmarkCardView: View {
             Button(role: .destructive, action: {
                 deleteBookmark()
             }) {
-                Label(L10n.delete, systemImage: "trash")
+                Label("Move to Trash", systemImage: "trash")
             }
         }
         .sheet(isPresented: $showingEditSheet) {

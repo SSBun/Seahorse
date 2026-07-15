@@ -747,7 +747,10 @@ struct AddBookmarkView: View {
             notes: summary.isEmpty ? nil : summary,
             tagIds: Array(selectedTagIds),
             isParsed: wasParsed || editingBookmark.isParsed, // Keep parsed status or update if newly parsed
-            metadata: webMetadata
+            metadata: webMetadata,
+            deletedAt: editingBookmark.deletedAt,
+            enrichmentStatus: editingBookmark.enrichmentStatus,
+            enrichmentError: editingBookmark.enrichmentError
         )
         
         do {

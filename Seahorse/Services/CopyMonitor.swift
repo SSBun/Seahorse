@@ -295,7 +295,7 @@ class CopyMonitor: ObservableObject {
     
     private func saveText(_ text: String) async {
         // Check if text already exists (exact match)
-        let existingTextItem = dataStorage.items.first { item in
+        let existingTextItem = dataStorage.activeItems.first { item in
             if let textItem = item.asTextItem {
                 return textItem.content == text
             }

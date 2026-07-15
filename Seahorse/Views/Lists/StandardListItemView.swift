@@ -178,7 +178,7 @@ struct StandardListItemView: View {
             Button(role: .destructive, action: {
                 do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: (error)", category: .ui) }
             }) {
-                Label("Delete", systemImage: "trash")
+                Label("Move to Trash", systemImage: "trash")
             }
         }
     }

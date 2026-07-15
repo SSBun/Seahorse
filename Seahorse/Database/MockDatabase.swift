@@ -11,6 +11,7 @@ class MockDatabase: DatabaseProtocol {
     private var items: [AnyCollectionItem] = []
     private var categories: [Category] = []
     private var tags: [Tag] = []
+    private var smartCollections: [SmartCollection] = []
     private var preferences: [String: String] = [:]
     
     init() {
@@ -34,19 +35,19 @@ class MockDatabase: DatabaseProtocol {
     }
     
     func fetchAllBookmarks() throws -> [Bookmark] {
-        items.compactMap { $0.asBookmark }
+        items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil }
     }
     
     func fetchBookmarks(categoryId: UUID) throws -> [Bookmark] {
-        items.compactMap { $0.asBookmark }.filter { $0.categoryId == categoryId }
+        items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.categoryId == categoryId }
     }
     
     func fetchBookmarks(tagId: UUID) throws -> [Bookmark] {
-        items.compactMap { $0.asBookmark }.filter { $0.tagIds.contains(tagId) }
+        items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.tagIds.contains(tagId) }
     }
     
     func fetchFavoriteBookmarks() throws -> [Bookmark] {
-        items.compactMap { $0.asBookmark }.filter { $0.isFavorite }
+        items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.isFavorite }
     }
     
     // MARK: - Item Operations
@@ -56,9 +57,11 @@ class MockDatabase: DatabaseProtocol {
     }
     
     func saveItem(_ item: AnyCollectionItem) throws {
-        if let bookmark = item.asBookmark {
+        if let bookmark = item.asBookmark, bookmark.deletedAt == nil {
             let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
-            if items.compactMap({ $0.asBookmark }).contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+            if items.compactMap({ $0.asBookmark }).contains(where: {
+                $0.deletedAt == nil && BookmarkURLNormalizer.normalize($0.url) == normalizedURL
+            }) {
                 throw DatabaseError.duplicateBookmarkURL
             }
         }
@@ -66,9 +69,13 @@ class MockDatabase: DatabaseProtocol {
     }
     
     func updateItem(_ item: AnyCollectionItem) throws {
-        if let bookmark = item.asBookmark {
+        if let bookmark = item.asBookmark, bookmark.deletedAt == nil {
             let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
-            if items.compactMap({ $0.asBookmark }).contains(where: { $0.id != bookmark.id && BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+            if items.compactMap({ $0.asBookmark }).contains(where: {
+                $0.id != bookmark.id
+                    && $0.deletedAt == nil
+                    && BookmarkURLNormalizer.normalize($0.url) == normalizedURL
+            }) {
                 throw DatabaseError.duplicateBookmarkURL
             }
         }
@@ -92,26 +99,35 @@ class MockDatabase: DatabaseProtocol {
         items = candidate
     }
 
-    func saveImportedData(categories: [Category], tags: [Tag], items: [AnyCollectionItem]) throws {
+    func saveImportedData(
+        categories: [Category],
+        tags: [Tag],
+        smartCollections: [SmartCollection],
+        items: [AnyCollectionItem]
+    ) throws {
         let candidateItems = self.items + items
         let candidateCategories = self.categories + categories
         let candidateTags = self.tags + tags
+        let candidateSmartCollections = self.smartCollections + smartCollections
         guard Set(candidateItems.map(\.id)).count == candidateItems.count,
               Set(candidateCategories.map(\.id)).count == candidateCategories.count,
               Set(candidateCategories.map { $0.name.lowercased() }).count == candidateCategories.count,
               Set(candidateTags.map(\.id)).count == candidateTags.count,
-              Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count else {
+              Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count,
+              Set(candidateSmartCollections.map(\.id)).count == candidateSmartCollections.count,
+              Set(candidateSmartCollections.map { $0.name.lowercased() }).count == candidateSmartCollections.count else {
             throw DatabaseError.duplicateEntry
         }
         try validateUniqueBookmarkURLs(candidateItems)
         self.categories = candidateCategories
         self.tags = candidateTags
+        self.smartCollections = candidateSmartCollections
         self.items = candidateItems
     }
 
     private func validateUniqueBookmarkURLs(_ items: [AnyCollectionItem]) throws {
         var urls = Set<String>()
-        for bookmark in items.compactMap(\.asBookmark) {
+        for bookmark in items.compactMap(\.asBookmark) where bookmark.deletedAt == nil {
             guard urls.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted else {
                 throw DatabaseError.duplicateBookmarkURL
             }
@@ -119,7 +135,16 @@ class MockDatabase: DatabaseProtocol {
     }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
-        items.removeAll { $0.id == item.id }
+        try deleteItems([item])
+    }
+
+    func deleteItems(_ deletedItems: [AnyCollectionItem]) throws {
+        let ids = Set(deletedItems.map(\.id))
+        guard ids.count == deletedItems.count,
+              ids.allSatisfy({ id in items.contains(where: { $0.id == id }) }) else {
+            throw DatabaseError.notFound
+        }
+        items.removeAll { ids.contains($0.id) }
     }
     
     // MARK: - Category Operations
@@ -178,6 +203,44 @@ class MockDatabase: DatabaseProtocol {
     
     func reorderTags(_ newTags: [Tag]) throws {
         tags = newTags
+    }
+
+    // MARK: - Smart Collection Operations
+
+    func saveSmartCollection(_ smartCollection: SmartCollection) throws {
+        guard !smartCollections.contains(where: {
+            $0.id == smartCollection.id || $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
+        }) else {
+            throw DatabaseError.duplicateEntry
+        }
+        smartCollections.append(smartCollection)
+    }
+
+    func updateSmartCollection(_ smartCollection: SmartCollection) throws {
+        guard let index = smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
+            throw DatabaseError.notFound
+        }
+        guard !smartCollections.contains(where: {
+            $0.id != smartCollection.id && $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
+        }) else {
+            throw DatabaseError.duplicateEntry
+        }
+        smartCollections[index] = smartCollection
+    }
+
+    func deleteSmartCollection(_ smartCollection: SmartCollection) throws {
+        guard smartCollections.contains(where: { $0.id == smartCollection.id }) else {
+            throw DatabaseError.notFound
+        }
+        smartCollections.removeAll { $0.id == smartCollection.id }
+    }
+
+    func fetchAllSmartCollections() throws -> [SmartCollection] {
+        smartCollections
+    }
+
+    func reorderSmartCollections(_ newSmartCollections: [SmartCollection]) throws {
+        smartCollections = newSmartCollections
     }
     
     // MARK: - Preferences Operations

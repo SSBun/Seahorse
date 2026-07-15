@@ -40,6 +40,7 @@ struct iOSHomePageView: View {
     @State private var selectedKind: iOSItemKind = .all
     @State private var selectedCategory: Category?
     @State private var selectedTagIds: Set<UUID> = []
+    @State private var selectedSmartCollectionId: UUID?
     @State private var sortOrder: iOSSortOrder = .newestFirst
     @State private var showingFilter = false
     @State private var filteredItems: [AnyCollectionItem] = []
@@ -82,6 +83,7 @@ struct iOSHomePageView: View {
                     selectedKind: $selectedKind,
                     selectedCategory: $selectedCategory,
                     selectedTagIds: $selectedTagIds,
+                    selectedSmartCollectionId: $selectedSmartCollectionId,
                     sortOrder: $sortOrder
                 )
             }
@@ -101,6 +103,7 @@ struct iOSHomePageView: View {
             .onChange(of: selectedKind) { _ in recalculateFilteredItems() }
             .onChange(of: selectedCategory) { _ in recalculateFilteredItems() }
             .onChange(of: selectedTagIds) { _ in recalculateFilteredItems() }
+            .onChange(of: selectedSmartCollectionId) { _ in recalculateFilteredItems() }
             .onChange(of: sortOrder) { _ in recalculateFilteredItems() }
             .onChange(of: dataStorage.itemsVersion) { _ in recalculateFilteredItems() }
             .onDisappear {
@@ -123,7 +126,10 @@ struct iOSHomePageView: View {
     }
 
     private var hasActiveFilters: Bool {
-        selectedKind != .all || selectedCategory != nil || !selectedTagIds.isEmpty
+        selectedKind != .all
+            || selectedCategory != nil
+            || !selectedTagIds.isEmpty
+            || selectedSmartCollectionId != nil
     }
 
     private var searchKind: CollectionSearch.Kind {
@@ -138,13 +144,25 @@ struct iOSHomePageView: View {
     private func recalculateFilteredItems(query: String? = nil) {
         filterTask?.cancel()
         let records = dataStorage.searchRecordsSnapshot()
-        let criteria = CollectionSearch.Criteria(
-            query: query ?? searchText,
-            kind: searchKind,
-            categoryID: selectedCategory?.id,
-            tagIDs: selectedTagIds,
-            order: sortOrder == .newestFirst ? .newestFirst : .oldestFirst
-        )
+        let effectiveQuery = query ?? searchText
+        var criteria: CollectionSearch.Criteria
+        if let selectedSmartCollectionId,
+           let smartCollection = dataStorage.smartCollections.first(where: { $0.id == selectedSmartCollectionId }) {
+            criteria = CollectionSearch.criteria(
+                for: smartCollection,
+                availableCategoryIDs: Set(dataStorage.categories.map(\.id)),
+                availableTagIDs: Set(dataStorage.tags.map(\.id))
+            )
+            criteria.additionalQuery = effectiveQuery
+        } else {
+            criteria = CollectionSearch.Criteria(
+                query: effectiveQuery,
+                kind: searchKind,
+                categoryID: selectedCategory?.id,
+                tagIDs: selectedTagIds,
+                order: sortOrder == .newestFirst ? .newestFirst : .oldestFirst
+            )
+        }
 
         filterTask = Task { @MainActor in
             let results = await CollectionSearch.itemsAsync(in: records, matching: criteria)
@@ -178,12 +196,51 @@ struct iOSFilterView: View {
     @Binding var selectedKind: iOSItemKind
     @Binding var selectedCategory: Category?
     @Binding var selectedTagIds: Set<UUID>
+    @Binding var selectedSmartCollectionId: UUID?
     @Binding var sortOrder: iOSSortOrder
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
             List {
+                Section("Smart Collection") {
+                    Button {
+                        selectedSmartCollectionId = nil
+                    } label: {
+                        HStack {
+                            Text("Custom Filters")
+                            Spacer()
+                            if selectedSmartCollectionId == nil {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.blue)
+                            }
+                        }
+                    }
+                    .foregroundStyle(.primary)
+
+                    ForEach(dataStorage.smartCollections) { smartCollection in
+                        Button {
+                            selectedSmartCollectionId = smartCollection.id
+                        } label: {
+                            HStack {
+                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                    .frame(width: 24)
+                                Text(smartCollection.name)
+                                Spacer()
+                                if hasInvalidReference(smartCollection) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .foregroundStyle(.orange)
+                                        .accessibilityLabel("Missing category or tag")
+                                } else if selectedSmartCollectionId == smartCollection.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                }
+
                 // Sort
                 Section("Sort") {
                     ForEach(iOSSortOrder.allCases, id: \.self) { order in
@@ -204,6 +261,7 @@ struct iOSFilterView: View {
                         .foregroundStyle(.primary)
                     }
                 }
+                .disabled(selectedSmartCollectionId != nil)
 
                 // Kind
                 Section("Kind") {
@@ -225,6 +283,7 @@ struct iOSFilterView: View {
                         .foregroundStyle(.primary)
                     }
                 }
+                .disabled(selectedSmartCollectionId != nil)
 
                 // Category
                 Section("Category") {
@@ -261,6 +320,7 @@ struct iOSFilterView: View {
                         .foregroundStyle(.primary)
                     }
                 }
+                .disabled(selectedSmartCollectionId != nil)
 
                 // Tags (multi-select)
                 if !dataStorage.tags.isEmpty {
@@ -288,6 +348,7 @@ struct iOSFilterView: View {
                             .foregroundStyle(.primary)
                         }
                     }
+                    .disabled(selectedSmartCollectionId != nil)
                 }
             }
             .navigationTitle("Filter")
@@ -298,6 +359,7 @@ struct iOSFilterView: View {
                         selectedKind = .all
                         selectedCategory = nil
                         selectedTagIds.removeAll()
+                        selectedSmartCollectionId = nil
                         sortOrder = .newestFirst
                     }
                 }
@@ -310,6 +372,13 @@ struct iOSFilterView: View {
             }
         }
         .presentationDetents([.medium])
+    }
+
+    private func hasInvalidReference(_ smartCollection: SmartCollection) -> Bool {
+        let categoryIDs = Set(dataStorage.categories.map(\.id))
+        let tagIDs = Set(dataStorage.tags.map(\.id))
+        return !(smartCollection.categoryId.map(categoryIDs.contains) ?? true)
+            || !Set(smartCollection.tagIds).isSubset(of: tagIDs)
     }
 }
 

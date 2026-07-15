@@ -31,7 +31,9 @@ class BatchParsingService: ObservableObject {
         guard !isRunning, let dataStorage = dataStorage else { return }
 
         // Get unparsed bookmarks
-        let unparsedBookmarks = dataStorage.bookmarks.filter { !$0.isParsed }
+        let unparsedBookmarks = dataStorage.bookmarks.filter {
+            !$0.isParsed && $0.enrichmentStatus == nil
+        }
         guard !unparsedBookmarks.isEmpty else { return }
 
         isRunning = true
@@ -54,6 +56,9 @@ class BatchParsingService: ObservableObject {
     /// Start batch parsing with a specific set of bookmarks
     func start(bookmarks: [Bookmark]) {
         guard !isRunning, let dataStorage = dataStorage else { return }
+        let bookmarks = bookmarks.filter { bookmark in
+            dataStorage.item(for: bookmark.id)?.asBookmark?.enrichmentStatus == nil
+        }
         guard !bookmarks.isEmpty else { return }
 
         isRunning = true
@@ -147,7 +152,20 @@ class BatchParsingService: ObservableObject {
             }
         }
 
-        let liveBookmarks = parsedBookmarks.filter { dataStorage.item(for: $0.id) != nil }
+        let liveBookmarks = parsedBookmarks.compactMap { parsedItem -> AnyCollectionItem? in
+            guard let parsed = parsedItem.asBookmark,
+                  var latest = dataStorage.item(for: parsed.id)?.asBookmark,
+                  latest.enrichmentStatus == nil else {
+                return nil
+            }
+            latest.title = parsed.title
+            latest.notes = parsed.notes
+            latest.icon = parsed.icon
+            latest.categoryId = parsed.categoryId
+            latest.tagIds = parsed.tagIds
+            latest.isParsed = parsed.isParsed
+            return AnyCollectionItem(latest)
+        }
         guard !liveBookmarks.isEmpty else { return }
         do {
             try dataStorage.updateItems(liveBookmarks)
@@ -160,7 +178,7 @@ class BatchParsingService: ObservableObject {
     private func parseBookmark(_ bookmark: Bookmark, dataStorage: DataStorage) async -> Result<Bookmark, Error> {
         do {
             // Fetch web content
-            let (content, title) = try await aiManager.fetchWebContent(url: bookmark.url)
+            let (title, content) = try await aiManager.fetchWebContent(url: bookmark.url)
             
             // Get categories and tags from data storage
             let availableCategories = await MainActor.run {

@@ -16,6 +16,7 @@ struct ImageItem: CollectionItem {
     var notes: String?
     var isFavorite: Bool
     var isParsed: Bool
+    var deletedAt: Date?
     
     // Image-specific properties
     var imagePath: String // Path to the image file (local or remote URL)
@@ -38,7 +39,8 @@ struct ImageItem: CollectionItem {
         tagIds: [UUID] = [],
         isParsed: Bool = false,
         thumbnailPath: String? = nil,
-        imageSize: CGSize? = nil
+        imageSize: CGSize? = nil,
+        deletedAt: Date? = nil
     ) {
         self.id = id
         self.imagePath = imagePath
@@ -51,5 +53,6 @@ struct ImageItem: CollectionItem {
         self.isParsed = isParsed
         self.thumbnailPath = thumbnailPath
         self.imageSize = imageSize
+        self.deletedAt = deletedAt
     }
 }

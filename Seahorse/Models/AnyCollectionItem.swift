@@ -122,6 +122,24 @@ struct AnyCollectionItem: Identifiable, Codable {
         }
         return []
     }
+
+    var deletedAt: Date? {
+        get {
+            bookmark?.deletedAt ?? imageItem?.deletedAt ?? textItem?.deletedAt
+        }
+        set {
+            switch itemType {
+            case .bookmark:
+                bookmark?.deletedAt = newValue
+            case .image:
+                imageItem?.deletedAt = newValue
+            case .text:
+                textItem?.deletedAt = newValue
+            }
+        }
+    }
+
+    var isDeleted: Bool { deletedAt != nil }
 }
 
 // NOTE:

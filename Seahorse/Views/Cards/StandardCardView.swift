@@ -337,6 +337,28 @@ struct StandardCardView: View {
                 ParsingFireEffect()
                     .zIndex(2)
             }
+
+            if autoParsingService.status(for: item.id) == .failed {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            autoParsingService.retryBookmark(id: item.id)
+                        } label: {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .padding(8)
+                                .background(.regularMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Retry bookmark enrichment")
+                        .help(autoParsingService.failureMessage(for: item.id) ?? "Enrichment failed. Click to retry.")
+                    }
+                    Spacer()
+                }
+                .padding(8)
+                .zIndex(3)
+            }
         }
         .background {
             RoundedRectangle(cornerRadius: 12)
@@ -507,12 +529,19 @@ struct StandardCardView: View {
         switch item.itemType {
         case .bookmark:
             if let bookmark = bookmark {
+                if autoParsingService.status(for: bookmark.id) == .failed {
+                    Button(action: {
+                        autoParsingService.retryBookmark(id: bookmark.id)
+                    }) {
+                        Label("Retry Enrichment", systemImage: "arrow.clockwise")
+                    }
+                }
+
                 Button(action: {
                     autoParsingService.parseSpecificBookmark(id: bookmark.id)
                 }) {
                     Label("Quick AI Parse", systemImage: "sparkles")
                 }
-                .disabled(autoParsingService.parsingItemId != nil)
 
                 Button(action: {
                     showingEditSheet = true
@@ -540,7 +569,7 @@ struct StandardCardView: View {
                 Button(role: .destructive, action: {
                     do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: \\(error)", category: .ui) }
                 }) {
-                    Label("Delete", systemImage: "trash")
+                    Label("Move to Trash", systemImage: "trash")
                 }
             }
             
@@ -583,7 +612,7 @@ struct StandardCardView: View {
                 Button(role: .destructive, action: {
                     do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: \\(error)", category: .ui) }
                 }) {
-                    Label("Delete", systemImage: "trash")
+                    Label("Move to Trash", systemImage: "trash")
                 }
             }
             
@@ -608,7 +637,7 @@ struct StandardCardView: View {
             Button(role: .destructive, action: {
                 do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: \\(error)", category: .ui) }
             }) {
-                Label("Delete", systemImage: "trash")
+                Label("Move to Trash", systemImage: "trash")
             }
         }
     }

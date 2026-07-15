@@ -28,10 +28,10 @@ enum ItemKind: String, CaseIterable {
 struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
+    @EnvironmentObject var autoParsingService: AutoParsingService
 
     // UI State
-    @State private var selectedCategory: Category?
-    @State private var selectedTag: Tag?
+    @State private var sidebarSelection: SidebarSelection?
     @State private var viewMode: ViewMode = .grid
     @AppStorage("selectedItemKind") private var selectedKind: ItemKind = .all
     @State private var searchText = ""
@@ -66,26 +66,84 @@ struct ContentView: View {
     }
 
     var navigationTitle: String {
-        selectedCategory?.name ?? selectedTag?.name ?? "Bookmarks"
+        guard let sidebarSelection else { return "Bookmarks" }
+        switch sidebarSelection {
+        case .category(let id):
+            return dataStorage.category(for: id)?.name ?? "Bookmarks"
+        case .tag(let id):
+            return dataStorage.tag(for: id)?.name ?? "Bookmarks"
+        case .smartCollection(let id):
+            return dataStorage.smartCollections.first(where: { $0.id == id })?.name ?? "Smart Collection"
+        case .recent:
+            return "Recent"
+        case .unorganized:
+            return "Unorganized"
+        case .trash:
+            return "Trash"
+        }
     }
 
     private func recalculateFilteredItems() {
         filterTask?.cancel()
-        var criteria = CollectionSearch.Criteria(
-            query: debouncedSearchText,
-            kind: collectionSearchKind,
-            order: collectionSearchOrder
-        )
+        guard let sidebarSelection else {
+            cachedItems = []
+            return
+        }
 
-        if let category = selectedCategory {
+        var criteria: CollectionSearch.Criteria
+        switch sidebarSelection {
+        case .category(let id):
+            guard let category = dataStorage.category(for: id) else {
+                cachedItems = []
+                return
+            }
+            criteria = CollectionSearch.Criteria(
+                query: debouncedSearchText,
+                kind: collectionSearchKind,
+                order: collectionSearchOrder
+            )
             if category.name == "Favorites" {
                 criteria.favoriteOnly = true
             } else if category.name != "All Bookmarks" {
                 criteria.categoryID = category.id
             }
-        } else if let tag = selectedTag {
-            criteria.tagIDs = [tag.id]
-        } else {
+        case .tag(let id):
+            criteria = CollectionSearch.Criteria(
+                query: debouncedSearchText,
+                kind: collectionSearchKind,
+                tagIDs: [id],
+                order: collectionSearchOrder
+            )
+        case .smartCollection(let id):
+            guard let smartCollection = dataStorage.smartCollections.first(where: { $0.id == id }) else {
+                cachedItems = []
+                return
+            }
+            criteria = CollectionSearch.criteria(
+                for: smartCollection,
+                availableCategoryIDs: Set(dataStorage.categories.map(\.id)),
+                availableTagIDs: Set(dataStorage.tags.map(\.id))
+            )
+            criteria.additionalQuery = debouncedSearchText
+            applyKindFilter(to: &criteria)
+        case .recent:
+            let startOfToday = Calendar.current.startOfDay(for: Date())
+            criteria = CollectionSearch.Criteria(
+                query: debouncedSearchText,
+                kind: collectionSearchKind,
+                addedOnOrAfter: Calendar.current.date(byAdding: .day, value: -6, to: startOfToday),
+                addedBefore: Calendar.current.date(byAdding: .day, value: 1, to: startOfToday),
+                order: collectionSearchOrder
+            )
+        case .unorganized:
+            criteria = CollectionSearch.Criteria(
+                query: debouncedSearchText,
+                kind: collectionSearchKind,
+                unorganizedOnly: true,
+                unorganizedCategoryID: dataStorage.categories.first(where: { $0.name == "None" })?.id,
+                order: collectionSearchOrder
+            )
+        case .trash:
             cachedItems = []
             return
         }
@@ -116,14 +174,20 @@ struct ContentView: View {
         case .groupBySite: .groupBySite
         }
     }
+
+    private func applyKindFilter(to criteria: inout CollectionSearch.Criteria) {
+        guard collectionSearchKind != .all else { return }
+        if criteria.kind == .all {
+            criteria.kind = collectionSearchKind
+        } else if criteria.kind != collectionSearchKind {
+            criteria.matchesNothing = true
+        }
+    }
     
     var body: some View {
         NavigationSplitView {
             SidebarView(
-                categories: dataStorage.categories,
-                tags: dataStorage.tags,
-                selectedCategory: $selectedCategory,
-                selectedTag: $selectedTag
+                selection: $sidebarSelection
             )
             .environmentObject(dataStorage)
         } detail: {
@@ -206,6 +270,27 @@ struct ContentView: View {
                             applyGeneratedCover(taskId: taskId, image: image)
                         }
                     }
+
+                    if !autoParsingService.failedBookmarkIDs.isEmpty {
+                        Menu {
+                            ForEach(autoParsingService.failedBookmarkIDs, id: \.self) { id in
+                                Button {
+                                    autoParsingService.retryBookmark(id: id)
+                                } label: {
+                                    Label(
+                                        dataStorage.item(for: id)?.asBookmark?.title ?? "Bookmark",
+                                        systemImage: "arrow.clockwise"
+                                    )
+                                }
+                            }
+                        } label: {
+                            Label(
+                                "Enrichment Failed (\(autoParsingService.failedBookmarkIDs.count))",
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                        }
+                        .help("Retry failed bookmark enrichment")
+                    }
                 }
 
                 ToolbarItemGroup(placement: .automatic) {
@@ -261,7 +346,7 @@ struct ContentView: View {
         .onAppear {
             // Set initial selection
             if let firstCategory = dataStorage.categories.first {
-                selectedCategory = firstCategory
+                sidebarSelection = .category(firstCategory.id)
             }
             // Initial calculation
             recalculateFilteredItems()
@@ -281,10 +366,7 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: selectedCategory) { _, _ in
-            recalculateFilteredItems()
-        }
-        .onChange(of: selectedTag) { _, _ in
+        .onChange(of: sidebarSelection) { _, _ in
             recalculateFilteredItems()
         }
         .onChange(of: selectedKind) { _, _ in
@@ -298,6 +380,9 @@ struct ContentView: View {
         }
         // Watch for data changes (items added/deleted or updated in-place)
         .onChange(of: dataStorage.itemsVersion) { _, _ in
+            recalculateFilteredItems()
+        }
+        .onChange(of: dataStorage.smartCollections) { _, _ in
             recalculateFilteredItems()
         }
         .onDisappear {
@@ -353,7 +438,10 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainContentArea: some View {
-        if selectedCategory != nil || selectedTag != nil {
+        if sidebarSelection == .trash {
+            TrashView(searchText: debouncedSearchText, selectedKind: selectedKind)
+                .environmentObject(dataStorage)
+        } else if sidebarSelection != nil {
             ItemCollectionView(
                 items: filteredItems,
                 viewMode: viewMode
@@ -388,6 +476,15 @@ struct ContentView: View {
             )
             .font(.body)
             .foregroundStyle(.secondary)
+
+            if case .smartCollection(let id) = sidebarSelection {
+                Button("Edit Conditions") {
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("EditSmartCollection"),
+                        object: id
+                    )
+                }
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

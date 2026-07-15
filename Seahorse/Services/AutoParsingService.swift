@@ -1,165 +1,325 @@
-//
-//  AutoParsingService.swift
-//  Seahorse
-//
-//  Auto-parses newly added bookmarks when "Auto AI Parsing" is enabled.
-//  Fetches metadata first for posters and basic info, then runs AI parsing.
-//
-
 import Foundation
-import SwiftUI
 import OSLog
 
 @MainActor
-class AutoParsingService: ObservableObject {
+final class AutoParsingService: ObservableObject {
+    typealias MetadataLoader = (URL) async throws -> WebMetadata
+
+    private enum EnrichmentError: Error {
+        case itemUnavailable
+        case sourceChanged
+    }
+
     private let aiManager = AIManager()
+    private let metadataLoader: MetadataLoader
     private weak var dataStorage: DataStorage?
-    private var isProcessing = false
+    private var pendingIDs: [UUID] = []
+    private var pendingIDSet = Set<UUID>()
+    private var forcedAIIDs = Set<UUID>()
+    private var failedAIIDs = Set<UUID>()
+    private var workerTask: Task<Void, Never>?
 
-    /// ID of the bookmark currently being auto-parsed (nil when idle).
-    @Published var parsingItemId: UUID?
+    @Published private(set) var parsingItemId: UUID?
+    @Published private(set) var statuses: [UUID: BookmarkEnrichmentStatus] = [:]
+    @Published private(set) var failureMessages: [UUID: String] = [:]
 
-    init(dataStorage: DataStorage) {
+    init(
+        dataStorage: DataStorage,
+        metadataLoader: @escaping MetadataLoader = { url in
+            try await OpenGraphService.shared.fetchMetadata(url: url)
+        },
+        observesNotifications: Bool = true
+    ) {
         self.dataStorage = dataStorage
-        Log.info("AutoParsingService: initialized", category: .parsing)
+        self.metadataLoader = metadataLoader
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleItemAdded),
-            name: NSNotification.Name("SeahorseItemAdded"),
-            object: nil
-        )
-    }
-
-    @objc private func handleItemAdded() {
-        Log.info("AutoParsingService: handleItemAdded fired", category: .parsing)
-
-        let enabled = AISettings.shared.autoParsingEnabled
-        Log.info("AutoParsingService: autoParsingEnabled=\(enabled)", category: .parsing)
-        guard enabled else { return }
-
-        guard !isProcessing else {
-            Log.info("AutoParsingService: skipping, already processing", category: .parsing)
-            return
-        }
-        guard let dataStorage = dataStorage else {
-            Log.info("AutoParsingService: skipping, dataStorage is nil", category: .parsing)
-            return
-        }
-
-        let unparsed = dataStorage.bookmarks
-            .filter { !$0.isParsed }
-            .sorted { $0.addedDate > $1.addedDate }
-        Log.info("AutoParsingService: found \(unparsed.count) unparsed bookmarks", category: .parsing)
-        guard let bookmark = unparsed.first else { return }
-
-        isProcessing = true
-        parsingItemId = bookmark.id
-        Log.info("Auto-parse started for: \(bookmark.url)", category: .parsing)
-
-        Task {
-            await parseBookmark(bookmark, dataStorage: dataStorage)
-            isProcessing = false
-            parsingItemId = nil
-        }
-    }
-
-    /// Manually trigger AI parsing for a specific bookmark.
-    func parseSpecificBookmark(id: UUID) {
-        guard !isProcessing else { return }
-        guard let dataStorage = dataStorage else { return }
-        guard let bookmark = dataStorage.bookmarks.first(where: { $0.id == id }) else { return }
-
-        isProcessing = true
-        parsingItemId = bookmark.id
-        Log.info("Manual parse started for: \(bookmark.url)", category: .parsing)
-
-        Task {
-            await parseBookmark(bookmark, dataStorage: dataStorage)
-            isProcessing = false
-            parsingItemId = nil
-        }
-    }
-
-    private func parseBookmark(_ bookmark: Bookmark, dataStorage: DataStorage) async {
-        do {
-            // Step 1: Fetch OpenGraph metadata for posters and basic info
-            var updated = bookmark
-            if let url = URL(string: bookmark.url) {
-                if let metadata = try? await OpenGraphService.shared.fetchMetadata(url: url) {
-                    if updated.title == "Loading..." || updated.title == "Untitled" {
-                        updated.title = metadata.title ?? updated.title
-                    }
-                    if updated.notes == nil, let desc = metadata.description {
-                        updated.notes = desc
-                    }
-                    updated.metadata = metadata
-                    if let favicon = metadata.faviconURL {
-                        updated.icon = favicon
-                    }
-                    try dataStorage.updateBookmark(updated)
-                    Log.info("Auto-parse: metadata fetched for \(bookmark.url)", category: .parsing)
-                }
-            }
-
-            // Step 2: AI parsing
-            let (content, title) = try await aiManager.fetchWebContent(url: bookmark.url)
-
-            let availableTags = dataStorage.tags.map { $0.name }
-            let availableCategories = dataStorage.categories
-                .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
-                .map { $0.name }
-
-            let parsed = try await aiManager.parseBookmarkContent(
-                title: title,
-                content: content,
-                availableCategories: availableCategories,
-                availableTags: availableTags
+        if observesNotifications {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(handleItemAdded(_:)),
+                name: NSNotification.Name("SeahorseItemAdded"),
+                object: nil
             )
-
-            let faviconURL = await aiManager.fetchFavicon(url: bookmark.url)
-
-            updated.title = parsed.refinedTitle
-            updated.notes = parsed.summary
-            updated.isParsed = true
-
-            if let faviconURL = faviconURL {
-                updated.icon = faviconURL
-            } else if let sf = parsed.suggestedSFSymbol {
-                updated.icon = sf
-            }
-
-            // Category: must always assign one
-            let isGithub = bookmark.url.contains("github.com")
-            if isGithub, let github = dataStorage.categories.first(where: { $0.name == "Github" }) {
-                updated.categoryId = github.id
-            } else if let categoryName = parsed.suggestedCategoryName {
-                if let existing = dataStorage.categories.first(where: { $0.name == categoryName }) {
-                    updated.categoryId = existing.id
-                } else if AISettings.shared.autoParsingCreateCategories {
-                    let newCategory = Category(name: categoryName, icon: "folder", color: .blue)
-                    try? dataStorage.addCategory(newCategory)
-                    updated.categoryId = newCategory.id
-                }
-            }
-
-            // Tags: use existing, optionally create new
-            var tagIds: [UUID] = []
-            for tagName in parsed.suggestedTagNames {
-                if let existing = dataStorage.tags.first(where: { $0.name == tagName }) {
-                    tagIds.append(existing.id)
-                } else if AISettings.shared.autoParsingCreateTags {
-                    let newTag = Tag(name: tagName, color: .blue)
-                    try? dataStorage.addTag(newTag)
-                    tagIds.append(newTag.id)
-                }
-            }
-            updated.tagIds = tagIds
-
-            try dataStorage.updateBookmark(updated)
-            Log.info("Auto-parse completed for: \(bookmark.url)", category: .parsing)
-        } catch {
-            Log.error("Auto-parse failed: \(error.localizedDescription)", category: .parsing)
         }
+
+        restorePersistedState()
+        Log.info("AutoParsingService: initialized with \(pendingIDs.count) queued bookmark(s)", category: .parsing)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+        workerTask?.cancel()
+    }
+
+    var failedBookmarkIDs: [UUID] {
+        statuses.compactMap { $0.value == .failed ? $0.key : nil }
+    }
+
+    func status(for id: UUID) -> BookmarkEnrichmentStatus? {
+        statuses[id]
+    }
+
+    func failureMessage(for id: UUID) -> String? {
+        failureMessages[id]
+    }
+
+    @objc private func handleItemAdded(_ notification: Notification) {
+        if let id = notification.object as? UUID {
+            enqueueBookmark(id: id)
+        } else {
+            enqueuePersistedBacklog()
+        }
+    }
+
+    func enqueueBookmark(id: UUID, forceAI: Bool = false) {
+        guard let bookmark = dataStorage?.item(for: id)?.asBookmark else { return }
+        let requiresMetadata = bookmark.metadata == nil
+        let requiresAI = forceAI || (AISettings.shared.autoParsingEnabled && !bookmark.isParsed)
+        guard requiresMetadata || requiresAI else {
+            clearStatus(for: id)
+            return
+        }
+
+        if forceAI {
+            forcedAIIDs.insert(id)
+        }
+        if pendingIDSet.insert(id).inserted {
+            pendingIDs.append(id)
+        }
+        setStatus(.pending, error: nil, for: id)
+        startWorkerIfNeeded()
+    }
+
+    /// Manually requests metadata plus AI parsing for a bookmark.
+    func parseSpecificBookmark(id: UUID) {
+        enqueueBookmark(id: id, forceAI: true)
+    }
+
+    func retryBookmark(id: UUID) {
+        let forceAI = failedAIIDs.contains(id)
+        failureMessages.removeValue(forKey: id)
+        enqueueBookmark(id: id, forceAI: forceAI)
+    }
+
+    private func restorePersistedState() {
+        guard let dataStorage else { return }
+        for bookmark in dataStorage.bookmarks {
+            switch bookmark.enrichmentStatus {
+            case .failed:
+                statuses[bookmark.id] = .failed
+                failureMessages[bookmark.id] = bookmark.enrichmentError
+                if !bookmark.isParsed && AISettings.shared.autoParsingEnabled {
+                    failedAIIDs.insert(bookmark.id)
+                }
+            case .pending, .fetchingMetadata, .parsingWithAI:
+                if pendingIDSet.insert(bookmark.id).inserted {
+                    pendingIDs.append(bookmark.id)
+                }
+                statuses[bookmark.id] = .pending
+            case .none:
+                if !bookmark.isParsed && AISettings.shared.autoParsingEnabled {
+                    pendingIDSet.insert(bookmark.id)
+                    pendingIDs.append(bookmark.id)
+                    statuses[bookmark.id] = .pending
+                }
+            }
+        }
+        if !pendingIDs.isEmpty {
+            startWorkerIfNeeded()
+        }
+    }
+
+    private func enqueuePersistedBacklog() {
+        guard let dataStorage else { return }
+        for bookmark in dataStorage.bookmarks {
+            let status = bookmark.enrichmentStatus
+            if status == .failed {
+                statuses[bookmark.id] = .failed
+                failureMessages[bookmark.id] = bookmark.enrichmentError
+                if !bookmark.isParsed && AISettings.shared.autoParsingEnabled {
+                    failedAIIDs.insert(bookmark.id)
+                }
+                continue
+            }
+            guard status == .pending || status == .fetchingMetadata || status == .parsingWithAI else {
+                continue
+            }
+            enqueueBookmark(id: bookmark.id)
+        }
+    }
+
+    private func startWorkerIfNeeded() {
+        guard workerTask == nil else { return }
+        workerTask = Task { [weak self] in
+            await self?.drainQueue()
+        }
+    }
+
+    private func drainQueue() async {
+        while !pendingIDs.isEmpty, !Task.isCancelled {
+            let id = pendingIDs.removeFirst()
+            pendingIDSet.remove(id)
+            let forceAI = forcedAIIDs.remove(id) != nil
+            guard let bookmark = dataStorage?.item(for: id)?.asBookmark else {
+                clearStatus(for: id)
+                continue
+            }
+            let runAI = forceAI || (AISettings.shared.autoParsingEnabled && !bookmark.isParsed)
+            parsingItemId = id
+
+            do {
+                try await enrichBookmark(id: id, runAI: runAI)
+                failedAIIDs.remove(id)
+                clearStatus(for: id)
+            } catch EnrichmentError.itemUnavailable {
+                clearStatus(for: id)
+            } catch EnrichmentError.sourceChanged {
+                clearStatus(for: id)
+                enqueueBookmark(id: id, forceAI: runAI)
+            } catch {
+                if runAI {
+                    failedAIIDs.insert(id)
+                } else {
+                    failedAIIDs.remove(id)
+                }
+                setStatus(.failed, error: error.localizedDescription, for: id)
+                Log.error("Bookmark enrichment failed: \(error.localizedDescription)", category: .parsing)
+            }
+            parsingItemId = nil
+        }
+        workerTask = nil
+    }
+
+    private func enrichBookmark(id: UUID, runAI: Bool) async throws {
+        guard let initial = dataStorage?.item(for: id)?.asBookmark else {
+            throw EnrichmentError.itemUnavailable
+        }
+        let sourceURL = BookmarkURLNormalizer.normalize(initial.url)
+
+        if initial.metadata == nil {
+            setStatus(.fetchingMetadata, error: nil, for: id)
+            guard let url = URL(string: sourceURL) else { throw URLError(.badURL) }
+            do {
+                let metadata = try await metadataLoader(url)
+                guard var latest = dataStorage?.item(for: id)?.asBookmark else {
+                    throw EnrichmentError.itemUnavailable
+                }
+                guard BookmarkURLNormalizer.normalize(latest.url) == sourceURL else {
+                    throw EnrichmentError.sourceChanged
+                }
+                if latest.title == "Loading..." || latest.title == "Untitled" || latest.title.isEmpty {
+                    latest.title = metadata.title ?? url.host ?? latest.title
+                }
+                if latest.notes == nil {
+                    latest.notes = metadata.description
+                }
+                latest.metadata = metadata
+                if let favicon = metadata.faviconURL {
+                    latest.icon = favicon
+                }
+                latest.enrichmentStatus = .fetchingMetadata
+                latest.enrichmentError = nil
+                try dataStorage?.updateBookmark(latest)
+            } catch let error as EnrichmentError {
+                throw error
+            } catch {
+                updateFallbackTitle(for: id, sourceURL: sourceURL)
+                throw error
+            }
+        }
+
+        guard runAI else { return }
+        setStatus(.parsingWithAI, error: nil, for: id)
+        guard let bookmark = dataStorage?.item(for: id)?.asBookmark else {
+            throw EnrichmentError.itemUnavailable
+        }
+        let (fetchedTitle, content) = try await aiManager.fetchWebContent(url: bookmark.url)
+        let availableTags = dataStorage?.tags.map(\.name) ?? []
+        let availableCategories = dataStorage?.categories
+            .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
+            .map(\.name) ?? []
+        let parsed = try await aiManager.parseBookmarkContent(
+            title: fetchedTitle,
+            content: content,
+            availableCategories: availableCategories,
+            availableTags: availableTags
+        )
+        let faviconURL = await aiManager.fetchFavicon(url: bookmark.url)
+
+        guard var latest = dataStorage?.item(for: id)?.asBookmark else {
+            throw EnrichmentError.itemUnavailable
+        }
+        guard BookmarkURLNormalizer.normalize(latest.url) == sourceURL else {
+            throw EnrichmentError.sourceChanged
+        }
+        latest.title = parsed.refinedTitle
+        latest.notes = parsed.summary
+        latest.isParsed = true
+        latest.enrichmentStatus = .parsingWithAI
+        latest.enrichmentError = nil
+        if let faviconURL {
+            latest.icon = faviconURL
+        } else if let symbol = parsed.suggestedSFSymbol {
+            latest.icon = symbol
+        }
+
+        if sourceURL.contains("github.com"),
+           let github = dataStorage?.categories.first(where: { $0.name == "Github" }) {
+            latest.categoryId = github.id
+        } else if let categoryName = parsed.suggestedCategoryName {
+            if let existing = dataStorage?.categories.first(where: { $0.name == categoryName }) {
+                latest.categoryId = existing.id
+            } else if AISettings.shared.autoParsingCreateCategories {
+                let category = Category(name: categoryName, icon: "folder", color: .blue)
+                try dataStorage?.addCategory(category)
+                latest.categoryId = category.id
+            }
+        }
+
+        var tagIDs: [UUID] = []
+        for tagName in parsed.suggestedTagNames {
+            if let existing = dataStorage?.tags.first(where: { $0.name == tagName }) {
+                tagIDs.append(existing.id)
+            } else if AISettings.shared.autoParsingCreateTags {
+                let tag = Tag(name: tagName, color: .blue)
+                try dataStorage?.addTag(tag)
+                tagIDs.append(tag.id)
+            }
+        }
+        latest.tagIds = tagIDs
+        try dataStorage?.updateBookmark(latest)
+    }
+
+    private func updateFallbackTitle(for id: UUID, sourceURL: String) {
+        guard var latest = dataStorage?.item(for: id)?.asBookmark,
+              latest.title == "Loading..." || latest.title.isEmpty else {
+            return
+        }
+        latest.title = URL(string: sourceURL)?.host ?? sourceURL
+        try? dataStorage?.updateBookmark(latest)
+    }
+
+    private func setStatus(_ status: BookmarkEnrichmentStatus, error: String?, for id: UUID) {
+        statuses[id] = status
+        if let error {
+            failureMessages[id] = error
+        } else {
+            failureMessages.removeValue(forKey: id)
+        }
+        guard var bookmark = dataStorage?.item(for: id)?.asBookmark else { return }
+        guard bookmark.enrichmentStatus != status || bookmark.enrichmentError != error else { return }
+        bookmark.enrichmentStatus = status
+        bookmark.enrichmentError = error
+        try? dataStorage?.updateBookmark(bookmark)
+    }
+
+    private func clearStatus(for id: UUID) {
+        statuses.removeValue(forKey: id)
+        failureMessages.removeValue(forKey: id)
+        guard var bookmark = dataStorage?.item(for: id)?.asBookmark else { return }
+        guard bookmark.enrichmentStatus != nil || bookmark.enrichmentError != nil else { return }
+        bookmark.enrichmentStatus = nil
+        bookmark.enrichmentError = nil
+        try? dataStorage?.updateBookmark(bookmark)
     }
 }

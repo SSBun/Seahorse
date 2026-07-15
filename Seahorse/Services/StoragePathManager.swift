@@ -171,7 +171,7 @@ class StoragePathManager: ObservableObject {
     /// Migrate data files from old location to new location
     private func migrateData(from oldDirectory: URL, to newDirectory: URL) -> MigrationResult {
         let fileManager = FileManager.default
-        let dataFiles = ["items.json", "categories.json", "tags.json", "preferences.json"]
+        let dataFiles = ["items.json", "categories.json", "tags.json", "smart-collections.json", "preferences.json"]
         
         var migratedFiles = 0
         var skippedFiles = 0
@@ -273,4 +273,3 @@ class StoragePathManager: ObservableObject {
     }
 }
 #endif
-

@@ -51,7 +51,7 @@ struct iOSSettingsView: View {
 
                 Section("About") {
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-")
-                    LabeledContent("Items", value: "\(dataStorage.items.count)")
+                    LabeledContent("Items", value: "\(dataStorage.activeItems.count)")
                     LabeledContent("Categories", value: "\(dataStorage.categories.count)")
                     LabeledContent("Tags", value: "\(dataStorage.tags.count)")
                 }
@@ -192,6 +192,15 @@ struct iOSSettingsView: View {
             tags = try decoder.decode([Tag].self, from: Data(contentsOf: tagsURL))
         }
 
+        var smartCollections: [SmartCollection] = []
+        let smartCollectionsURL = dataDir.appendingPathComponent("smart-collections.json")
+        if fileManager.fileExists(atPath: smartCollectionsURL.path) {
+            smartCollections = try decoder.decode(
+                [SmartCollection].self,
+                from: Data(contentsOf: smartCollectionsURL)
+            )
+        }
+
         var imagesCopied = 0
         if fileManager.fileExists(atPath: imagesDir.path) {
             let destImagesDir = StorageManager.shared.getImagesDirectory()
@@ -218,6 +227,14 @@ struct iOSSettingsView: View {
                     try? dataStorage.addTag(tag)
                 }
             }
+            for smartCollection in smartCollections {
+                if !dataStorage.smartCollections.contains(where: {
+                    $0.id == smartCollection.id
+                        || $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
+                }) {
+                    try? dataStorage.addSmartCollection(smartCollection)
+                }
+            }
             for item in items {
                 if !dataStorage.items.contains(where: { $0.id == item.id }) {
                     dataStorage.addItem(item)
@@ -225,7 +242,7 @@ struct iOSSettingsView: View {
             }
 
             isImportingInProgress = false
-            var msg = "Imported \(items.count) items, \(categories.count) categories, \(tags.count) tags"
+            var msg = "Imported \(items.count) items, \(categories.count) categories, \(tags.count) tags, \(smartCollections.count) smart collections"
             if imagesCopied > 0 { msg += ", \(imagesCopied) images" }
             importSuccess = msg
         }

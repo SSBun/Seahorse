@@ -8,10 +8,12 @@
 import Foundation
 
 /// Type of collection item
-enum CollectionItemType: String, Codable {
+enum CollectionItemType: String, CaseIterable, Codable, Identifiable {
     case bookmark
     case image
     case text
+
+    var id: String { rawValue }
 }
 
 /// Protocol defining common properties for all collection items
@@ -24,6 +26,7 @@ protocol CollectionItem: Identifiable, Hashable, Codable {
     var notes: String? { get set }
     var isFavorite: Bool { get set }
     var isParsed: Bool { get set }
+    var deletedAt: Date? { get set }
     var itemType: CollectionItemType { get }
     
     // Tag management methods

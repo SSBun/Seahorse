@@ -52,6 +52,87 @@ final class CollectionSearchTests: XCTestCase {
         XCTAssertEqual(CollectionSearch.items(in: records, matching: criteria).map(\.id), [matching.id])
     }
 
+    func testTagFilterCanRequireAllSelectedTags() {
+        let otherTag = Tag(name: "Other", color: .red)
+        let both = bookmark(title: "Both", tagIds: [swiftTag.id, otherTag.id])
+        let one = bookmark(title: "One", url: "https://one.example.com", tagIds: [swiftTag.id])
+        let records = CollectionSearch.makeRecords(
+            items: [AnyCollectionItem(both), AnyCollectionItem(one)],
+            tagsByID: [swiftTag.id: swiftTag, otherTag.id: otherTag]
+        )
+
+        let criteria = CollectionSearch.Criteria(
+            tagIDs: [swiftTag.id, otherTag.id],
+            matchesAllTags: true
+        )
+
+        XCTAssertEqual(CollectionSearch.items(in: records, matching: criteria).map(\.id), [both.id])
+    }
+
+    func testSmartCollectionUsesInclusiveCalendarDaysAndRejectsInvalidReferences() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_735_689_600) // 2025-01-01 00:00:00 UTC
+        let recent = bookmark(title: "Recent", addedDate: now.addingTimeInterval(-6 * 86_400))
+        let tooOld = bookmark(
+            title: "Too Old",
+            url: "https://old.example.com",
+            addedDate: now.addingTimeInterval(-7 * 86_400)
+        )
+        let records = CollectionSearch.makeRecords(
+            items: [AnyCollectionItem(recent), AnyCollectionItem(tooOld)],
+            tagsByID: [:]
+        )
+        let smartCollection = SmartCollection(name: "Recent", dateFilter: .lastSevenDays)
+        let criteria = CollectionSearch.criteria(
+            for: smartCollection,
+            availableCategoryIDs: [categoryA],
+            availableTagIDs: [],
+            calendar: calendar,
+            now: now
+        )
+
+        XCTAssertEqual(CollectionSearch.items(in: records, matching: criteria).map(\.id), [recent.id])
+
+        let invalid = SmartCollection(name: "Missing", categoryId: UUID())
+        let invalidCriteria = CollectionSearch.criteria(
+            for: invalid,
+            availableCategoryIDs: [categoryA],
+            availableTagIDs: []
+        )
+        XCTAssertTrue(CollectionSearch.items(in: records, matching: invalidCriteria).isEmpty)
+    }
+
+    func testUnorganizedMatchesItemsWithNoTagsOrNoneCategory() {
+        let noneCategoryID = UUID()
+        let noTags = bookmark(title: "No Tags", categoryId: categoryA)
+        let noneCategory = bookmark(
+            title: "None Category",
+            url: "https://none.example.com",
+            categoryId: noneCategoryID,
+            tagIds: [swiftTag.id]
+        )
+        let organized = bookmark(
+            title: "Organized",
+            url: "https://organized.example.com",
+            categoryId: categoryA,
+            tagIds: [swiftTag.id]
+        )
+        let records = CollectionSearch.makeRecords(
+            items: [AnyCollectionItem(noTags), AnyCollectionItem(noneCategory), AnyCollectionItem(organized)],
+            tagsByID: [swiftTag.id: swiftTag]
+        )
+        let criteria = CollectionSearch.Criteria(
+            unorganizedOnly: true,
+            unorganizedCategoryID: noneCategoryID
+        )
+
+        XCTAssertEqual(
+            Set(CollectionSearch.items(in: records, matching: criteria).map(\.id)),
+            [noTags.id, noneCategory.id]
+        )
+    }
+
     func testSortKeysAreStableAndPaginationUsesSortedOrder() {
         let sameDate = Date(timeIntervalSince1970: 100)
         let first = bookmark(title: "Zulu", addedDate: sameDate)

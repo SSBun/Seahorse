@@ -1,7 +1,7 @@
 import Foundation
 
 enum CollectionSearch {
-    enum Kind {
+    enum Kind: Equatable {
         case all
         case bookmark
         case image
@@ -18,10 +18,17 @@ enum CollectionSearch {
 
     struct Criteria {
         var query = ""
+        var additionalQuery = ""
         var kind: Kind = .all
         var categoryID: UUID?
         var favoriteOnly = false
         var tagIDs: Set<UUID> = []
+        var matchesAllTags = false
+        var addedOnOrAfter: Date?
+        var addedBefore: Date?
+        var unorganizedOnly = false
+        var unorganizedCategoryID: UUID?
+        var matchesNothing = false
         var order: Order = .none
         var offset = 0
         var limit: Int?
@@ -74,6 +81,7 @@ enum CollectionSearch {
         matching criteria: Criteria
     ) -> [AnyCollectionItem] {
         let query = criteria.query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let additionalQuery = criteria.additionalQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         var matches: [Record] = []
         matches.reserveCapacity(records.count)
         for (index, record) in records.enumerated() {
@@ -81,11 +89,18 @@ enum CollectionSearch {
                 return []
             }
             let item = record.item
-            guard matchesKind(item, criteria.kind),
+            guard !criteria.matchesNothing,
+                  matchesKind(item, criteria.kind),
                   criteria.categoryID == nil || item.categoryId == criteria.categoryID,
                   !criteria.favoriteOnly || isFavorite(item),
-                  criteria.tagIDs.isEmpty || !criteria.tagIDs.isDisjoint(with: item.tagIds),
-                  query.isEmpty || record.searchText.localizedStandardContains(query) else {
+                  matchesTags(item, criteria),
+                  criteria.addedOnOrAfter == nil || item.addedDate >= criteria.addedOnOrAfter!,
+                  criteria.addedBefore == nil || item.addedDate < criteria.addedBefore!,
+                  !criteria.unorganizedOnly
+                    || item.tagIds.isEmpty
+                    || item.categoryId == criteria.unorganizedCategoryID,
+                  query.isEmpty || record.searchText.localizedStandardContains(query),
+                  additionalQuery.isEmpty || record.searchText.localizedStandardContains(additionalQuery) else {
                 continue
             }
             matches.append(record)
@@ -140,9 +155,47 @@ enum CollectionSearch {
             worker.cancel()
         }
     }
+
+    /// Converts a persisted smart collection into executable search criteria.
+    static func criteria(
+        for smartCollection: SmartCollection,
+        availableCategoryIDs: Set<UUID>,
+        availableTagIDs: Set<UUID>,
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> Criteria {
+        let categoryIsValid = smartCollection.categoryId.map(availableCategoryIDs.contains) ?? true
+        let tagsAreValid = Set(smartCollection.tagIds).isSubset(of: availableTagIDs)
+        let dateRange = dateRange(
+            for: smartCollection,
+            calendar: calendar,
+            now: now
+        )
+
+        return Criteria(
+            query: smartCollection.query,
+            kind: kind(for: smartCollection.itemType),
+            categoryID: smartCollection.categoryId,
+            favoriteOnly: smartCollection.favoriteOnly,
+            tagIDs: Set(smartCollection.tagIds),
+            matchesAllTags: smartCollection.matchesAllTags,
+            addedOnOrAfter: dateRange.start,
+            addedBefore: dateRange.end,
+            matchesNothing: !categoryIsValid || !tagsAreValid || dateRange.isInvalid,
+            order: order(for: smartCollection.sortOption)
+        )
+    }
 }
 
 private extension CollectionSearch {
+    static func matchesTags(_ item: AnyCollectionItem, _ criteria: Criteria) -> Bool {
+        guard !criteria.tagIDs.isEmpty else { return true }
+        let itemTagIDs = Set(item.tagIds)
+        return criteria.matchesAllTags
+            ? criteria.tagIDs.isSubset(of: itemTagIDs)
+            : !criteria.tagIDs.isDisjoint(with: itemTagIDs)
+    }
+
     static func matchesKind(_ item: AnyCollectionItem, _ kind: Kind) -> Bool {
         switch kind {
         case .all: true
@@ -215,5 +268,67 @@ private extension CollectionSearch {
             return comparison == .orderedAscending
         }
         return left.originalOrder < right.originalOrder
+    }
+
+    static func kind(for itemType: CollectionItemType?) -> Kind {
+        switch itemType {
+        case .bookmark: .bookmark
+        case .image: .image
+        case .text: .text
+        case .none: .all
+        }
+    }
+
+    static func order(for sortOption: SortOption) -> Order {
+        switch sortOption {
+        case .none: .none
+        case .nameAscending: .nameAscending
+        case .newestFirst: .newestFirst
+        case .oldestFirst: .oldestFirst
+        case .groupBySite: .groupBySite
+        }
+    }
+
+    static func dateRange(
+        for smartCollection: SmartCollection,
+        calendar: Calendar,
+        now: Date
+    ) -> (start: Date?, end: Date?, isInvalid: Bool) {
+        let startOfToday = calendar.startOfDay(for: now)
+        switch smartCollection.dateFilter {
+        case .anyTime:
+            return (nil, nil, false)
+        case .today:
+            return (
+                startOfToday,
+                calendar.date(byAdding: .day, value: 1, to: startOfToday),
+                false
+            )
+        case .lastSevenDays:
+            return (
+                calendar.date(byAdding: .day, value: -6, to: startOfToday),
+                calendar.date(byAdding: .day, value: 1, to: startOfToday),
+                false
+            )
+        case .lastThirtyDays:
+            return (
+                calendar.date(byAdding: .day, value: -29, to: startOfToday),
+                calendar.date(byAdding: .day, value: 1, to: startOfToday),
+                false
+            )
+        case .custom:
+            guard let start = smartCollection.customStartDate,
+                  let end = smartCollection.customEndDate else {
+                return (nil, nil, true)
+            }
+            let startDay = calendar.startOfDay(for: start)
+            let endDay = calendar.startOfDay(for: end)
+            guard startDay <= endDay else { return (nil, nil, true) }
+            return (
+                startDay,
+                calendar.date(byAdding: .day, value: 1, to: endDay),
+                false
+            )
+        }
     }
 }

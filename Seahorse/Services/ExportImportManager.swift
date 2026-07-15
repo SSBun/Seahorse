@@ -63,6 +63,7 @@ class ExportImportManager: ObservableObject {
         let items: [AnyCollectionItem]
         let categories: [Category]
         let tags: [Tag]
+        let smartCollections: [SmartCollection]
         let bookmarks: [Bookmark]
         let sourceImagesDirectory: URL
     }
@@ -71,6 +72,7 @@ class ExportImportManager: ObservableObject {
         let items: [AnyCollectionItem]
         let categories: [Category]
         let tags: [Tag]
+        let smartCollections: [SmartCollection]
         let imagesCopied: Int
     }
 
@@ -324,11 +326,12 @@ class ExportImportManager: ObservableObject {
             items: imported.items,
             categories: imported.categories,
             tags: imported.tags,
+            smartCollections: imported.smartCollections,
             into: dataStorage
         )
         isImporting = false
 
-        var message = "Data imported: \(imported.items.count) items, \(imported.categories.count) categories, \(imported.tags.count) tags"
+        var message = "Data imported: \(imported.items.count) items, \(imported.categories.count) categories, \(imported.tags.count) tags, \(imported.smartCollections.count) smart collections"
         if imported.imagesCopied > 0 {
             message += ", \(imported.imagesCopied) images"
         }
@@ -343,6 +346,7 @@ class ExportImportManager: ObservableObject {
         items: [AnyCollectionItem],
         categories: [Category],
         tags: [Tag],
+        smartCollections: [SmartCollection],
         into dataStorage: DataStorage
     ) throws {
         var categoryNames = Set(dataStorage.categories.map { $0.name.lowercased() })
@@ -350,6 +354,27 @@ class ExportImportManager: ObservableObject {
 
         var tagNames = Set(dataStorage.tags.map { $0.name.lowercased() })
         let newTags = tags.filter { tagNames.insert($0.name.lowercased()).inserted }
+
+        if let conflict = smartCollections.first(where: { imported in
+            dataStorage.smartCollections.contains {
+                $0.id != imported.id
+                    && $0.name.localizedCaseInsensitiveCompare(imported.name) == .orderedSame
+            }
+        }) {
+            throw NSError(
+                domain: "Seahorse",
+                code: 2,
+                userInfo: [
+                    NSLocalizedDescriptionKey: "A smart collection named ‘\(conflict.name)’ already exists. Rename it before importing."
+                ]
+            )
+        }
+        var smartCollectionIDs = Set(dataStorage.smartCollections.map(\.id))
+        var smartCollectionNames = Set(dataStorage.smartCollections.map { $0.name.lowercased() })
+        let newSmartCollections = smartCollections.filter {
+            smartCollectionIDs.insert($0.id).inserted
+                && smartCollectionNames.insert($0.name.lowercased()).inserted
+        }
 
         var itemIDs = Set(dataStorage.items.map(\.id))
         var bookmarkURLs = Set(dataStorage.bookmarks.map { BookmarkURLNormalizer.normalize($0.url) })
@@ -359,7 +384,12 @@ class ExportImportManager: ObservableObject {
             return bookmarkURLs.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted
         }
 
-        try dataStorage.importData(categories: newCategories, tags: newTags, items: newItems)
+        try dataStorage.importData(
+            categories: newCategories,
+            tags: newTags,
+            smartCollections: newSmartCollections,
+            items: newItems
+        )
     }
 
     private func exportSnapshot(from dataStorage: DataStorage) -> ExportSnapshot {
@@ -367,6 +397,7 @@ class ExportImportManager: ObservableObject {
             items: dataStorage.items,
             categories: dataStorage.categories,
             tags: dataStorage.tags,
+            smartCollections: dataStorage.smartCollections,
             bookmarks: dataStorage.bookmarks,
             sourceImagesDirectory: StorageManager.shared.getImagesDirectory()
         )
@@ -399,6 +430,10 @@ class ExportImportManager: ObservableObject {
         )
         try encoder.encode(snapshot.tags).write(
             to: dataDirectory.appendingPathComponent("tags.json"),
+            options: .atomic
+        )
+        try encoder.encode(snapshot.smartCollections).write(
+            to: dataDirectory.appendingPathComponent("smart-collections.json"),
             options: .atomic
         )
         try encoder.encode([String: String]()).write(
@@ -448,6 +483,10 @@ class ExportImportManager: ObservableObject {
         let tags = fileManager.fileExists(atPath: tagsURL.path)
             ? try decoder.decode([Tag].self, from: Data(contentsOf: tagsURL))
             : []
+        let smartCollectionsURL = dataDirectory.appendingPathComponent("smart-collections.json")
+        let smartCollections = fileManager.fileExists(atPath: smartCollectionsURL.path)
+            ? try decoder.decode([SmartCollection].self, from: Data(contentsOf: smartCollectionsURL))
+            : []
 
         var imagesCopied = 0
         if fileManager.fileExists(atPath: sourceImagesDirectory.path) {
@@ -462,7 +501,13 @@ class ExportImportManager: ObservableObject {
                 imagesCopied += 1
             }
         }
-        return ImportedData(items: items, categories: categories, tags: tags, imagesCopied: imagesCopied)
+        return ImportedData(
+            items: items,
+            categories: categories,
+            tags: tags,
+            smartCollections: smartCollections,
+            imagesCopied: imagesCopied
+        )
     }
 
     nonisolated private static func writeBookmarkIndexHTML(

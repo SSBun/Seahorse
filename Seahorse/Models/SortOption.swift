@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum SortOption: String, CaseIterable, Identifiable {
+enum SortOption: String, CaseIterable, Codable, Identifiable {
     case none = "None"
     case nameAscending = "Name"
     case newestFirst = "Newest"

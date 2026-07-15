@@ -93,7 +93,6 @@ final class JSONStoragePerformanceTests: XCTestCase {
         }
 
         try storage.updateItems(updatedItems)
-        storage.forceSaveAllData()
 
         lock.lock()
         let writes = itemWriteCount
@@ -119,14 +118,52 @@ final class JSONStoragePerformanceTests: XCTestCase {
         XCTAssertEqual(try storage.fetchAllItems().first?.asBookmark?.title, "Original")
     }
 
+    func testBatchUpdateWriteFailureRollsBackInMemoryState() throws {
+        let storage = JSONStorage(
+            dataDirectory: temporaryDirectory,
+            saveDelay: 10,
+            writeData: { data, url in
+                if url.lastPathComponent == "items.json" {
+                    throw CocoaError(.fileWriteUnknown)
+                }
+                try data.write(to: url, options: .atomic)
+            }
+        )
+        let original = makeItem(title: "Original")
+        try storage.saveItem(original)
+        var changed = try XCTUnwrap(original.asBookmark)
+        changed.title = "Changed"
+
+        XCTAssertThrowsError(try storage.updateItems([AnyCollectionItem(changed)]))
+        XCTAssertEqual(try storage.fetchAllItems().first?.asBookmark?.title, "Original")
+    }
+
     func testImportRejectsDuplicateCategoryIDsBeforeMutation() throws {
         let category = Category(name: "Existing", icon: "folder", color: .blue)
         let storage = JSONStorage(dataDirectory: temporaryDirectory, saveDelay: 10)
         try storage.saveCategory(category)
         let duplicateID = Category(id: category.id, name: "Different", icon: "star", color: .red)
 
-        XCTAssertThrowsError(try storage.saveImportedData(categories: [duplicateID], tags: [], items: []))
+        XCTAssertThrowsError(try storage.saveImportedData(
+            categories: [duplicateID],
+            tags: [],
+            smartCollections: [],
+            items: []
+        ))
         XCTAssertEqual(try storage.fetchAllCategories().filter { $0.id == category.id }.count, 1)
+    }
+
+    func testSmartCollectionsPersistAndPreserveOrder() throws {
+        let storage = JSONStorage(dataDirectory: temporaryDirectory, saveDelay: 10)
+        let first = SmartCollection(name: "First")
+        let second = SmartCollection(name: "Second", favoriteOnly: true)
+        try storage.saveSmartCollection(first)
+        try storage.saveSmartCollection(second)
+        try storage.reorderSmartCollections([second, first])
+        storage.forceSaveAllData()
+
+        let reloaded = JSONStorage(dataDirectory: temporaryDirectory, saveDelay: 10)
+        XCTAssertEqual(try reloaded.fetchAllSmartCollections().map(\.id), [second.id, first.id])
     }
 
     private func makeItem(title: String) -> AnyCollectionItem {

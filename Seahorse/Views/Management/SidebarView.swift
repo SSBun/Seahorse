@@ -1,136 +1,210 @@
 #if os(macOS)
-//
-//  SidebarView.swift
-//  Seahorse
-//
-//  Created by caishilin on 2025/11/14.
-//
-
 import SwiftUI
 import UniformTypeIdentifiers
 
-enum SidebarItem: Hashable, Identifiable {
-    case category(Category)
-    case tag(Tag)
-
-    var id: UUID {
-        switch self {
-        case .category(let category):
-            return category.id
-        case .tag(let tag):
-            return tag.id
-        }
-    }
-}
-
 struct SidebarView: View {
-    @EnvironmentObject var dataStorage: DataStorage
-    let categories: [Category]
-    let tags: [Tag]
-    @Binding var selectedCategory: Category?
-    @Binding var selectedTag: Tag?
+    @EnvironmentObject private var dataStorage: DataStorage
+    @Binding var selection: SidebarSelection?
 
-    @State private var selectedItem: SidebarItem?
     @State private var dropTargetCategory: UUID?
-
-    private var visibleCategories: [Category] {
-        categories
-    }
+    @State private var editingSmartCollection: SmartCollection?
+    @State private var showingSmartCollectionEditor = false
+    @State private var smartCollectionPendingDeletion: SmartCollection?
 
     private var sortedTags: [Tag] {
-        tags.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        dataStorage.tags.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
-        List(selection: $selectedItem) {
-            Section {
-                ForEach(visibleCategories) { category in
-                    ZStack {
-                        // Invisible full-width drop zone
-                        Color.clear
-                            .contentShape(Rectangle())
-                            .onDrop(of: [.text], isTargeted: Binding(
-                                get: { dropTargetCategory == category.id },
-                                set: { isTargeted in
-                                    dropTargetCategory = isTargeted ? category.id : nil
-                                }
-                            )) { providers in
-                                handleDrop(providers: providers, category: category)
-                            }
+        List(selection: $selection) {
+            Section("LIBRARY") {
+                Label("Recent", systemImage: "clock")
+                    .tag(SidebarSelection.recent)
+                Label("Unorganized", systemImage: "tray")
+                    .tag(SidebarSelection.unorganized)
+                Label("Trash", systemImage: "trash")
+                    .tag(SidebarSelection.trash)
+            }
 
-                        // Visible label
-                        HStack(spacing: 6) {
-                            Image(systemName: category.icon)
-                                .foregroundStyle(category.color)
-                                .frame(width: 16, height: 16)
-
-                            Text(category.name)
-                                .font(.system(size: 13))
-
-                            Spacer()
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .tag(SidebarItem.category(category))
-                    .listRowBackground(
-                        dropTargetCategory == category.id ?
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.accentColor.opacity(0.25))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2) :
-                        nil
-                    )
+            Section("CATEGORIES") {
+                ForEach(dataStorage.categories) { category in
+                    categoryRow(category)
+                        .tag(SidebarSelection.category(category.id))
                 }
-            } header: {
-                Text("CATEGORIES")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
             }
 
             Section {
+                ForEach(dataStorage.smartCollections) { smartCollection in
+                    smartCollectionRow(smartCollection)
+                        .tag(SidebarSelection.smartCollection(smartCollection.id))
+                        .contextMenu {
+                            Button("Edit") {
+                                editingSmartCollection = smartCollection
+                                showingSmartCollectionEditor = true
+                            }
+                            Button("Move Up") {
+                                moveSmartCollection(smartCollection, offset: -1)
+                            }
+                            .disabled(dataStorage.smartCollections.first?.id == smartCollection.id)
+                            Button("Move Down") {
+                                moveSmartCollection(smartCollection, offset: 1)
+                            }
+                            .disabled(dataStorage.smartCollections.last?.id == smartCollection.id)
+                            Button("Delete", role: .destructive) {
+                                smartCollectionPendingDeletion = smartCollection
+                            }
+                        }
+                }
+                .onMove(perform: dataStorage.reorderSmartCollections)
+            } header: {
+                HStack {
+                    Text("SMART COLLECTIONS")
+                    Spacer()
+                    Button {
+                        editingSmartCollection = nil
+                        showingSmartCollectionEditor = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("New Smart Collection")
+                    .help("New Smart Collection")
+                }
+            }
+
+            Section("TAGS") {
                 ForEach(sortedTags) { tag in
                     HStack(spacing: 6) {
                         Circle()
                             .fill(tag.color)
                             .frame(width: 10, height: 10)
-
                         Text(tag.name)
-                            .font(.system(size: 13))
-
-                        Spacer()
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .tag(SidebarItem.tag(tag))
+                    .tag(SidebarSelection.tag(tag.id))
                 }
-            } header: {
-                Text("TAGS")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
             }
         }
         .listStyle(.sidebar)
         .navigationTitle("Bookmarks")
         .frame(minWidth: 200, idealWidth: 220)
-        .onChange(of: selectedItem) { _, newValue in
-            switch newValue {
-            case .category(let category):
-                selectedCategory = category
-                selectedTag = nil
-            case .tag(let tag):
-                selectedTag = tag
-                selectedCategory = nil
-            case .none:
-                break
+        .sheet(isPresented: $showingSmartCollectionEditor) {
+            SmartCollectionEditorView(smartCollection: editingSmartCollection)
+                .environmentObject(dataStorage)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("EditSmartCollection"))) { notification in
+            guard let id = notification.object as? UUID,
+                  let smartCollection = dataStorage.smartCollections.first(where: { $0.id == id }) else {
+                return
+            }
+            editingSmartCollection = smartCollection
+            showingSmartCollectionEditor = true
+        }
+        .confirmationDialog(
+            "Delete Smart Collection?",
+            isPresented: Binding(
+                get: { smartCollectionPendingDeletion != nil },
+                set: { if !$0 { smartCollectionPendingDeletion = nil } }
+            )
+        ) {
+            Button("Delete", role: .destructive) {
+                deletePendingSmartCollection()
+            }
+        } message: {
+            Text("The saved filter will be deleted. Its items will not be affected.")
+        }
+    }
+
+    private func smartCollectionRow(_ smartCollection: SmartCollection) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "line.3.horizontal.decrease.circle")
+                .foregroundStyle(.purple)
+            Text(smartCollection.name)
+            Spacer()
+            Text("\(resultCount(for: smartCollection))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+            if hasInvalidReference(smartCollection) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Missing category or tag")
+                    .help("This smart collection references a missing category or tag.")
             }
         }
-        .onAppear {
-            // Initialize selection
-            if let category = selectedCategory {
-                selectedItem = .category(category)
-            } else if let tag = selectedTag {
-                selectedItem = .tag(tag)
+    }
+
+    private func hasInvalidReference(_ smartCollection: SmartCollection) -> Bool {
+        let categoryIDs = Set(dataStorage.categories.map(\.id))
+        let tagIDs = Set(dataStorage.tags.map(\.id))
+        return !(smartCollection.categoryId.map(categoryIDs.contains) ?? true)
+            || !Set(smartCollection.tagIds).isSubset(of: tagIDs)
+    }
+
+    private func resultCount(for smartCollection: SmartCollection) -> Int {
+        let criteria = CollectionSearch.criteria(
+            for: smartCollection,
+            availableCategoryIDs: Set(dataStorage.categories.map(\.id)),
+            availableTagIDs: Set(dataStorage.tags.map(\.id))
+        )
+        return CollectionSearch.items(
+            in: dataStorage.searchRecordsSnapshot(),
+            matching: criteria
+        ).count
+    }
+
+    private func moveSmartCollection(_ smartCollection: SmartCollection, offset: Int) {
+        guard let source = dataStorage.smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
+            return
+        }
+        let target = source + offset
+        guard dataStorage.smartCollections.indices.contains(target) else { return }
+        let destination = offset < 0 ? target : target + 1
+        dataStorage.reorderSmartCollections(
+            fromOffsets: IndexSet(integer: source),
+            toOffset: destination
+        )
+    }
+
+    private func categoryRow(_ category: Category) -> some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onDrop(of: [.text], isTargeted: Binding(
+                    get: { dropTargetCategory == category.id },
+                    set: { dropTargetCategory = $0 ? category.id : nil }
+                )) { providers in
+                    handleDrop(providers: providers, category: category)
+                }
+
+            HStack(spacing: 6) {
+                Image(systemName: category.icon)
+                    .foregroundStyle(category.color)
+                    .frame(width: 16, height: 16)
+                Text(category.name)
+                Spacer()
             }
         }
+        .listRowBackground(
+            dropTargetCategory == category.id
+                ? RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.accentColor.opacity(0.25))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                : nil
+        )
+    }
+
+    private func deletePendingSmartCollection() {
+        guard let smartCollectionPendingDeletion else { return }
+        do {
+            try dataStorage.deleteSmartCollection(smartCollectionPendingDeletion)
+            if selection == .smartCollection(smartCollectionPendingDeletion.id) {
+                selection = dataStorage.categories.first.map { .category($0.id) }
+            }
+        } catch {
+            GlobalToastManager.shared.show(message: error.localizedDescription, icon: "xmark.circle.fill")
+        }
+        self.smartCollectionPendingDeletion = nil
     }
 
     private func handleDrop(providers: [NSItemProvider], category: Category) -> Bool {
@@ -144,7 +218,7 @@ struct SidebarView: View {
             }
 
             DispatchQueue.main.async {
-                guard var item = dataStorage.items.first(where: { $0.id == itemId }) else { return }
+                guard var item = dataStorage.item(for: itemId) else { return }
 
                 if var bookmark = item.asBookmark {
                     bookmark.categoryId = category.id
@@ -165,25 +239,16 @@ struct SidebarView: View {
                 dataStorage.updateItem(item)
             }
         }
-
         return true
     }
 }
 
 #Preview {
-    let dataStorage = DataStorage.shared
-
     NavigationSplitView {
-        SidebarView(
-            categories: dataStorage.categories,
-            tags: dataStorage.tags,
-            selectedCategory: .constant(dataStorage.categories.first),
-            selectedTag: .constant(nil)
-        )
-        .environmentObject(dataStorage)
+        SidebarView(selection: .constant(.recent))
+            .environmentObject(DataStorage.preview)
     } detail: {
         Text("Detail View")
     }
 }
-
 #endif

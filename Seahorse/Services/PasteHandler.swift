@@ -244,73 +244,12 @@ class PasteHandler: ObservableObject {
             do {
                 try self.dataStorage.addBookmark(bookmark)
                 DLog("Paste: saved placeholder id=\(bookmark.id.uuidString)", category: .paste)
-                Log.info("Created placeholder bookmark, fetching metadata...", category: .paste)
-                
-                // Fetch metadata asynchronously
-                Task {
-                    await self.fetchAndUpdateBookmark(bookmark, urlString: canonicalURLString)
-                }
+                Log.info("Created placeholder bookmark and queued enrichment", category: .paste)
             } catch DatabaseError.duplicateBookmarkURL {
                 DLog("Paste: skipped duplicate url='\(canonicalURLString)'", category: .paste)
                 Log.info("Skipped duplicate bookmark URL: \(urlString)", category: .paste)
             } catch {
                 Log.error("Failed to create bookmark: \(error)", category: .paste)
-            }
-        }
-    }
-    
-    private func fetchAndUpdateBookmark(_ bookmark: Bookmark, urlString: String) async {
-        let canonicalURLString = BookmarkURLNormalizer.normalize(urlString)
-        guard let url = URL(string: canonicalURLString) else { return }
-        DLog("Paste: fetch metadata start id=\(bookmark.id.uuidString) url='\(canonicalURLString)'", category: .paste)
-        
-        do {
-            let metadata = try await OpenGraphService.shared.fetchMetadata(url: url)
-            
-            await MainActor.run {
-                // Update bookmark with fetched metadata
-                let updatedBookmark = Bookmark(
-                    id: bookmark.id,
-                    title: metadata.title ?? url.host ?? "Untitled",
-                    url: canonicalURLString,
-                    icon: metadata.faviconURL ?? "link.circle",
-                    categoryId: bookmark.categoryId,
-                    isFavorite: bookmark.isFavorite,
-                    addedDate: bookmark.addedDate,
-                    notes: metadata.description,
-                    tagIds: bookmark.tagIds,
-                    isParsed: false,
-                    metadata: metadata
-                )
-                
-                do {
-                    try self.dataStorage.updateBookmark(updatedBookmark)
-                    DLog("Paste: updated bookmark from metadata id=\(bookmark.id.uuidString) title='\(updatedBookmark.title)'", category: .paste)
-                    Log.info("Updated bookmark with metadata", category: .paste)
-                } catch {
-                    Log.error("Failed to update bookmark: \(error)", category: .paste)
-                }
-            }
-        } catch {
-            // If metadata fetch fails, update with basic info
-            await MainActor.run {
-                let fallbackBookmark = Bookmark(
-                    id: bookmark.id,
-                    title: url.host ?? urlString,
-                    url: canonicalURLString,
-                    icon: "link.circle",
-                    categoryId: bookmark.categoryId,
-                    isFavorite: bookmark.isFavorite,
-                    addedDate: bookmark.addedDate,
-                    notes: nil,
-                    tagIds: bookmark.tagIds,
-                    isParsed: false,
-                    metadata: nil
-                )
-                
-                try? self.dataStorage.updateBookmark(fallbackBookmark)
-                DLog("Paste: metadata failed, wrote fallback id=\(bookmark.id.uuidString) title='\(fallbackBookmark.title)'", category: .paste)
-                Log.warning("Failed to fetch metadata, using fallback", category: .paste)
             }
         }
     }

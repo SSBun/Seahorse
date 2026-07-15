@@ -16,6 +16,7 @@ struct TextItem: CollectionItem {
     var notes: String?
     var isFavorite: Bool
     var isParsed: Bool
+    var deletedAt: Date?
     
     // Text-specific properties
     var content: String // The actual text content
@@ -50,7 +51,8 @@ struct TextItem: CollectionItem {
         modifiedDate: Date? = nil,
         notes: String? = nil,
         tagIds: [UUID] = [],
-        isParsed: Bool = false
+        isParsed: Bool = false,
+        deletedAt: Date? = nil
     ) {
         self.id = id
         self.content = content
@@ -61,5 +63,6 @@ struct TextItem: CollectionItem {
         self.notes = notes
         self.tagIds = tagIds
         self.isParsed = isParsed
+        self.deletedAt = deletedAt
     }
 }

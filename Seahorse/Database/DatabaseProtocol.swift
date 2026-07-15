@@ -23,7 +23,13 @@ protocol DatabaseProtocol {
     func updateItem(_ item: AnyCollectionItem) throws
     func updateItems(_ items: [AnyCollectionItem]) throws
     func deleteItem(_ item: AnyCollectionItem) throws
-    func saveImportedData(categories: [Category], tags: [Tag], items: [AnyCollectionItem]) throws
+    func deleteItems(_ items: [AnyCollectionItem]) throws
+    func saveImportedData(
+        categories: [Category],
+        tags: [Tag],
+        smartCollections: [SmartCollection],
+        items: [AnyCollectionItem]
+    ) throws
     
     // Category operations
     func saveCategory(_ category: Category) throws
@@ -42,6 +48,13 @@ protocol DatabaseProtocol {
     // Reorder operations
     func reorderCategories(_ categories: [Category]) throws
     func reorderTags(_ tags: [Tag]) throws
+
+    // Smart collection operations
+    func saveSmartCollection(_ smartCollection: SmartCollection) throws
+    func updateSmartCollection(_ smartCollection: SmartCollection) throws
+    func deleteSmartCollection(_ smartCollection: SmartCollection) throws
+    func fetchAllSmartCollections() throws -> [SmartCollection]
+    func reorderSmartCollections(_ smartCollections: [SmartCollection]) throws
     
     // Preferences operations
     func savePreference(key: String, value: String) throws

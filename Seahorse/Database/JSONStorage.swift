@@ -15,6 +15,7 @@ class JSONStorage: DatabaseProtocol {
     // bookmarks array removed - derived from items when needed
     private var categories: [Category] = []
     private var tags: [Tag] = []
+    private var smartCollections: [SmartCollection] = []
     private var preferences: [String: String] = [:]
     
     // Thread-safe access
@@ -28,6 +29,7 @@ class JSONStorage: DatabaseProtocol {
     private let itemsURL: URL
     private let categoriesURL: URL
     private let tagsURL: URL
+    private let smartCollectionsURL: URL
     private let preferencesURL: URL
     
     convenience init() {
@@ -55,6 +57,7 @@ class JSONStorage: DatabaseProtocol {
         itemsURL = dataDirectory.appendingPathComponent("items.json")
         categoriesURL = dataDirectory.appendingPathComponent("categories.json")
         tagsURL = dataDirectory.appendingPathComponent("tags.json")
+        smartCollectionsURL = dataDirectory.appendingPathComponent("smart-collections.json")
         preferencesURL = dataDirectory.appendingPathComponent("preferences.json")
         
         // Load data from storage
@@ -120,6 +123,16 @@ class JSONStorage: DatabaseProtocol {
             }
         } else {
             Log.info("  ℹ️ No tags file found (will be created on first save)", category: .database)
+        }
+
+        if fileManager.fileExists(atPath: smartCollectionsURL.path) {
+            do {
+                let data = try Data(contentsOf: smartCollectionsURL)
+                smartCollections = try JSONDecoder().decode([SmartCollection].self, from: data)
+                Log.info("  ✓ Loaded \(smartCollections.count) smart collections", category: .database)
+            } catch {
+                Log.error("  ❌ Failed to load smart collections: \(error)", category: .database)
+            }
         }
         
         // Load items (supports all collection types)
@@ -190,6 +203,13 @@ class JSONStorage: DatabaseProtocol {
             self.write(tags, to: self.tagsURL)
         }
     }
+
+    private func saveSmartCollectionsToDisk() {
+        writeQueue.async {
+            let smartCollections = self.queue.sync { self.smartCollections }
+            self.write(smartCollections, to: self.smartCollectionsURL)
+        }
+    }
     
     private func savePreferencesToDisk() {
         writeQueue.async {
@@ -204,6 +224,17 @@ class JSONStorage: DatabaseProtocol {
             try writeData(data, url)
         } catch {
             Log.error("❌ Failed to save \(url.lastPathComponent): \(error)", category: .database)
+        }
+    }
+
+    private func writeItemsSynchronously() throws {
+        let snapshot = queue.sync {
+            items.map { normalizeItemPaths($0) }
+        }
+        try writeQueue.sync {
+            itemsSaveGeneration += 1
+            let data = try JSONEncoder().encode(snapshot)
+            try writeData(data, itemsURL)
         }
     }
     
@@ -269,25 +300,25 @@ class JSONStorage: DatabaseProtocol {
     
     func fetchAllBookmarks() throws -> [Bookmark] {
         queue.sync {
-            items.compactMap { $0.asBookmark }
+            items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil }
         }
     }
     
     func fetchBookmarks(categoryId: UUID) throws -> [Bookmark] {
         queue.sync {
-            items.compactMap { $0.asBookmark }.filter { $0.categoryId == categoryId }
+            items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.categoryId == categoryId }
         }
     }
     
     func fetchBookmarks(tagId: UUID) throws -> [Bookmark] {
         queue.sync {
-            items.compactMap { $0.asBookmark }.filter { $0.tagIds.contains(tagId) }
+            items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.tagIds.contains(tagId) }
         }
     }
     
     func fetchFavoriteBookmarks() throws -> [Bookmark] {
         queue.sync {
-            items.compactMap { $0.asBookmark }.filter { $0.isFavorite }
+            items.compactMap { $0.asBookmark }.filter { $0.deletedAt == nil && $0.isFavorite }
         }
     }
     
@@ -306,9 +337,11 @@ class JSONStorage: DatabaseProtocol {
             }
             
             // Enforce duplicate URL rule for bookmark items too
-            if let bookmark = item.asBookmark {
+            if let bookmark = item.asBookmark, bookmark.deletedAt == nil {
                 let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
-                if items.compactMap({ $0.asBookmark }).contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                if items.compactMap({ $0.asBookmark }).contains(where: {
+                    $0.deletedAt == nil && BookmarkURLNormalizer.normalize($0.url) == normalizedURL
+                }) {
                     throw DatabaseError.duplicateBookmarkURL
                 }
             }
@@ -324,9 +357,13 @@ class JSONStorage: DatabaseProtocol {
             }
             
             // Enforce duplicate URL rule for bookmark items too (excluding self)
-            if let bookmark = item.asBookmark {
+            if let bookmark = item.asBookmark, bookmark.deletedAt == nil {
                 let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
-                if items.compactMap({ $0.asBookmark }).contains(where: { $0.id != bookmark.id && BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
+                if items.compactMap({ $0.asBookmark }).contains(where: {
+                    $0.id != bookmark.id
+                        && $0.deletedAt == nil
+                        && BookmarkURLNormalizer.normalize($0.url) == normalizedURL
+                }) {
                     throw DatabaseError.duplicateBookmarkURL
                 }
             }
@@ -336,7 +373,9 @@ class JSONStorage: DatabaseProtocol {
     }
 
     func updateItems(_ updatedItems: [AnyCollectionItem]) throws {
+        var previousItems: [AnyCollectionItem] = []
         try queue.sync(flags: .barrier) {
+            previousItems = items
             var updatesByID: [UUID: AnyCollectionItem] = [:]
             for item in updatedItems {
                 guard updatesByID.updateValue(item, forKey: item.id) == nil else {
@@ -351,50 +390,79 @@ class JSONStorage: DatabaseProtocol {
             try validateUniqueBookmarkURLs(candidate)
             items = candidate.map(normalizeItemPaths)
         }
-        saveItemsToDisk()
+        do {
+            try writeItemsSynchronously()
+        } catch {
+            queue.sync(flags: .barrier) {
+                items = previousItems
+            }
+            throw error
+        }
     }
 
     func saveImportedData(
         categories importedCategories: [Category],
         tags importedTags: [Tag],
+        smartCollections importedSmartCollections: [SmartCollection],
         items importedItems: [AnyCollectionItem]
     ) throws {
         try queue.sync(flags: .barrier) {
             let candidateItems = items + importedItems
             let candidateCategories = categories + importedCategories
             let candidateTags = tags + importedTags
+            let candidateSmartCollections = smartCollections + importedSmartCollections
             guard Set(candidateItems.map(\.id)).count == candidateItems.count else {
                 throw DatabaseError.duplicateEntry
             }
             guard Set(candidateCategories.map(\.id)).count == candidateCategories.count,
                   Set(candidateCategories.map { $0.name.lowercased() }).count == candidateCategories.count,
                   Set(candidateTags.map(\.id)).count == candidateTags.count,
-                  Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count else {
+                  Set(candidateTags.map { $0.name.lowercased() }).count == candidateTags.count,
+                  Set(candidateSmartCollections.map(\.id)).count == candidateSmartCollections.count,
+                  Set(candidateSmartCollections.map { $0.name.lowercased() }).count == candidateSmartCollections.count else {
                 throw DatabaseError.duplicateEntry
             }
             try validateUniqueBookmarkURLs(candidateItems)
             categories = candidateCategories
             tags = candidateTags
+            smartCollections = candidateSmartCollections
             items = candidateItems.map(normalizeItemPaths)
         }
         saveCategoriesToDisk()
         saveTagsToDisk()
+        saveSmartCollectionsToDisk()
         saveItemsToDisk()
     }
     
     func deleteItem(_ item: AnyCollectionItem) throws {
+        try deleteItems([item])
+    }
+
+    func deleteItems(_ deletedItems: [AnyCollectionItem]) throws {
+        guard !deletedItems.isEmpty else { return }
+        var previousItems: [AnyCollectionItem] = []
         try queue.sync(flags: .barrier) {
-            guard let index = items.firstIndex(where: { $0.id == item.id }) else {
+            previousItems = items
+            let ids = Set(deletedItems.map(\.id))
+            guard ids.count == deletedItems.count,
+                  ids.allSatisfy({ id in items.contains(where: { $0.id == id }) }) else {
                 throw DatabaseError.notFound
             }
-            items.remove(at: index)
+            items.removeAll { ids.contains($0.id) }
         }
-        saveItemsToDisk()
+        do {
+            try writeItemsSynchronously()
+        } catch {
+            queue.sync(flags: .barrier) {
+                items = previousItems
+            }
+            throw error
+        }
     }
 
     private func validateUniqueBookmarkURLs(_ items: [AnyCollectionItem]) throws {
         var urls = Set<String>()
-        for bookmark in items.compactMap(\.asBookmark) {
+        for bookmark in items.compactMap(\.asBookmark) where bookmark.deletedAt == nil {
             guard urls.insert(BookmarkURLNormalizer.normalize(bookmark.url)).inserted else {
                 throw DatabaseError.duplicateBookmarkURL
             }
@@ -512,6 +580,56 @@ class JSONStorage: DatabaseProtocol {
         }
         saveTagsToDisk()
     }
+
+    // MARK: - Smart Collection Operations
+
+    func saveSmartCollection(_ smartCollection: SmartCollection) throws {
+        try queue.sync(flags: .barrier) {
+            guard !smartCollections.contains(where: {
+                $0.id == smartCollection.id || $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
+            }) else {
+                throw DatabaseError.duplicateEntry
+            }
+            smartCollections.append(smartCollection)
+        }
+        saveSmartCollectionsToDisk()
+    }
+
+    func updateSmartCollection(_ smartCollection: SmartCollection) throws {
+        try queue.sync(flags: .barrier) {
+            guard let index = smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
+                throw DatabaseError.notFound
+            }
+            guard !smartCollections.contains(where: {
+                $0.id != smartCollection.id && $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
+            }) else {
+                throw DatabaseError.duplicateEntry
+            }
+            smartCollections[index] = smartCollection
+        }
+        saveSmartCollectionsToDisk()
+    }
+
+    func deleteSmartCollection(_ smartCollection: SmartCollection) throws {
+        try queue.sync(flags: .barrier) {
+            guard let index = smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
+                throw DatabaseError.notFound
+            }
+            smartCollections.remove(at: index)
+        }
+        saveSmartCollectionsToDisk()
+    }
+
+    func fetchAllSmartCollections() throws -> [SmartCollection] {
+        queue.sync { smartCollections }
+    }
+
+    func reorderSmartCollections(_ newSmartCollections: [SmartCollection]) throws {
+        queue.sync(flags: .barrier) {
+            smartCollections = newSmartCollections
+        }
+        saveSmartCollectionsToDisk()
+    }
     
     // MARK: - Preferences Operations
     
@@ -544,6 +662,7 @@ class JSONStorage: DatabaseProtocol {
                 items.map { normalizeItemPaths($0) },
                 categories,
                 tags,
+                smartCollections,
                 preferences
             )
         }
@@ -553,7 +672,8 @@ class JSONStorage: DatabaseProtocol {
             write(snapshot.0, to: itemsURL)
             write(snapshot.1, to: categoriesURL)
             write(snapshot.2, to: tagsURL)
-            write(snapshot.3, to: preferencesURL)
+            write(snapshot.3, to: smartCollectionsURL)
+            write(snapshot.4, to: preferencesURL)
         }
     }
 }

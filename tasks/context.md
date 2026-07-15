@@ -1,34 +1,45 @@
 # Workspace Context
 
 ## Components
+- Seahorse App 使用一个同时支持 macOS、iOS 和 iOS Simulator 的 Xcode target；macOS 提供完整采集/管理/MCP，iOS 界面位于 `Views/iOS/`。
+- `Seahorse/Storage/StorageManager.swift` 将存储根目录分为 `Data/`、`Images/` 和 `Backups/`，JSON 数据实际位于 `Data/`。
 - `MCPHelper/` 是 Seahorse 的 TypeScript/Node.js MCP 协议层，负责工具 schema、Streamable HTTP 和外部 token 鉴权。
 - `Seahorse/Services/MCP/` 是 App 内 bridge，负责把 MCP action 转换为 `DataStorage` 操作。
 - `Seahorse/Storage/DataStorage.swift` 是 bookmark、image、text 条目的统一内存与持久化入口。
-- `Seahorse/Database/JSONStorage.swift` 以 `items.json`、`categories.json`、`tags.json` 和 `preferences.json` 实现全文件 JSON 持久化。
+- `Seahorse/Database/JSONStorage.swift` 以 `items.json`、`categories.json`、`tags.json`、`smart-collections.json` 和 `preferences.json` 实现全文件 JSON 持久化。
 - `Seahorse/Services/CollectionSearch.swift` 是 macOS、iOS 和 MCP 共用的纯搜索、排序与分页核心。
 - `Seahorse/Services/ImageFileService.swift` 是串行执行图片复制和 PNG 编码的 actor。
 - `SeahorseTests/` 是搜索、JSON 持久化、图片 I/O 和模型性能回归测试目标。
 
 ## Relationships
+- URL 采集、MCP 创建和自动解析统一进入 `AutoParsingService` 的持久化 FIFO 富化队列；队列按 Bookmark ID 重新读取最新快照，串行执行 OGP 与可选 AI，失败状态可重试。
+- `DataStorage.items` 保留活动与回收站条目；普通 UI、搜索、Agent 与 MCP 只读取 `deletedAt == nil`，永久删除才从 JSON 移除记录并按引用清理内部图片。
+- `JSONStorage` 对单个 JSON 使用 atomic replace，单条 items 写入会延迟合并；五个 JSON 与 `Images/` 之间没有跨文件事务。
+- iOS 当前通过 ZIP/文件夹导入本地副本后浏览，没有 CloudKit、文件变化监听或冲突解决，不是实时双向同步。
 - 外部 agent 调用 `MCPHelper` 工具后，由 helper 调用 App 内 HTTP bridge；真实数据读写只通过 `DataStorage` 完成。
 - `AnyCollectionItem` 统一封装 `Bookmark`、`ImageItem` 和 `TextItem`，其 UUID 在 `DataStorage.items` 中用于定位条目。
 - `DataStorage` 是 `@MainActor ObservableObject`，CRUD 先调用 `JSONStorage`，再更新 `@Published` 数组、按类型拆分的 ID lookup cache 和搜索记录 cache。
 - macOS、iOS 和 MCP 从 `DataStorage` 获取不可变搜索记录快照，并在后台调用 `CollectionSearch`；`itemsVersion` 驱动 UI 重算和 MCP 分页缓存失效。
 
 ## Domain
+- `SmartCollection` 按 Category/Tag UUID 持久化筛选规则；引用缺失时规则保留但匹配为空，macOS/iOS 共用 `CollectionSearch` 语义。
+- 核心 JSON 没有 schema version 或显式迁移器；Category/Tag 关系以 item 内 UUID 逻辑引用表达，没有外键。
 - Seahorse collection item 包含 `bookmark`、`image`、`text` 三种类型。
 - tag 的 MCP 能力支持读取和删除；category 仍只读。
 
 ## Decisions and Conventions
+- 回收站的批量移入、恢复和永久删除会同步确认 `items.json` 原子写入；写盘失败时 JSONStorage 回滚内存候选状态并向调用方返回错误。
+- MCP 使用通用 `delete_item(id)` 将 bookmark、image 或 text 幂等移入回收站，并返回 `movedToTrash`/`alreadyInTrash`。
+- 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内、且永久删除后不再被任何条目引用的文件。
+- Xcode 当前实际最低版本是 macOS 15.2、iOS 16.0；README/官网的 macOS 13.0+ 声明尚未与构建目标对齐。
+- GitHub 最新 tag 仍为 `v1.7.0`，而 App/CHANGELOG 已为 `1.9.0`；发布工作流依赖 tag/Latest Release。
 - Seahorse App 当前版本为 `1.9.0`，build number 为 `8`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
 - `scripts/create-dmg.sh` 会先构建 MCP helper，再将 `dist` 和 production-only Node 依赖写入 App bundle，并使用原身份重签名后生成 DMG。
 - MCP helper 使用 SDK `registerTool()` 配置对象注册 schema、annotations 和 handler，避免旧 `tool()` API 对普通对象的重载歧义。
 - MCP 设置页提供 `Force Restart`：只清理命令精确匹配当前 helper 脚本的进程，等待终止后再启动；helper 通过父 PID 守护避免 App 异常退出后成为孤儿进程。
-- MCP 使用通用 `delete_item(id)` 删除 bookmark、image 或 text。
 - MCP 使用 destructive `delete_tag(id)` 删除 Tag；`DataStorage.deleteTag` 会先批量清除全部 item 类型中的关联，category 仍不提供写操作。
-- 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内的文件。
 - `JSONStorage` 对频繁 item 更新进行延迟合并；App 退出、存储迁移和显式 `forceSaveAllData()` 会同步写入最新快照。
 - 多条 item 更新和数据导入使用批量数据库 API，整批验证通过后才修改内存或持久化数据。
 - 缩略图允许异步下采样，全屏图片查看器保留原始分辨率。

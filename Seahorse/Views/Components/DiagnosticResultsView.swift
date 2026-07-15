@@ -121,13 +121,13 @@ struct DiagnosticResultsView: View {
             }
         }
         .frame(width: 700, height: 600)
-        .alert("Delete Bookmarks", isPresented: $showingDeleteConfirmation) {
+        .alert("Move Bookmarks to Trash", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
+            Button("Move to Trash", role: .destructive) {
                 deleteSelectedBookmarks()
             }
         } message: {
-            Text("Are you sure you want to delete \(selectedResults.count) broken bookmark(s)? This action cannot be undone.")
+            Text("Move \(selectedResults.count) broken bookmark(s) to Trash? You can restore them later.")
         }
     }
 
@@ -500,7 +500,7 @@ struct DiagnosticResultsView: View {
                 }
                 .buttonStyle(.borderless)
 
-                Button("Delete Selected (\(selectedResults.count))") {
+                Button("Move Selected to Trash (\(selectedResults.count))") {
                     showingDeleteConfirmation = true
                 }
                 .buttonStyle(.borderedProminent)
@@ -526,12 +526,13 @@ struct DiagnosticResultsView: View {
             .filter { selectedResults.contains($0.id) }
             .map { $0.bookmark }
 
-        for bookmark in bookmarksToDelete {
-            try? dataStorage.deleteBookmark(bookmark)
+        do {
+            try dataStorage.deleteItems(ids: bookmarksToDelete.map(\.id))
+            diagnosticService.brokenBookmarks.removeAll { selectedResults.contains($0.id) }
+            selectedResults.removeAll()
+        } catch {
+            GlobalToastManager.shared.show(message: error.localizedDescription, icon: "xmark.circle.fill")
         }
-
-        diagnosticService.brokenBookmarks.removeAll { selectedResults.contains($0.id) }
-        selectedResults.removeAll()
     }
 }
 

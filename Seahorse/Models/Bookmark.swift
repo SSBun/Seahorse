@@ -21,6 +21,9 @@ struct Bookmark: CollectionItem {
     var tagIds: [UUID]
     var isParsed: Bool
     var metadata: WebMetadata? // OGP/Twitter Card Data
+    var deletedAt: Date?
+    var enrichmentStatus: BookmarkEnrichmentStatus?
+    var enrichmentError: String?
     
     // CollectionItem protocol requirement
     var itemType: CollectionItemType {
@@ -39,7 +42,10 @@ struct Bookmark: CollectionItem {
         notes: String? = nil,
         tagIds: [UUID] = [],
         isParsed: Bool = false,
-        metadata: WebMetadata? = nil
+        metadata: WebMetadata? = nil,
+        deletedAt: Date? = nil,
+        enrichmentStatus: BookmarkEnrichmentStatus? = nil,
+        enrichmentError: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -53,8 +59,9 @@ struct Bookmark: CollectionItem {
         self.tagIds = tagIds
         self.isParsed = isParsed
         self.metadata = metadata
+        self.deletedAt = deletedAt
+        self.enrichmentStatus = enrichmentStatus
+        self.enrichmentError = enrichmentError
     }
 }
-
-
 
