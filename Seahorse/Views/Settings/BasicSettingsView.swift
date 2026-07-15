@@ -37,7 +37,7 @@ struct BasicSettingsView: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
-                    .frame(maxWidth: 300)
+                    .frame(maxWidth: 300, alignment: .leading)
                     .onChange(of: languageManager.appLanguage) { _, _ in
                         showRestartAlert = true
                     }
@@ -63,7 +63,7 @@ struct BasicSettingsView: View {
                     }
                     .pickerStyle(.menu)
                     .labelsHidden()
-                    .frame(maxWidth: 300)
+                    .frame(maxWidth: 300, alignment: .leading)
                     .accessibilityLabel(L10n.aiParsingLanguage)
                     .accessibilityHint(L10n.aiParsingLanguageHint)
                     

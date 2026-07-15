@@ -913,28 +913,7 @@ struct ItemDetailView: View {
     }
 
     private func deleteTag(_ tag: Tag) {
-        let updatedItems = dataStorage.items.compactMap { item -> AnyCollectionItem? in
-            if var bookmark = item.asBookmark {
-                guard bookmark.tagIds.contains(tag.id) else { return nil }
-                bookmark.removeTag(tag.id)
-                bookmark.modifiedDate = Date()
-                return AnyCollectionItem(bookmark)
-            } else if var imageItem = item.asImageItem {
-                guard imageItem.tagIds.contains(tag.id) else { return nil }
-                imageItem.removeTag(tag.id)
-                imageItem.modifiedDate = Date()
-                return AnyCollectionItem(imageItem)
-            } else if var textItem = item.asTextItem {
-                guard textItem.tagIds.contains(tag.id) else { return nil }
-                textItem.removeTag(tag.id)
-                textItem.modifiedDate = Date()
-                return AnyCollectionItem(textItem)
-            }
-            return nil
-        }
-
         do {
-            try dataStorage.updateItems(updatedItems)
             try dataStorage.deleteTag(tag)
             selectedTagIds.remove(tag.id)
             tagToDelete = nil

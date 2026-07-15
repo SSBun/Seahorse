@@ -65,6 +65,14 @@ httpServer.listen(port, host, () => {
   console.error(`Seahorse MCP helper listening on http://${host}:${port}/mcp`);
 });
 
+const parentProcessID = process.ppid;
+const parentWatchdog = setInterval(() => {
+  if (parentProcessID > 1 && process.ppid !== parentProcessID) {
+    process.exit(0);
+  }
+}, 1000);
+parentWatchdog.unref();
+
 async function handlePost(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const body = await readJSON(req);
   const existingSessionId = req.headers["mcp-session-id"];

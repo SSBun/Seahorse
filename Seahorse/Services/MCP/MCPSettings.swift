@@ -3,6 +3,7 @@ import Foundation
 
 enum MCPServerStatus: String {
     case stopped = "Stopped"
+    case restarting = "Restarting"
     case running = "Running"
     case failed = "Failed"
     case portUnavailable = "Port unavailable"

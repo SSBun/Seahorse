@@ -80,8 +80,14 @@ describe("tool registration", () => {
     expect(tagsResult.isError).not.toBe(true);
     expect(call).toHaveBeenCalledWith("list_tags", {});
 
+    const tagId = "00000000-0000-4000-8000-000000000000";
+    const deleteTagResult = await client.callTool({ name: "delete_tag", arguments: { id: tagId } });
+    expect(deleteTagResult.isError).not.toBe(true);
+    expect(call).toHaveBeenCalledWith("delete_tag", { id: tagId });
+
     const tools = await client.listTools();
     expect(tools.tools.find((tool) => tool.name === "delete_item")?.annotations?.destructiveHint).toBe(true);
+    expect(tools.tools.find((tool) => tool.name === "delete_tag")?.annotations?.destructiveHint).toBe(true);
 
     call.mockRejectedValueOnce(new Error("bridge unavailable"));
     const errorResult = await client.callTool({ name: "list_categories", arguments: {} });

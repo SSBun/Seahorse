@@ -1,3 +1,101 @@
+# Seahorse 1.9.0 本地发布
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 将 App 从 `1.8.0 (7)` 更新到 minor 版本 `1.9.0 (8)`，并同步用户可见 CHANGELOG。
+- 构建并验证 MCP helper、Swift 测试、Release App 和 DMG。
+- 将当前工作区全部改动纳入一次本地提交，完成后保持工作区干净。
+
+## 发布边界
+
+- 使用项目现有 `scripts/create-dmg.sh` 生成本地 DMG。
+- 本次不创建 tag，不 push，不上传 GitHub Release，不 notarize，也不覆盖 `/Applications/Seahorse.app`。
+
+## 计划
+
+- [x] 审阅全部待提交改动并确认 CHANGELOG 内容。
+- [x] 更新 Xcode marketing version、build number 和 CHANGELOG。
+- [x] 构建并测试 MCP helper。
+- [x] 运行 Swift 测试和 Release 构建。
+- [x] 生成并验证 DMG 与 SHA256。
+- [x] 更新审查记录并提交全部本地改动。
+
+## 审查记录
+
+- App source of truth 已从 `1.8.0 (7)` 更新为 `1.9.0 (8)`；`Info.plist` 使用构建设置，README、RELEASE、installer 和 appcast 无需同步旧版本引用。
+- `CHANGELOG.md` 已发布当前版本更新日志面板、MCP `delete_tag`、helper 强制重启/父进程守护、Tag 关联清理、设置页对齐和 DMG helper 打包修复。
+- `MCPHelper/package.json` 是 private helper 的独立版本，继续保持 `0.1.0`；lockfile 无版本变更需求。
+- MCP helper TypeScript 构建成功，Node 全量 7 项测试通过；macOS 全量 23 项 XCTest 通过。
+- `scripts/create-dmg.sh` 现在自动构建 helper，将 `dist` 与 production-only 依赖写入 App bundle，并使用原 Apple Development 身份重签名；bundle 内依赖导入和真实 MCP initialize HTTP 200 均通过。
+- Release build 成功；保留既有 asset symbol、Swift 并发隔离、废弃 API 和未使用结果等 warnings。
+- DMG 位于 `dist/Seahorse-1.9.0_20260715_160312/Seahorse-1.9.0.dmg`，`hdiutil verify` 与 SHA256 校验通过。
+- SHA256：`765b3e0e5882dcb76f8aaa6295a56641d34ff79ac1c0dcb720053472de44de20`。
+- Release App 为 `1.9.0 (8)`，bundle CHANGELOG 与源码一致，`codesign --verify --deep --strict` 通过；签名类型为 Apple Development，未 notarized。
+- 本次未覆盖 `/Applications/Seahorse.app`，未创建 tag，未 push，未上传 GitHub Release。
+- `bash -n scripts/create-dmg.sh`、`git diff --check` 和最终工作区检查通过。
+
+# MCP 删除 Tag
+
+## 目标
+- 新增 destructive MCP 工具 `delete_tag(id)`，并在删除 Tag 前清除 bookmark、image、text 的关联。
+- 书签继续通过现有 `delete_item(id)` 删除，不增加重复工具。
+
+## 计划
+- [x] 确认现有 MCP 工具、bridge 和存储删除语义。
+- [x] 确认最小设计与书签删除入口。
+- [x] 写入并复核设计规格。
+- [x] 编写实施计划。
+- [x] 增加 MCP 注册和存储级联删除红灯测试。
+- [x] 实现共享存储删除语义与 `delete_tag` bridge。
+- [x] 运行 Swift、Node、构建和真实 MCP 验证。
+
+## 边界情况
+- [x] 无效 UUID 返回 validation error。
+- [x] 不存在的 Tag 返回 not found。
+- [x] 删除 Tag 后三种 item 均不得保留该 ID。
+- [x] 关联条目批量更新失败时不得删除 Tag。
+- [x] `delete_item` 删除 bookmark 的行为保持不变。
+
+## 审查记录
+- `DataStorage.deleteTag` 当前只删除 Tag；两个 UI 调用方分别在外部清理引用，且 Tag 管理页只覆盖 bookmark。共享存储层需要统一级联清理。
+- `delete_tag(id)` 复用 UUID schema 并标记 `destructiveHint: true`；书签仍由通用 `delete_item(id)` 删除。
+- `DataStorage.deleteTag` 先通过 `updateItems` 批量清除 bookmark、image、text 引用，再删除 Tag；两个 UI 调用方已移除重复清理。
+- TDD 红灯分别证明 `delete_tag` 尚未注册，以及旧 `deleteTag` 会留下 item 引用；修复后 Node 7 项、Swift 23 项测试通过，TypeScript 和 Debug build 成功。
+- 最新 Debug App 已真实列出 destructive `delete_tag`；随机不存在 UUID 返回 MCP `not_found`，未修改用户数据。
+- Task 1、Task 3 的规格与代码质量复核通过；Task 2 规格复核通过，质量 reviewer 连续空结果后由主线程按相同清单复核；最终整体验收 reviewer 批准。
+
+# MCP helper 强制重启
+
+## 目标
+- 从设置页安全清理 Seahorse 残留 helper 并重启 MCP 服务，避免孤儿 Node 进程长期占用固定端口。
+
+## 计划
+- [x] 复现失败并确认残留 helper、端口和父进程状态。
+- [x] 确认强制重启设计与进程清理边界。
+- [x] 增加精确 helper 进程识别测试。
+- [x] 实现等待终止、超时强杀和 force restart。
+- [x] 增加设置页入口和 Node 父进程守护。
+- [x] 运行单元测试、构建和真实端口恢复验证。
+
+## 边界情况
+- [x] 不终止仅占用 `17373` 但命令不匹配 Seahorse helper 的进程。
+- [x] 旧 termination handler 不得清空新 helper 引用。
+- [x] 多次点击 Force Restart 不得并发重启。
+- [x] 正常退出和 MCP 开关关闭语义保持不变。
+
+## 审查记录
+- 复现时 PID `36747` 为父 PID `1` 的孤儿 Node helper，持有 `127.0.0.1:17373`；当前 App 无 `17374` bridge listener。
+- `Force Restart` 先终止当前管理的 `Process`，等待 1 秒后超时强杀，再仅清理命令精确等于当前 `node <MCPHelper/dist/index.js>` 的残留进程；不会按端口终止无关进程。
+- termination handler 以 `Process` 实例身份校验当前 helper，旧进程回调无法清空新 helper；`Restarting` 状态会禁用 MCP 开关和重复重启按钮。
+- Node helper 每秒检查父 PID；独立测试确认父进程异常退出后 helper 在 2 秒内自行退出。
+- 真实故障恢复已清理孤儿 PID `36747`，新 helper 由当前 Debug App 托管，`17373` 和 `17374` 恢复监听，MCP initialize 返回 HTTP 200；连续触发仍只有一个 helper。
+- MCP 开关关闭后两个 listener 均停止，重新开启后状态恢复 `Running`。
+- macOS 全量 22 项测试、MCP helper 7 项测试、TypeScript build、Debug build 和 `git diff --check` 通过；Xcode 测试需显式统一 `DEVELOPMENT_TEAM`，否则现有 test target 的 ad-hoc 签名与宿主 Team ID 不一致。
+
 # 当前版本变更日志面板
 
 ## 目标

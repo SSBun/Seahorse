@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-07-15
+
+### 新增
+
+- Advanced Settings 的 Updates 区域新增当前版本更新日志面板。
+- 新增 destructive MCP `delete_tag`，支持按 UUID 删除 Tag。
+- MCP Settings 新增 `Force Restart`，可安全清理残留 helper 并恢复本地服务。
+
+### 改进
+
+- App 异常退出后，MCP helper 会检测父进程并自行退出，避免孤儿进程长期占用端口。
+- 删除 Tag 时统一清理 bookmark、image、text 三类条目中的关联。
+
+### 修复
+
+- 修复 Basic Settings 中语言选择菜单未左对齐的问题。
+- 修复 DMG 未包含 MCP helper 生产运行文件、安装后只能依赖源码目录回退的问题。
+
 ## [1.8.0] - 2026-07-14
 
 ### 新增
@@ -52,7 +70,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/SSBun/Seahorse/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/SSBun/Seahorse/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/SSBun/Seahorse/releases/tag/v1.6.0

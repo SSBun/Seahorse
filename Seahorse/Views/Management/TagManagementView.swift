@@ -220,19 +220,6 @@ struct TagManagementView: View {
     }
     
     private func deleteTag(_ tag: Tag) {
-        // Remove tag from all bookmarks first
-        let bookmarksWithTag = dataStorage.bookmarks.filter { $0.tagIds.contains(tag.id) }
-        for bookmark in bookmarksWithTag {
-            var updated = bookmark
-            updated.removeTag(tag.id)
-            do {
-                try dataStorage.updateBookmark(updated)
-            } catch {
-                print("Failed to remove tag from bookmark: \(error)")
-            }
-        }
-        
-        // Then delete the tag
         do {
             try dataStorage.deleteTag(tag)
             tagToDelete = nil

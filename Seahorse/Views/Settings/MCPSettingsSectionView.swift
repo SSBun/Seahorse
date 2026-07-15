@@ -24,6 +24,7 @@ struct MCPSettingsSectionView: View {
 
                 Toggle("", isOn: $settings.isEnabled)
                     .toggleStyle(.switch)
+                    .disabled(settings.status == .restarting)
                     .onChange(of: settings.isEnabled) { _, isEnabled in
                         if isEnabled {
                             manager.start()
@@ -58,6 +59,13 @@ struct MCPSettingsSectionView: View {
                     settings.regenerateExternalToken()
                     manager.restart()
                 }
+
+                Button("Force Restart", systemImage: "arrow.clockwise") {
+                    Task {
+                        await manager.forceRestart()
+                    }
+                }
+                .disabled(!settings.isEnabled || settings.status == .restarting)
             }
 
             Text("First version is local-only, bookmark-only, and does not expose delete tools.")
@@ -70,6 +78,8 @@ struct MCPSettingsSectionView: View {
         switch settings.status {
         case .running:
             .green
+        case .restarting:
+            .orange
         case .failed, .portUnavailable:
             .red
         case .stopped:

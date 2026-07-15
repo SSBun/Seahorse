@@ -58,6 +58,7 @@ export function registerTools(server: McpServer, bridge: BridgeClient): void {
   registerBridgeTool(server, bridge, "delete_item", deleteItemShape, { destructiveHint: true });
   registerBridgeTool(server, bridge, "list_tags", {});
   registerBridgeTool(server, bridge, "search_tags", searchNameShape);
+  registerBridgeTool(server, bridge, "delete_tag", deleteItemShape, { destructiveHint: true });
   registerBridgeTool(server, bridge, "list_categories", {});
   registerBridgeTool(server, bridge, "search_categories", searchNameShape);
 }

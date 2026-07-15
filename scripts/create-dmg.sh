@@ -9,6 +9,8 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}Building Seahorse...${NC}"
 
+./scripts/build-mcp-helper.sh
+
 # Optional: disable code signing (for CI)
 NO_SIGN=${NO_SIGN:-0}
 if [ "$NO_SIGN" = "1" ]; then
@@ -36,6 +38,28 @@ if [ -z "$APP_PATH" ]; then
 fi
 
 echo -e "${GREEN}App built at: $APP_PATH${NC}"
+
+# Bundle the production MCP helper before copying and packaging the app.
+HELPER_PATH="$APP_PATH/Contents/Resources/MCPHelper"
+mkdir -p "$HELPER_PATH"
+cp MCPHelper/package.json MCPHelper/package-lock.json "$HELPER_PATH/"
+cp -R MCPHelper/dist "$HELPER_PATH/"
+npm ci --omit=dev --ignore-scripts --prefix "$HELPER_PATH"
+
+if [ "$NO_SIGN" != "1" ]; then
+  SIGNING_IDENTITY=$(codesign -dv --verbose=4 "$APP_PATH" 2>&1 | sed -n 's/^Authority=//p' | head -n 1)
+  if [ -z "$SIGNING_IDENTITY" ]; then
+    echo -e "${RED}Error: Could not determine app signing identity${NC}"
+    exit 1
+  fi
+  codesign \
+    --force \
+    --sign "$SIGNING_IDENTITY" \
+    --preserve-metadata=identifier,entitlements,requirements,flags,runtime \
+    --timestamp=none \
+    "$APP_PATH"
+  codesign --verify --deep --strict "$APP_PATH"
+fi
 
 # Get version from tag or use default
 VERSION=${1:-"dev"}

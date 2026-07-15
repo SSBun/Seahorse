@@ -202,6 +202,8 @@ final class MCPBookmarkBridgeService {
             await updateBookmark(request.payload ?? [:])
         case "delete_item":
             deleteItem(request.payload ?? [:])
+        case "delete_tag":
+            deleteTag(request.payload ?? [:])
         case "list_tags":
             .success(.array(dataStorage.tags.map(tagJSON)))
         case "search_tags":
@@ -306,6 +308,26 @@ private extension MCPBookmarkBridgeService {
             return .success(.object([
                 "id": .string(id.uuidString),
                 "type": .string(item.itemType.rawValue)
+            ]))
+        } catch {
+            return .failure(code: "delete_failed", message: error.localizedDescription)
+        }
+    }
+
+    func deleteTag(_ payload: [String: JSONValue]) -> MCPBridgeResponse {
+        guard let idString = payload["id"]?.stringValue,
+              let id = UUID(uuidString: idString) else {
+            return .failure(code: "validation_error", message: "id must be a valid tag id")
+        }
+        guard let tag = dataStorage.tag(for: id) else {
+            return .failure(code: "not_found", message: "Tag not found")
+        }
+
+        do {
+            try dataStorage.deleteTag(tag)
+            return .success(.object([
+                "id": .string(id.uuidString),
+                "name": .string(tag.name)
             ]))
         } catch {
             return .failure(code: "delete_failed", message: error.localizedDescription)

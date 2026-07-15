@@ -1,6 +1,7 @@
 #if os(macOS)
 import Foundation
 import AppKit
+import Darwin
 
 @MainActor
 final class MCPHelperManager: ObservableObject {
@@ -13,6 +14,25 @@ final class MCPHelperManager: ObservableObject {
     private var intentionalStop = false
 
     private init() {}
+
+    nonisolated static func matchingHelperProcessIDs(
+        in processList: String,
+        helperScriptPath: String
+    ) -> [Int32] {
+        let helperCommand = "node \(helperScriptPath)"
+
+        return processList.split(whereSeparator: \.isNewline).compactMap { line in
+            let parts = line.split(maxSplits: 1, whereSeparator: \.isWhitespace)
+            guard
+                parts.count == 2,
+                let processID = Int32(parts[0]),
+                parts[1].trimmingCharacters(in: .whitespaces) == helperCommand
+            else {
+                return nil
+            }
+            return processID
+        }
+    }
 
     func startIfNeeded() {
         if settings.isEnabled {
@@ -39,12 +59,12 @@ final class MCPHelperManager: ObservableObject {
             process.environment = helperEnvironment()
             process.terminationHandler = { [weak self] process in
                 Task { @MainActor in
-                    self?.handleHelperExit(process.terminationStatus)
+                    self?.handleHelperExit(process)
                 }
             }
+            helperProcess = process
             try process.run()
 
-            helperProcess = process
             settings.status = .running
         } catch {
             bridgeServer.stop()
@@ -63,13 +83,45 @@ final class MCPHelperManager: ObservableObject {
     }
 
     func restart() {
-        stop()
-        if settings.isEnabled {
-            start()
+        Task {
+            await forceRestart()
         }
     }
 
-    private func handleHelperExit(_ status: Int32) {
+    func forceRestart() async {
+        guard settings.isEnabled, settings.status != .restarting else { return }
+        guard let helperScriptURL else {
+            settings.status = .failed
+            return
+        }
+
+        settings.status = .restarting
+        intentionalStop = true
+        restartAttempts = 0
+
+        if let process = helperProcess {
+            helperProcess = nil
+            await terminate(process)
+        }
+        bridgeServer.stop()
+
+        let processList = await Task.detached(priority: .userInitiated) {
+            Self.loadProcessList()
+        }.value
+        let staleProcessIDs = Self.matchingHelperProcessIDs(
+            in: processList,
+            helperScriptPath: helperScriptURL.path
+        )
+        for processID in staleProcessIDs {
+            await terminate(processID)
+        }
+
+        intentionalStop = false
+        start()
+    }
+
+    private func handleHelperExit(_ process: Process) {
+        guard helperProcess === process else { return }
         helperProcess = nil
         guard !intentionalStop, settings.isEnabled else { return }
 
@@ -79,6 +131,62 @@ final class MCPHelperManager: ObservableObject {
         } else {
             bridgeServer.stop()
             settings.status = .failed
+        }
+    }
+
+    private func terminate(_ process: Process) async {
+        guard process.isRunning else { return }
+        process.terminate()
+        if await waitForExit(of: process) { return }
+
+        kill(process.processIdentifier, SIGKILL)
+        _ = await waitForExit(of: process)
+    }
+
+    private func terminate(_ processID: Int32) async {
+        guard processExists(processID) else { return }
+        kill(processID, SIGTERM)
+        if await waitForExit(of: processID) { return }
+
+        kill(processID, SIGKILL)
+        _ = await waitForExit(of: processID)
+    }
+
+    private func waitForExit(of process: Process) async -> Bool {
+        for _ in 0..<20 {
+            if !process.isRunning { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return !process.isRunning
+    }
+
+    private func waitForExit(of processID: Int32) async -> Bool {
+        for _ in 0..<20 {
+            if !processExists(processID) { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return !processExists(processID)
+    }
+
+    private func processExists(_ processID: Int32) -> Bool {
+        if kill(processID, 0) == 0 { return true }
+        return errno == EPERM
+    }
+
+    private nonisolated static func loadProcessList() -> String {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-axww", "-o", "pid=,command="]
+        process.standardOutput = output
+
+        do {
+            try process.run()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            return ""
         }
     }
 

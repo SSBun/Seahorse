@@ -19,3 +19,4 @@
 - 编写版本管理 SOP 时，优先沉淀通用规范和 checklist；不要写成某个项目的一次性 release notes，也不要遗漏标准版本格式、CHANGELOG 规范、source of truth 和发布边界。
 - 为 MCP 设计图片/海报更新能力时，不要只考虑远程 URL；必须同时明确本地文件输入、文件权限、是否复制到 Seahorse Images 存储、以及最终保存字段。
 - 使用 MCP SDK 注册工具时，不要依赖同时接受 Zod shape 和 annotations 的歧义 `tool()` 重载，更不能传无意义的空 annotations；优先使用 `registerTool()` 配置对象，并用真实 `callTool` 回归测试覆盖 handler 调用。
+- SwiftUI 固有宽度控件放进 `frame(maxWidth:)` 时会默认居中；要求左对齐时必须显式设置 `alignment: .leading`，并检查同类控件是否使用相同布局。

@@ -30,6 +30,34 @@ final class DataStorageSearchIndexTests: XCTestCase {
         XCTAssertEqual(search(storage, "UpdatedTag"), [bookmark.id])
     }
 
+    func testDeleteTagRemovesReferencesFromAllItemTypes() throws {
+        let storage = DataStorage(database: MockDatabase())
+        let category = try XCTUnwrap(storage.categories.first)
+        let tag = Tag(name: "Delete Me", color: .blue)
+        try storage.addTag(tag)
+        storage.addItem(AnyCollectionItem(Bookmark(
+            title: "Bookmark",
+            url: "https://example.com",
+            categoryId: category.id,
+            tagIds: [tag.id]
+        )))
+        storage.addItem(AnyCollectionItem(ImageItem(
+            imagePath: "/tmp/image.png",
+            categoryId: category.id,
+            tagIds: [tag.id]
+        )))
+        storage.addItem(AnyCollectionItem(TextItem(
+            content: "Text",
+            categoryId: category.id,
+            tagIds: [tag.id]
+        )))
+
+        try storage.deleteTag(tag)
+
+        XCTAssertNil(storage.tag(for: tag.id))
+        XCTAssertTrue(storage.items.allSatisfy { !$0.tagIds.contains(tag.id) })
+    }
+
     private func search(_ storage: DataStorage, _ query: String) -> [UUID] {
         CollectionSearch.items(
             in: storage.searchRecordsSnapshot(),

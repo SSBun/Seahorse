@@ -410,6 +410,25 @@ class DataStorage: ObservableObject {
     }
 
     func deleteTag(_ tag: Tag) throws {
+        let updatedItems = items.compactMap { item -> AnyCollectionItem? in
+            if var bookmark = item.asBookmark, bookmark.tagIds.contains(tag.id) {
+                bookmark.removeTag(tag.id)
+                bookmark.modifiedDate = .now
+                return AnyCollectionItem(bookmark)
+            }
+            if var imageItem = item.asImageItem, imageItem.tagIds.contains(tag.id) {
+                imageItem.removeTag(tag.id)
+                imageItem.modifiedDate = .now
+                return AnyCollectionItem(imageItem)
+            }
+            if var textItem = item.asTextItem, textItem.tagIds.contains(tag.id) {
+                textItem.removeTag(tag.id)
+                textItem.modifiedDate = .now
+                return AnyCollectionItem(textItem)
+            }
+            return nil
+        }
+        try updateItems(updatedItems)
         try database.deleteTag(tag)
         tags.removeAll { $0.id == tag.id }
         rebuildTagCache()
