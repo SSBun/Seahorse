@@ -66,6 +66,10 @@ struct ContentView: View {
         cachedItems
     }
 
+    private var diagnosticIssueCount: Int {
+        diagnosticService.brokenBookmarks.count + diagnosticService.unverifiedBookmarks.count
+    }
+
     var navigationTitle: String {
         guard let sidebarSelection else { return "Bookmarks" }
         switch sidebarSelection {
@@ -239,7 +243,7 @@ struct ContentView: View {
                             showingDiagnosticResults = true
                         }) {
                             Label(
-                                diagnosticService.brokenBookmarks.isEmpty ? "Check Broken Bookmarks" : "Broken Bookmarks (\(diagnosticService.brokenBookmarks.count))",
+                                diagnosticIssueCount == 0 ? "Check Bookmark Links" : "Link Issues (\(diagnosticIssueCount))",
                                 systemImage: diagnosticService.isRunning ? "stethoscope.fill" : "stethoscope"
                             )
                         }

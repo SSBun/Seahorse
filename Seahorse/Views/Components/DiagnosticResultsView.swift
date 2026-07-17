@@ -10,8 +10,8 @@ import SwiftUI
 import AppKit
 
 enum DiagnosticErrorCategory: String, CaseIterable, Identifiable {
-    case all = "All Errors"
-    case notFound = "Not Found (404)"
+    case all = "All Issues"
+    case notFound = "Not Found / Gone"
     case forbidden = "Access Denied (401/403)"
     case serverError = "Server Error (5xx)"
     case networkError = "Network Error"
@@ -37,7 +37,7 @@ enum DiagnosticErrorCategory: String, CaseIterable, Identifiable {
     }
 
     func matches(_ result: BookmarkDiagnosticResult) -> Bool {
-        guard case .broken(let reason) = result.status else { return false }
+        guard let reason = result.status.reason else { return false }
 
         switch self {
         case .all:
@@ -83,6 +83,14 @@ struct DiagnosticResultsView: View {
     @State private var showingDeleteConfirmation = false
     @State private var selectedCategory: DiagnosticErrorCategory = .all
 
+    /// Returns broken and unverified results in scan order.
+    /// - Complexity: O(n).
+    private var issueResults: [BookmarkDiagnosticResult] {
+        diagnosticService.results.filter { result in
+            result.status.reason != nil
+        }
+    }
+
     private var filteredBookmarks: [Bookmark] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let all = dataStorage.bookmarks
@@ -94,13 +102,31 @@ struct DiagnosticResultsView: View {
     }
 
     var filteredResults: [BookmarkDiagnosticResult] {
-        diagnosticService.brokenBookmarks.filter { selectedCategory.matches($0) }
+        issueResults.filter { selectedCategory.matches($0) }
+    }
+
+    /// Returns filtered results that are safe to offer for deletion.
+    /// - Complexity: O(n).
+    var deletableFilteredResults: [BookmarkDiagnosticResult] {
+        filteredResults.filter { result in
+            if case .broken = result.status { return true }
+            return false
+        }
+    }
+
+    /// Returns filtered results that require manual verification.
+    /// - Complexity: O(n).
+    var unverifiedFilteredResults: [BookmarkDiagnosticResult] {
+        filteredResults.filter { result in
+            if case .unverified = result.status { return true }
+            return false
+        }
     }
 
     var categoryCounts: [DiagnosticErrorCategory: Int] {
         var counts: [DiagnosticErrorCategory: Int] = [:]
         for category in DiagnosticErrorCategory.allCases {
-            let count = diagnosticService.brokenBookmarks.filter { category.matches($0) }.count
+            let count = issueResults.filter { category.matches($0) }.count
             if count > 0 {
                 counts[category] = count
             }
@@ -148,7 +174,7 @@ struct DiagnosticResultsView: View {
 
             if phase == .selection {
                 // Back to results if scan was previously run
-                if !diagnosticService.brokenBookmarks.isEmpty && !diagnosticService.isRunning {
+                if !issueResults.isEmpty && !diagnosticService.isRunning {
                     Button("View Previous Results") {
                         phase = .results
                     }
@@ -198,11 +224,25 @@ struct DiagnosticResultsView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.red)
                 }
+
+                if !diagnosticService.unverifiedBookmarks.isEmpty {
+                    Text("• \(diagnosticService.unverifiedBookmarks.count) unverified")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.orange)
+                }
             }
-        } else if !diagnosticService.brokenBookmarks.isEmpty {
-            Text("\(diagnosticService.brokenBookmarks.count) broken bookmarks found")
-                .font(.system(size: 12))
-                .foregroundStyle(.red)
+        } else if !issueResults.isEmpty {
+            HStack(spacing: 6) {
+                if !diagnosticService.brokenBookmarks.isEmpty {
+                    Text("\(diagnosticService.brokenBookmarks.count) broken")
+                        .foregroundStyle(.red)
+                }
+                if !diagnosticService.unverifiedBookmarks.isEmpty {
+                    Text("\(diagnosticService.unverifiedBookmarks.count) unverified")
+                        .foregroundStyle(.orange)
+                }
+            }
+            .font(.system(size: 12))
         } else if diagnosticService.checkedCount > 0 {
             Text("All bookmarks are accessible ✓")
                 .font(.system(size: 12))
@@ -325,7 +365,7 @@ struct DiagnosticResultsView: View {
     private var resultsContent: some View {
         VStack(spacing: 0) {
             // Category filter
-            if !diagnosticService.brokenBookmarks.isEmpty {
+            if !issueResults.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(DiagnosticErrorCategory.allCases) { category in
@@ -382,17 +422,39 @@ struct DiagnosticResultsView: View {
             }
 
             // Results list
-            if diagnosticService.brokenBookmarks.isEmpty {
+            if issueResults.isEmpty {
                 resultsEmptyState
             } else {
                 ScrollView {
                     LazyVStack(spacing: 1) {
-                        ForEach(filteredResults) { result in
-                            DiagnosticResultRow(
-                                result: result,
-                                isSelected: selectedResults.contains(result.id)
-                            ) {
-                                toggleSelection(result.id)
+                        if !deletableFilteredResults.isEmpty {
+                            resultSectionHeader(
+                                title: "Broken",
+                                count: deletableFilteredResults.count,
+                                color: .red
+                            )
+                            ForEach(deletableFilteredResults) { result in
+                                DiagnosticResultRow(
+                                    result: result,
+                                    isSelected: selectedResults.contains(result.id)
+                                ) {
+                                    toggleSelection(result.id)
+                                }
+                            }
+                        }
+
+                        if !unverifiedFilteredResults.isEmpty {
+                            resultSectionHeader(
+                                title: "Unverified",
+                                count: unverifiedFilteredResults.count,
+                                color: .orange
+                            )
+                            ForEach(unverifiedFilteredResults) { result in
+                                DiagnosticResultRow(
+                                    result: result,
+                                    isSelected: false,
+                                    onToggle: { }
+                                )
                             }
                         }
                     }
@@ -401,12 +463,27 @@ struct DiagnosticResultsView: View {
             }
 
             // Footer with actions
-            if !diagnosticService.brokenBookmarks.isEmpty {
+            if !issueResults.isEmpty {
                 Divider()
 
                 resultsFooter
             }
         }
+    }
+
+    private func resultSectionHeader(title: String, count: Int, color: Color) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(color)
+            Text("\(count)")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(NSColor.controlBackgroundColor))
     }
 
     @ViewBuilder
@@ -420,7 +497,7 @@ struct DiagnosticResultsView: View {
                 Text("Scanning...")
                     .font(.system(size: 18, weight: .semibold))
 
-                Text("No broken bookmarks found yet")
+                Text("No link issues found yet")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             } else if diagnosticService.checkedCount > 0 {
@@ -486,9 +563,10 @@ struct DiagnosticResultsView: View {
             }
             .buttonStyle(.borderless)
 
-            if selectedResults.count < filteredResults.count {
+            if !deletableFilteredResults.isEmpty,
+               selectedResults.count < deletableFilteredResults.count {
                 Button(selectedCategory == .all ? "Select All" : "Select All in Category") {
-                    selectedResults = Set(filteredResults.map { $0.id })
+                    selectedResults = Set(deletableFilteredResults.map { $0.id })
                 }
                 .buttonStyle(.borderless)
                 .disabled(diagnosticService.isRunning)
@@ -528,6 +606,7 @@ struct DiagnosticResultsView: View {
 
         do {
             try dataStorage.deleteItems(ids: bookmarksToDelete.map(\.id))
+            diagnosticService.results.removeAll { selectedResults.contains($0.id) }
             diagnosticService.brokenBookmarks.removeAll { selectedResults.contains($0.id) }
             selectedResults.removeAll()
         } catch {
@@ -591,19 +670,30 @@ struct DiagnosticResultRow: View {
 
     @State private var isHovered = false
 
+    private var isBroken: Bool {
+        if case .broken = result.status { return true }
+        return false
+    }
+
     var body: some View {
         HStack(spacing: 12) {
-            Button(action: onToggle) {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+            if isBroken {
+                Button(action: onToggle) {
+                    Image(systemName: isSelected ? "checkmark.square.fill" : "square")
+                        .font(.system(size: 18))
+                        .foregroundStyle(isSelected ? .blue : .secondary)
+                }
+                .buttonStyle(.plain)
+                .onTapGesture { }
+            } else {
+                Image(systemName: "questionmark.square.dashed")
                     .font(.system(size: 18))
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                    .foregroundStyle(.orange)
             }
-            .buttonStyle(.plain)
-            .onTapGesture { }
 
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.red.opacity(0.1))
+                    .fill((isBroken ? Color.red : Color.orange).opacity(0.1))
 
                 BookmarkIconView(iconString: result.bookmark.icon, size: 16)
                     .frame(width: 24, height: 24)
@@ -627,15 +717,15 @@ struct DiagnosticResultRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
 
-                if case .broken(let reason) = result.status {
+                if let reason = result.status.reason {
                     HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
+                        Image(systemName: isBroken ? "exclamationmark.triangle.fill" : "questionmark.circle.fill")
                             .font(.system(size: 10))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(isBroken ? .red : .orange)
 
                         Text(reason)
                             .font(.system(size: 11))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(isBroken ? .red : .orange)
 
                         if let errorMessage = result.errorMessage {
                             Text("• \(errorMessage)")
@@ -657,7 +747,7 @@ struct DiagnosticResultRow: View {
                     .padding(.vertical, 4)
                     .background(
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(statusCode >= 400 ? Color.red : Color.orange)
+                            .fill(isBroken ? Color.red : Color.orange)
                     )
             }
         }

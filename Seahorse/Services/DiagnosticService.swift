@@ -9,10 +9,25 @@
 
 import Foundation
 
-enum BookmarkStatus {
+enum BookmarkStatus: Equatable {
+    /// Indicates that the link check is still running.
     case checking
+    /// Indicates that the link responded successfully.
     case accessible
+    /// Indicates that the link could not be verified by this check.
+    case unverified(reason: String)
+    /// Indicates that the link is known to be invalid.
     case broken(reason: String)
+
+    /// Describes why a link is broken or could not be verified.
+    var reason: String? {
+        switch self {
+        case .unverified(let reason), .broken(let reason):
+            return reason
+        case .checking, .accessible:
+            return nil
+        }
+    }
 }
 
 struct BookmarkDiagnosticResult: Identifiable {
@@ -25,6 +40,9 @@ struct BookmarkDiagnosticResult: Identifiable {
 
 @MainActor
 class DiagnosticService: ObservableObject {
+    /// Loads a request and returns its response without imposing HTTP status semantics.
+    typealias RequestLoader = (URLRequest) async throws -> (Data, URLResponse)
+
     @Published var isRunning = false
     @Published var currentBookmark: Bookmark?
     @Published var progress: Double = 0
@@ -32,12 +50,28 @@ class DiagnosticService: ObservableObject {
     @Published var checkedCount: Int = 0
     @Published var results: [BookmarkDiagnosticResult] = []
     @Published var brokenBookmarks: [BookmarkDiagnosticResult] = []
+
+    /// Returns results that require manual verification.
+    /// - Complexity: O(n).
+    var unverifiedBookmarks: [BookmarkDiagnosticResult] {
+        results.filter { result in
+            if case .unverified = result.status { return true }
+            return false
+        }
+    }
     
     private var task: Task<Void, Never>?
     private weak var dataStorage: DataStorage?
+    private let requestLoader: RequestLoader
     
-    init(dataStorage: DataStorage) {
+    init(
+        dataStorage: DataStorage,
+        requestLoader: @escaping RequestLoader = { request in
+            try await NetworkManager.shared.data(for: request)
+        }
+    ) {
         self.dataStorage = dataStorage
+        self.requestLoader = requestLoader
     }
     
     func start(bookmarks: [Bookmark]? = nil) {
@@ -67,6 +101,7 @@ class DiagnosticService: ObservableObject {
             print("  ⏱️ Duration: \(String(format: "%.2f", duration)) seconds")
             print("  📈 Speed: \(String(format: "%.1f", Double(targetBookmarks.count) / duration)) bookmarks/second")
             print("  ❌ Broken bookmarks: \(self.brokenBookmarks.count)")
+            print("  ❓ Unverified bookmarks: \(self.unverifiedBookmarks.count)")
             
             await MainActor.run {
                 self.isRunning = false
@@ -95,7 +130,7 @@ class DiagnosticService: ObservableObject {
             }
             
             func getResults() -> (all: [BookmarkDiagnosticResult], broken: [BookmarkDiagnosticResult], count: Int) {
-                return (results, brokenResults, checkedCount)
+                (results, brokenResults, checkedCount)
             }
         }
         
@@ -172,6 +207,30 @@ class DiagnosticService: ObservableObject {
         results = []
         brokenBookmarks = []
     }
+
+    /// Classifies an HTTP response without treating temporary or restricted responses as broken.
+    static func status(forHTTPStatusCode statusCode: Int) -> BookmarkStatus {
+        switch statusCode {
+        case 200...399:
+            return .accessible
+        case 401:
+            return .unverified(reason: "Authentication Required (401)")
+        case 403:
+            return .unverified(reason: "Access Restricted (403)")
+        case 404:
+            return .unverified(reason: "Not Found (404)")
+        case 410:
+            return .broken(reason: "Gone (410)")
+        case 429:
+            return .unverified(reason: "Rate Limited (429)")
+        case 400...499:
+            return .unverified(reason: "Client Response (\(statusCode))")
+        case 500...599:
+            return .unverified(reason: "Server Error (\(statusCode))")
+        default:
+            return .unverified(reason: "Unexpected HTTP Status (\(statusCode))")
+        }
+    }
     
     private func checkBookmark(_ bookmark: Bookmark) async -> BookmarkDiagnosticResult {
         guard let url = URL(string: bookmark.url) else {
@@ -199,69 +258,31 @@ class DiagnosticService: ObservableObject {
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         
         do {
-            let (_, response) = try await NetworkManager.shared.data(for: request)
+            var response = try await requestLoader(request).1
+
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode == 405 || httpResponse.statusCode == 501 {
+                request.httpMethod = "GET"
+                request.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+                response = try await requestLoader(request).1
+            }
             
             if let httpResponse = response as? HTTPURLResponse {
                 let statusCode = httpResponse.statusCode
-                
-                switch statusCode {
-                case 200...299:
-                    return BookmarkDiagnosticResult(
-                        bookmark: bookmark,
-                        status: .accessible,
-                        httpStatusCode: statusCode,
-                        errorMessage: nil
-                    )
-                case 300...399:
-                    // Redirect - still accessible
-                    return BookmarkDiagnosticResult(
-                        bookmark: bookmark,
-                        status: .accessible,
-                        httpStatusCode: statusCode,
-                        errorMessage: nil
-                    )
-                case 400...499:
-                    let reason: String
-                    switch statusCode {
-                    case 401:
-                        reason = "Unauthorized (401)"
-                    case 403:
-                        reason = "Forbidden (403)"
-                    case 404:
-                        reason = "Not Found (404)"
-                    case 410:
-                        reason = "Gone (410)"
-                    default:
-                        reason = "Client Error (\(statusCode))"
-                    }
-                    return BookmarkDiagnosticResult(
-                        bookmark: bookmark,
-                        status: .broken(reason: reason),
-                        httpStatusCode: statusCode,
-                        errorMessage: "The page returned an error: \(reason)"
-                    )
-                case 500...599:
-                    return BookmarkDiagnosticResult(
-                        bookmark: bookmark,
-                        status: .broken(reason: "Server Error (\(statusCode))"),
-                        httpStatusCode: statusCode,
-                        errorMessage: "The server is experiencing issues"
-                    )
-                default:
-                    return BookmarkDiagnosticResult(
-                        bookmark: bookmark,
-                        status: .broken(reason: "Unknown Status (\(statusCode))"),
-                        httpStatusCode: statusCode,
-                        errorMessage: "Unexpected HTTP status code"
-                    )
-                }
+                let status = Self.status(forHTTPStatusCode: statusCode)
+                return BookmarkDiagnosticResult(
+                    bookmark: bookmark,
+                    status: status,
+                    httpStatusCode: statusCode,
+                    errorMessage: nil
+                )
             }
             
             return BookmarkDiagnosticResult(
                 bookmark: bookmark,
-                status: .accessible,
+                status: .unverified(reason: "Non-HTTP Response"),
                 httpStatusCode: nil,
-                errorMessage: nil
+                errorMessage: "The server did not return an HTTP response"
             )
             
         } catch let error as NSError {
@@ -302,11 +323,10 @@ class DiagnosticService: ObservableObject {
             
             return BookmarkDiagnosticResult(
                 bookmark: bookmark,
-                status: .broken(reason: reason),
+                status: .unverified(reason: reason),
                 httpStatusCode: nil,
                 errorMessage: message
             )
         }
     }
 }
-
