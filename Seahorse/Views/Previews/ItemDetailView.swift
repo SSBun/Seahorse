@@ -28,6 +28,7 @@ private struct TextDetailMetadata {
 struct ItemDetailView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @Environment(\.dismissWindow) var dismissWindow
+    @Environment(\.openWindow) private var openWindow
     
     let item: AnyCollectionItem
     @State private var selectedCategoryId: UUID?
@@ -47,6 +48,7 @@ struct ItemDetailView: View {
     @State private var notesSaveTask: Task<Void, Never>?
     @State private var imageDetailMetadata: ImageDetailMetadata?
     @State private var textDetailMetadata: TextDetailMetadata?
+    @State private var isSelectingCoverReferenceSnapshot = false
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     
     // Extract specific item types
@@ -119,7 +121,11 @@ struct ItemDetailView: View {
             switch item.itemType {
             case .bookmark:
                 if let bookmark = bookmark {
-                    BookmarkDetailContentView(bookmark: bookmark)
+                    BookmarkDetailContentView(
+                        bookmark: bookmark,
+                        isSelectingCoverReferenceSnapshot: $isSelectingCoverReferenceSnapshot,
+                        onCoverReferenceSnapshot: openCoverGeneration
+                    )
                 } else {
                     Text("Invalid bookmark")
                         .foregroundStyle(.secondary)
@@ -494,8 +500,23 @@ struct ItemDetailView: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
 
-            // AI Cover Generation Button
-            Button(action: generateCoverImage) {
+            Menu {
+                Button {
+                    openCoverGeneration(referenceImage: nil)
+                } label: {
+                    Label("Without Example Image", systemImage: "sparkles")
+                }
+
+                Button {
+                    isSelectingCoverReferenceSnapshot = true
+                } label: {
+                    Label("Crop Page Snapshot", systemImage: "crop")
+                }
+
+                Button(action: pasteCoverReferenceImage) {
+                    Label("Paste Example Image", systemImage: "doc.on.clipboard")
+                }
+            } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 11))
@@ -505,7 +526,7 @@ struct ItemDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 6)
             }
-            .buttonStyle(.bordered)
+            .menuStyle(.button)
 
             previewDropArea
             
@@ -673,11 +694,23 @@ struct ItemDetailView: View {
         return false
     }
     
-    private func generateCoverImage() {
+    private func openCoverGeneration(referenceImage: NSImage?) {
         guard let bookmark = bookmark else { return }
-        Log.info("User triggered cover generation for: \"\(bookmark.title)\"", category: .ai)
-        imageGenerationService.generate(for: bookmark)
-        imageGenerationService.showingPanel = true
+        Log.info("User opened cover generation for: \"\(bookmark.title)\"", category: .ai)
+        imageGenerationService.prepare(for: bookmark, referenceImage: referenceImage)
+        openWindow(id: "image-generation")
+    }
+
+    private func pasteCoverReferenceImage() {
+        guard let image = NSPasteboard.general.readObjects(
+            forClasses: [NSImage.self],
+            options: nil
+        )?.first as? NSImage else {
+            alertMessage = "The clipboard does not contain an image."
+            showingAlert = true
+            return
+        }
+        openCoverGeneration(referenceImage: image)
     }
 
     private func persistPreviewImage(_ image: NSImage) {

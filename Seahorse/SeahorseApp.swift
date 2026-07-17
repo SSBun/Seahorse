@@ -89,6 +89,13 @@ struct SeahorseApp: App {
         .defaultSize(width: 1600, height: 1000)
         .defaultPosition(.center)
 
+        Window("Image Generation", id: "image-generation") {
+            ImageGenerationPanelView(service: imageGenerationService)
+                .environmentObject(dataStorage)
+        }
+        .defaultSize(width: 760, height: 680)
+        .defaultPosition(.center)
+
         // Settings window
         Settings {
             SettingsView()

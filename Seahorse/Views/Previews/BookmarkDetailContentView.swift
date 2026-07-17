@@ -13,6 +13,8 @@ import WebKit
 struct BookmarkDetailContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
     let bookmark: Bookmark
+    @Binding var isSelectingCoverReferenceSnapshot: Bool
+    let onCoverReferenceSnapshot: (NSImage) -> Void
     @State private var webView: WKWebView?
     @State private var canGoBack = false
     @State private var canGoForward = false
@@ -24,6 +26,7 @@ struct BookmarkDetailContentView: View {
     @State private var snapshotOverlaySize: CGSize = .zero
     @State private var isSavingSnapshot = false
     @State private var snapshotError: String?
+    @State private var snapshotPurpose: SnapshotPurpose = .bookmarkPreview
     @AppStorage("snapshotAspectRatioV2") private var snapshotAspectRatio = SnapshotAspectRatio.sixteenNine.rawValue
 
     private var currentBookmark: Bookmark? {
@@ -46,6 +49,11 @@ struct BookmarkDetailContentView: View {
         }
         .onChange(of: currentURLString) { _, newURLString in
             resetWebViewForURLChange(newURLString)
+        }
+        .onChange(of: isSelectingCoverReferenceSnapshot) { _, isRequested in
+            if isRequested {
+                beginSnapshotMode(for: .coverReference)
+            }
         }
     }
 
@@ -83,6 +91,7 @@ struct BookmarkDetailContentView: View {
                             isSaving: isSavingSnapshot,
                             onSave: captureSnapshot,
                             onCancel: exitSnapshotMode,
+                            confirmLabel: snapshotPurpose == .coverReference ? "Use Image" : "Save",
                             errorMessage: snapshotError
                         )
                     }
@@ -223,14 +232,20 @@ struct BookmarkDetailContentView: View {
         if isSnapshotMode {
             exitSnapshotMode()
         } else {
-            snapshotSelection = nil
-            snapshotError = nil
-            isSnapshotMode = true
+            beginSnapshotMode(for: .bookmarkPreview)
         }
+    }
+
+    private func beginSnapshotMode(for purpose: SnapshotPurpose) {
+        snapshotPurpose = purpose
+        snapshotSelection = nil
+        snapshotError = nil
+        isSnapshotMode = true
     }
 
     private func exitSnapshotMode() {
         isSnapshotMode = false
+        isSelectingCoverReferenceSnapshot = false
         snapshotSelection = nil
         snapshotError = nil
     }
@@ -242,6 +257,7 @@ struct BookmarkDetailContentView: View {
         canGoForward = false
         isLoading = true
         isSnapshotMode = false
+        isSelectingCoverReferenceSnapshot = false
         snapshotSelection = nil
         snapshotError = nil
 
@@ -298,6 +314,12 @@ struct BookmarkDetailContentView: View {
                     return
                 }
 
+                if snapshotPurpose == .coverReference {
+                    onCoverReferenceSnapshot(image)
+                    exitSnapshotMode()
+                    return
+                }
+
                 let imagesDirectory = StorageManager.shared.getImagesDirectory()
                 guard let path = try? await ImageFileService.shared.savePNG(
                     image,
@@ -343,6 +365,7 @@ private struct SnapshotSelectionOverlay: View {
     let isSaving: Bool
     let onSave: () -> Void
     let onCancel: () -> Void
+    let confirmLabel: String
     let errorMessage: String?
 
     @State private var dragStart: CGPoint?
@@ -411,7 +434,7 @@ private struct SnapshotSelectionOverlay: View {
                     }
                     .buttonStyle(.bordered)
 
-                    Button("Save") {
+                    Button(confirmLabel) {
                         onSave()
                     }
                     .buttonStyle(.borderedProminent)
@@ -583,6 +606,11 @@ private struct SnapshotSelectionOverlay: View {
             }
         }
     }
+}
+
+private enum SnapshotPurpose {
+    case bookmarkPreview
+    case coverReference
 }
 
 private enum SnapshotAspectRatio: String, CaseIterable, Identifiable {

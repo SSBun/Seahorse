@@ -46,6 +46,13 @@ struct ParsedBookmarkData {
     let suggestedSFSymbol: String?
 }
 
+private struct ImageAISettings: Sendable {
+    let provider: AgentProviderKind
+    let apiToken: String
+    let apiBaseURL: String
+    let model: String
+}
+
 actor AIManager {
     nonisolated private func getSettings() async -> (apiToken: String, apiBaseURL: String, model: String, pageSummaryPrompt: String, categorizingPrompt: String, tagSuggestionPrompt: String, titleRefinementPrompt: String, aiLanguage: AILanguage) {
         await MainActor.run {
@@ -63,13 +70,28 @@ actor AIManager {
         }
     }
 
-    nonisolated private func getImageSettings() async -> (apiToken: String, apiBaseURL: String, model: String) {
+    nonisolated private func getImageSettings() async -> ImageAISettings {
         await MainActor.run {
             let settings = AISettings.shared
-            if settings.useSharedImageApi {
-                return (apiToken: settings.apiToken, apiBaseURL: settings.apiBaseURL, model: settings.imageModel)
+            let provider = settings.selectedImageProvider
+            switch provider.kind {
+            case .openAICodex:
+                return ImageAISettings(
+                    provider: provider.kind,
+                    apiToken: "",
+                    apiBaseURL: "",
+                    model: settings.codexImageModel
+                )
+            case .openAICompatible:
+                return ImageAISettings(
+                    provider: provider.kind,
+                    apiToken: settings.token(for: provider.id),
+                    apiBaseURL: provider.apiBaseURL,
+                    model: settings.imageModel
+                )
+            case .claudeCompatible:
+                preconditionFailure("Claude-compatible providers cannot be selected for image generation")
             }
-            return (apiToken: settings.imageApiToken, apiBaseURL: settings.imageApiBaseURL, model: settings.imageModel)
         }
     }
     
@@ -366,10 +388,8 @@ actor AIManager {
         return try await callAI(client: client, model: settings.model, prompt: prompt, temperature: temperature)
     }
     
-    private func createImageClient() async throws -> OpenAI {
-        let settings = await getImageSettings()
-
-        Log.info("Creating image AI client — model: \(settings.model), baseURL: \(settings.apiBaseURL), token: \(settings.apiToken.isEmpty ? "empty" : "set(\(settings.apiToken.prefix(4))...)")", category: .ai)
+    private func createImageClient(settings: ImageAISettings) throws -> OpenAI {
+        Log.info("Creating image AI client — model: \(settings.model), baseURL: \(settings.apiBaseURL)", category: .ai)
 
         guard !settings.apiToken.isEmpty else {
             Log.error("Image AI client failed: API token is empty", category: .ai)
@@ -400,13 +420,18 @@ actor AIManager {
         return OpenAI(configuration: configuration)
     }
 
-    func generateCoverImage(title: String, description: String?, url: String, siteName: String?) async throws -> Data {
+    func generateCoverImage(
+        title: String,
+        description: String?,
+        url: String,
+        siteName: String?,
+        stylePrompt: String,
+        referenceImageData: Data? = nil
+    ) async throws -> Data {
         Log.info("Starting cover image generation for bookmark: \"\(title)\"", category: .ai)
 
         let settings = await getImageSettings()
         Log.debug("Image settings — model: \(settings.model)", category: .ai)
-
-        let client = try await createImageClient()
 
         var promptParts = ["Generate a visually appealing cover image for a bookmark/link collection app."]
         promptParts.append("The bookmark title is: \"\(title)\"")
@@ -416,23 +441,53 @@ actor AIManager {
         if let site = siteName, !site.isEmpty {
             promptParts.append("Website: \(site)")
         }
-        promptParts.append("Create a modern, clean illustration that represents the content. No text in the image.")
+        promptParts.append("Selected visual style: \(stylePrompt)")
+        if referenceImageData != nil {
+            promptParts.append("Use the supplied example image as a visual reference for its subject, palette, and composition, then reinterpret it in the selected style.")
+        }
+        promptParts.append("Create a modern, polished image that represents the content. No text in the image.")
 
         let prompt = promptParts.joined(separator: " ")
         Log.debug("Image generation prompt (\(prompt.count) chars): \(prompt.prefix(200))...", category: .ai)
 
-        let query = ImagesQuery(
-            prompt: prompt,
-            model: Model(settings.model),
-            n: 1,
-            responseFormat: imageResponseFormat(for: settings.model),
-            size: ._1024x1536
-        )
+        if settings.provider == .openAICodex {
+            #if os(macOS)
+            return try await AgentService().generateCodexImage(
+                prompt: prompt,
+                model: settings.model,
+                referenceImageData: referenceImageData
+            )
+            #else
+            throw AIError.apiError("Codex image generation is only available on macOS.")
+            #endif
+        }
 
-        Log.info("Sending image generation request — model: \(settings.model), size: 1024x1536, response_format=\(imageResponseFormatDescription(for: settings.model))", category: .ai)
+        let client = try createImageClient(settings: settings)
 
         do {
-            let result = try await client.images(query: query)
+            let result: ImagesResult
+            if let referenceImageData {
+                let query = ImageEditsQuery(
+                    images: [.png(referenceImageData)],
+                    prompt: prompt,
+                    model: Model(settings.model),
+                    n: 1,
+                    responseFormat: imageResponseFormat(for: settings.model),
+                    size: ._1024x1536
+                )
+                Log.info("Sending image edit request — model: \(settings.model), size: 1024x1536", category: .ai)
+                result = try await client.imageEdits(query: query)
+            } else {
+                let query = ImagesQuery(
+                    prompt: prompt,
+                    model: Model(settings.model),
+                    n: 1,
+                    responseFormat: imageResponseFormat(for: settings.model),
+                    size: ._1024x1536
+                )
+                Log.info("Sending image generation request — model: \(settings.model), size: 1024x1536, response_format=\(imageResponseFormatDescription(for: settings.model))", category: .ai)
+                result = try await client.images(query: query)
+            }
             Log.debug("Image API returned \(result.data.count) image(s)", category: .ai)
 
             guard let imageData = result.data.first else {

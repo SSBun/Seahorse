@@ -29,6 +29,7 @@ struct ContentView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @EnvironmentObject var itemDetailState: ItemDetailState
     @EnvironmentObject var autoParsingService: AutoParsingService
+    @Environment(\.openWindow) private var openWindow
 
     // UI State
     @State private var sidebarSelection: SidebarSelection?
@@ -249,7 +250,8 @@ struct ContentView: View {
                         }
 
                         Button(action: {
-                            imageGenerationService.showingPanel.toggle()
+                            imageGenerationService.clearPreparedBookmark()
+                            openWindow(id: "image-generation")
                         }) {
                             Label(
                                 imageGenerationService.activeCount > 0 ? "Cover Generation (\(imageGenerationService.activeCount))" : "Cover Generation",
@@ -270,11 +272,6 @@ struct ContentView: View {
                         Label("Tools", systemImage: "ellipsis.circle")
                     }
                     .help("Tools")
-                    .popover(isPresented: $imageGenerationService.showingPanel) {
-                        ImageGenerationPanelView(service: imageGenerationService) { taskId, image in
-                            applyGeneratedCover(taskId: taskId, image: image)
-                        }
-                    }
 
                     if !autoParsingService.failedBookmarkIDs.isEmpty {
                         Button {
@@ -499,29 +496,6 @@ struct ContentView: View {
         exportImportManager.syncBookmarkIndexToBackupFolder(dataStorage: dataStorage) { _, _ in }
     }
 
-    private func applyGeneratedCover(taskId: UUID, image: NSImage) {
-        guard let _ = imageGenerationService.applyImage(taskId: taskId) else { return }
-        guard let task = imageGenerationService.tasks.first(where: { $0.id == taskId }) else { return }
-        let imagesDir = StorageManager.shared.getImagesDirectory()
-        Task { @MainActor in
-            guard let filename = try? await ImageFileService.shared.savePNG(
-                image,
-                to: imagesDir,
-                prefix: "preview"
-            ), let bookmark = dataStorage.item(for: task.bookmarkId)?.asBookmark else {
-                Log.error("Failed to write preview image to disk", category: .ai)
-                return
-            }
-            var updated = bookmark
-            if updated.metadata != nil {
-                updated.metadata?.imageURL = filename
-            } else {
-                updated.metadata = WebMetadata(imageURL: filename, url: updated.url)
-            }
-            try? dataStorage.updateBookmark(updated)
-            Log.info("Applied generated cover to bookmark: \"\(bookmark.title)\"", category: .ai)
-        }
-    }
 }
 
 #Preview {
