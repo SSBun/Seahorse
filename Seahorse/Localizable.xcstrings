@@ -323,9 +323,6 @@
     "Are you sure you want to delete '%@'? This tag will be removed from all items." : {
 
     },
-    "Are you sure you want to delete %lld broken bookmark(s)? This action cannot be undone." : {
-
-    },
     "Auto" : {
 
     },
@@ -482,9 +479,6 @@
         }
       }
     },
-    "Check broken bookmarks" : {
-
-    },
     "Check for Broken Bookmarks" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -607,6 +601,9 @@
     "Current Version" : {
 
     },
+    "Custom Filters" : {
+
+    },
     "Data" : {
 
     },
@@ -653,13 +650,7 @@
     "Delete Bookmark" : {
 
     },
-    "Delete Bookmarks" : {
-
-    },
     "Delete Category" : {
-
-    },
-    "Delete Selected (%lld)" : {
 
     },
     "Delete Tag" : {
@@ -960,6 +951,9 @@
 
     },
     "Min Card Width" : {
+
+    },
+    "Missing category or tag" : {
 
     },
     "Model" : {
@@ -1301,6 +1295,9 @@
     "Show Notification When Saving Items" : {
 
     },
+    "Smart Collection" : {
+
+    },
     "Sort" : {
 
     },
@@ -1372,9 +1369,6 @@
           }
         }
       }
-    },
-    "Sync" : {
-
     },
     "System Notifications" : {
 
