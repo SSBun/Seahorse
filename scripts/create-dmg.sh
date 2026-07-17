@@ -43,7 +43,36 @@ echo -e "${GREEN}App built at: $APP_PATH${NC}"
 HELPER_PATH="$APP_PATH/Contents/Resources/MCPHelper"
 mkdir -p "$HELPER_PATH"
 cp MCPHelper/package.json MCPHelper/package-lock.json "$HELPER_PATH/"
+cp MCPHelper/PI_LICENSE "$HELPER_PATH/"
 cp -R MCPHelper/dist "$HELPER_PATH/"
+
+node -e '
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 19)) {
+  console.error(`Node >=22.19.0 is required, found ${process.versions.node}`);
+  process.exit(1);
+}
+'
+NODE_RUNTIME=$(node -p 'process.execPath')
+NODE_LICENSE="$(dirname "$NODE_RUNTIME")/../LICENSE"
+if [ ! -f "$NODE_LICENSE" ]; then
+  echo -e "${RED}Error: Node license was not found next to the runtime.${NC}"
+  exit 1
+fi
+while IFS= read -r dependency; do
+  case "$dependency" in
+    /System/Library/*|/usr/lib/*) ;;
+    *)
+      echo -e "${RED}Error: Node runtime has a non-system dependency: $dependency${NC}"
+      echo -e "${YELLOW}Use the standalone Node.js distribution to create a portable DMG.${NC}"
+      exit 1
+      ;;
+  esac
+done < <(otool -L "$NODE_RUNTIME" | tail -n +2 | awk '{print $1}')
+cp "$NODE_RUNTIME" "$HELPER_PATH/node"
+cp "$NODE_LICENSE" "$HELPER_PATH/NODE_LICENSE"
+chmod +x "$HELPER_PATH/node"
+
 npm ci --omit=dev --ignore-scripts --prefix "$HELPER_PATH"
 
 if [ "$NO_SIGN" != "1" ]; then
@@ -52,6 +81,7 @@ if [ "$NO_SIGN" != "1" ]; then
     echo -e "${RED}Error: Could not determine app signing identity${NC}"
     exit 1
   fi
+  codesign --force --sign "$SIGNING_IDENTITY" --timestamp=none "$HELPER_PATH/node"
   codesign \
     --force \
     --sign "$SIGNING_IDENTITY" \

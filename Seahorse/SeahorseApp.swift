@@ -56,7 +56,7 @@ struct SeahorseApp: App {
                 .task {
                     // Start monitoring copy events when app launches
                     copyMonitor.startMonitoring()
-                    mcpHelperManager.startIfNeeded()
+                    mcpHelperManager.start()
                 }
                 .onAppear {
                     // Initialize StatusBarManager

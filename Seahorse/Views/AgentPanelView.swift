@@ -12,7 +12,7 @@ private struct AgentChatMessage: Identifiable, Hashable {
     let id = UUID()
     let role: Role
     let text: String
-    let results: [AgentBookmarkResult]
+    let results: [Bookmark]
 }
 
 struct AgentPanelView: View {
@@ -29,6 +29,7 @@ struct AgentPanelView: View {
     ]
     @State private var inputText = ""
     @State private var isSearching = false
+    @State private var sessionID = UUID()
 
     private let agentService = AgentService()
 
@@ -98,26 +99,22 @@ struct AgentPanelView: View {
         }
     }
 
-    private func resultButton(_ result: AgentBookmarkResult) -> some View {
+    private func resultButton(_ bookmark: Bookmark) -> some View {
         Button {
-            itemDetailState.showItem(result.bookmark.id, source: "agent")
+            itemDetailState.showItem(bookmark.id, source: "agent")
             openWindow(id: "item-detail")
         } label: {
             HStack(alignment: .top, spacing: 10) {
-                BookmarkIconView(iconString: result.bookmark.icon, size: 18)
+                BookmarkIconView(iconString: bookmark.icon, size: 18)
                     .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(result.bookmark.title)
+                    Text(bookmark.title)
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(2)
-                    Text(host(for: result.bookmark.url))
+                    Text(host(for: bookmark.url))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Text(result.reason)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
                 }
                 Spacer(minLength: 0)
             }
@@ -158,14 +155,13 @@ struct AgentPanelView: View {
 
         Task {
             do {
-                let response = try await agentService.searchBookmarks(
-                    query: query,
-                    bookmarks: dataStorage.bookmarks,
-                    categories: dataStorage.categories,
-                    tags: dataStorage.tags
-                )
+                let response = try await agentService.send(query, to: sessionID)
                 await MainActor.run {
-                    messages.append(AgentChatMessage(role: .assistant, text: response.answer, results: response.results))
+                    let bookmarksByID = Dictionary(
+                        uniqueKeysWithValues: dataStorage.bookmarks.map { ($0.id, $0) }
+                    )
+                    let results = response.bookmarkIDs.compactMap { bookmarksByID[$0] }
+                    messages.append(AgentChatMessage(role: .assistant, text: response.answer, results: results))
                     isSearching = false
                 }
             } catch {

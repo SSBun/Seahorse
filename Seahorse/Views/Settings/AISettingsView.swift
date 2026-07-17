@@ -10,45 +10,45 @@ import SwiftUI
 
 struct AISettingsView: View {
     @StateObject private var aiSettings = AISettings.shared
-    @State private var showingTestAlert = false
-    @State private var testResult = ""
-    @State private var isTesting = false
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
+                AgentProvidersSettingsView()
+
+                Divider()
+
                 // Image Generation
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Image Generation")
                         .font(.system(size: 13, weight: .semibold))
 
-                    Toggle("Use same API settings", isOn: $aiSettings.useSharedImageApi)
-                        .font(.system(size: 12))
-
-                    Text("When enabled, image generation uses the same API endpoint and token as text AI")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-
-                    if !aiSettings.useSharedImageApi {
-                        VStack(alignment: .leading, spacing: 10) {
-                            TextField("API Base URL", text: $aiSettings.imageApiBaseURL)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 12))
-
-                            SecureField("API Token", text: $aiSettings.imageApiToken)
-                                .textFieldStyle(.roundedBorder)
-                                .font(.system(size: 12))
+                    Picker(
+                        "Provider",
+                        selection: Binding(
+                            get: { aiSettings.selectedImageProviderID },
+                            set: { aiSettings.selectImageProvider($0) }
+                        )
+                    ) {
+                        ForEach(aiSettings.imageGenerationProviders) { provider in
+                            Text(provider.name).tag(provider.id)
                         }
-                        .padding(.leading, 20)
                     }
+                    .pickerStyle(.menu)
 
-                    TextField("Image Model", text: $aiSettings.imageModel)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12))
+                    if aiSettings.selectedImageProvider.kind == .openAICodex {
+                        Text("Uses Codex model \(aiSettings.codexImageModel) and the ChatGPT connection configured above.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    } else {
+                        TextField("Image Model", text: $aiSettings.imageModel)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12))
 
-                    Text("Model for generating cover images (e.g., gpt-image-2, dall-e-3)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        Text("Model for generating cover images (e.g., gpt-image-2)")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Divider()
@@ -80,75 +80,6 @@ struct AISettingsView: View {
                     }
                 }
 
-                Divider()
-
-                // API Base URL
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("API Base URL")
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    TextField("https://api.openai.com/v1", text: $aiSettings.apiBaseURL)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12))
-                    
-                    Text("The base URL for AI API requests")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider()
-                
-                // API Token
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("API Token")
-                            .font(.system(size: 13, weight: .semibold))
-                        
-                        Spacer()
-                        
-                        Button(action: testConnection) {
-                            HStack(spacing: 4) {
-                                if isTesting {
-                                    ProgressView()
-                                        .scaleEffect(0.7)
-                                        .frame(width: 12, height: 12)
-                                } else {
-                                    Image(systemName: "checkmark.circle")
-                                        .font(.system(size: 12))
-                                }
-                                Text("Test Connection")
-                                    .font(.system(size: 11))
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(isTesting || aiSettings.apiToken.isEmpty)
-                    }
-                    
-                    SecureField("Enter your API token", text: $aiSettings.apiToken)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12))
-                    
-                    Text("Your API token will be stored in UserDefaults")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider()
-                
-                // Model
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Model")
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    TextField("gpt-4o-mini", text: $aiSettings.model)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.system(size: 12))
-                    
-                    Text("The AI model to use (e.g., gpt-4o-mini, gpt-4, gpt-3.5-turbo)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                
                 Divider()
                 
                 // Page Summary Prompt
@@ -209,32 +140,6 @@ struct AISettingsView: View {
                 Spacer()
             }
             .padding(30)
-        }
-        .alert("Connection Test", isPresented: $showingTestAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(testResult)
-        }
-    }
-    
-    private func testConnection() {
-        isTesting = true
-        Task {
-            do {
-                let aiManager = AIManager()
-                let result = try await aiManager.testConnection()
-                await MainActor.run {
-                    testResult = result
-                    showingTestAlert = true
-                    isTesting = false
-                }
-            } catch {
-                await MainActor.run {
-                    testResult = "❌ Connection failed: \(error.localizedDescription)"
-                    showingTestAlert = true
-                    isTesting = false
-                }
-            }
         }
     }
 }

@@ -19,24 +19,26 @@ final class MCPHelperManager: ObservableObject {
         in processList: String,
         helperScriptPath: String
     ) -> [Int32] {
-        let helperCommand = "node \(helperScriptPath)"
+        let bundledNodePath = URL(fileURLWithPath: helperScriptPath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("node")
+            .path
+        let helperCommands = [
+            "node \(helperScriptPath)",
+            "\(bundledNodePath) \(helperScriptPath)"
+        ]
 
         return processList.split(whereSeparator: \.isNewline).compactMap { line in
             let parts = line.split(maxSplits: 1, whereSeparator: \.isWhitespace)
             guard
                 parts.count == 2,
                 let processID = Int32(parts[0]),
-                parts[1].trimmingCharacters(in: .whitespaces) == helperCommand
+                helperCommands.contains(parts[1].trimmingCharacters(in: .whitespaces))
             else {
                 return nil
             }
             return processID
-        }
-    }
-
-    func startIfNeeded() {
-        if settings.isEnabled {
-            start()
         }
     }
 
@@ -54,8 +56,13 @@ final class MCPHelperManager: ObservableObject {
             try bridgeServer.start()
 
             let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["node", helperScriptURL.path]
+            if let bundledNodeURL {
+                process.executableURL = bundledNodeURL
+                process.arguments = [helperScriptURL.path]
+            } else {
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                process.arguments = ["node", helperScriptURL.path]
+            }
             process.environment = helperEnvironment()
             process.terminationHandler = { [weak self] process in
                 Task { @MainActor in
@@ -65,7 +72,7 @@ final class MCPHelperManager: ObservableObject {
             helperProcess = process
             try process.run()
 
-            settings.status = .running
+            settings.status = settings.isEnabled ? .running : .stopped
         } catch {
             bridgeServer.stop()
             helperProcess = nil
@@ -89,7 +96,7 @@ final class MCPHelperManager: ObservableObject {
     }
 
     func forceRestart() async {
-        guard settings.isEnabled, settings.status != .restarting else { return }
+        guard settings.status != .restarting else { return }
         guard let helperScriptURL else {
             settings.status = .failed
             return
@@ -123,7 +130,7 @@ final class MCPHelperManager: ObservableObject {
     private func handleHelperExit(_ process: Process) {
         guard helperProcess === process else { return }
         helperProcess = nil
-        guard !intentionalStop, settings.isEnabled else { return }
+        guard !intentionalStop else { return }
 
         if restartAttempts == 0 {
             restartAttempts += 1
@@ -196,7 +203,16 @@ final class MCPHelperManager: ObservableObject {
         environment["SEAHORSE_BRIDGE_TOKEN"] = settings.internalToken
         environment["SEAHORSE_BRIDGE_URL"] = "http://\(MCPSettings.mcpHost):\(MCPSettings.bridgePort)"
         environment["SEAHORSE_MCP_PORT"] = "\(MCPSettings.mcpPort)"
+        environment["SEAHORSE_MCP_ENABLED"] = settings.isEnabled ? "true" : "false"
+        environment["SEAHORSE_CODEX_AUTH_PATH"] = codexAuthURL.path
         return environment
+    }
+
+    private var codexAuthURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Seahorse", directoryHint: .isDirectory)
+            .appending(path: "Codex", directoryHint: .isDirectory)
+            .appending(path: "auth.json")
     }
 
     private var helperScriptURL: URL? {
@@ -222,6 +238,16 @@ final class MCPHelperManager: ObservableObject {
         }
 
         return nil
+    }
+
+    private var bundledNodeURL: URL? {
+        let nodeURL = Bundle.main.resourceURL?
+            .appendingPathComponent("MCPHelper", isDirectory: true)
+            .appendingPathComponent("node")
+        guard let nodeURL, FileManager.default.isExecutableFile(atPath: nodeURL.path) else {
+            return nil
+        }
+        return nodeURL
     }
 }
 #endif

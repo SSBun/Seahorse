@@ -10,6 +10,7 @@ final class MCPHelperManagerTests: XCTestCase {
           103 node /Users/other/Seahorse/MCPHelper/dist/index.js
           104 /opt/homebrew/bin/node /Users/test/My Apps/Seahorse/MCPHelper/dist/index.js
           105 Seahorse
+          106 /Users/test/My Apps/Seahorse/MCPHelper/node /Users/test/My Apps/Seahorse/MCPHelper/dist/index.js
         """
 
         XCTAssertEqual(
@@ -17,7 +18,7 @@ final class MCPHelperManagerTests: XCTestCase {
                 in: processList,
                 helperScriptPath: helperPath
             ),
-            [101]
+            [101, 106]
         )
     }
 }

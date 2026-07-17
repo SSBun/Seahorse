@@ -25,12 +25,8 @@ struct MCPSettingsSectionView: View {
                 Toggle("", isOn: $settings.isEnabled)
                     .toggleStyle(.switch)
                     .disabled(settings.status == .restarting)
-                    .onChange(of: settings.isEnabled) { _, isEnabled in
-                        if isEnabled {
-                            manager.start()
-                        } else {
-                            manager.stop()
-                        }
+                    .onChange(of: settings.isEnabled) { _, _ in
+                        manager.restart()
                     }
             }
 
