@@ -1,3 +1,607 @@
+# 标准化 AI 书签解析流程
+
+## 状态
+
+- 已完成（2026-07-17）
+
+## 目标
+
+- 梳理现有 AI 解析输入、调用、输出解析与分类/标签写回路径。
+- 明确分类与标签生成的产品规则、低置信度行为和人工数据保护边界。
+- 比较可行方案并形成一份可测试、可分阶段落地的优化设计。
+
+## 边界
+
+- 本任务只进行需求澄清与方案设计，不修改生产代码。
+- 优先复用现有模型和服务，不引入多阶段 Agent、向量检索或新存储层，除非现有证据证明必要。
+- 不干扰工作区中正在进行的提交整理任务及其他本地改动。
+- 已确认：分类是稳定的单选目录；AI 只选择已有分类，无合适项时保持未分类，新分类仅在用户确认后创建。
+- 已确认：正常情况下生成 2–4 个标签，优先复用已有标签；每次最多自动创建 2 个具体、可复用的新标签，并过滤分类重复、纯站点名和宽泛词。
+- 已确认：内容不足或置信度低时允许放弃分类和标签判断，不强制补齐、不自动重试，标题与摘要仍可独立成功。
+- 已确认：自动与批量解析只填补完全缺失的分类或标签；用户主动重解析先展示建议并确认，不静默覆盖人工数据。
+
+## 计划
+
+- [x] 核对当前 prompt、输出模型与三条写回路径。
+- [ ] 逐项确认分类、标签、低置信度与重解析语义。
+- [ ] 比较 2–3 个实现方向并推荐最小可靠方案。
+- [ ] 分段确认完整设计并补全审查记录。
+
+## 审查记录
+
+- 待完成。
+
+# 按功能拆分并提交本地改动
+
+## 状态
+
+- 进行中（2026-07-17）
+
+## 目标
+
+- 审计所有 Git 可见的本地改动，并拆分为可独立回滚的功能提交。
+- 每个提交包含对应的代码、测试、资源与必要文档，不纳入忽略的构建产物或本地配置。
+- 最终保持工作区干净，并保留清晰、可验证的提交历史。
+
+## 边界
+
+- 只提交 `git status` 可见的改动，不提交 `.DS_Store`、构建产物或本地工具配置。
+- 不改写、合并或修订已有提交，不推送远端。
+- 共享文件按实际功能归属拆分暂存；无法合理拆分时归入最早需要它的基础功能。
+
+## 计划
+
+- [x] 映射文件与差异块到具体功能并确定提交顺序。
+- [x] 逐组暂存、检查并提交功能改动。
+- [x] 完成最终状态、提交历史与差异检查，并补全审查记录。
+
+## 审查记录
+
+- Agent、Provider、Codex OAuth/模型/图片服务、helper 与打包运行时归入 `c2877e0`；封面窗口、样式资源、持久化、详情、导出和参考图归入 `71c4e3f`；自动提取的本地化目录变化独立归入 `3c5122b`。
+- `SeahorseApp.swift` 按差异块拆分：helper 始终启动属于 Agent 基础设施，独立图片窗口属于封面工作流；其余共享配置按最早需要它的 Provider 基础能力归档。
+- 验证通过：helper 25 项测试、TypeScript build、完整 Swift 测试套件、macOS Release build、字符串目录 JSON 校验以及每组 `git diff --cached --check`；未调用真实图片 API。
+- 只提交了 `git status` 可见内容，忽略的 DMG、构建目录、`.DS_Store` 和本地工具配置未进入提交。
+
+# 修复书签富化与链接健康误判
+
+## 状态
+
+- 已完成（2026-07-17）
+
+## 目标
+
+- 统一分类和标签名称解析，避免确定性富化失败与悬空 Tag UUID。
+- 用独立列表展示富化问题，并提供单条重试和用户主动的可恢复问题批量重试。
+- 将链接健康检查改成可访问、无法确认、已失效三态，保护批量删除边界。
+
+## 边界
+
+- 复用现有 `DataStorage`、富化状态与诊断 UI，不增加工作流引擎、数据库迁移或后台自动重试。
+- 分成两个独立提交；不提交工作区中与本任务无关的已有改动。
+- 不自动重跑旧失败记录，不修改用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 添加名称一致性回归测试并修复自动/批量富化路径。
+- [x] 用独立问题列表替代工具栏超长菜单并验证第一提交。
+- [x] 添加 HTTP 分类回归测试并实现三态诊断与删除边界。
+- [x] 运行定向测试、完整测试、Release 构建和差异审查。
+
+## 审查记录
+
+- `DataStorage.category(named:)` 与 `tag(named:)` 复用持久层的大小写不敏感语义；自动解析和批量解析都使用真实已保存 ID，批量路径不再吞掉标签创建失败。
+- 工具栏的富化警告改为独立问题列表，展示错误原因、单条重试与带费用提示的用户主动批量恢复；没有自动重跑旧失败记录。
+- 链接检查在 `HEAD` 返回 405/501 时用带 Range 的 `GET` 复查；410 和无效 URL 才进入 Broken，401/403/404/429、5xx 与传输错误进入不可删除的 Unverified 分组。
+- 两个独立提交为 `90c8663` 和 `e0c378e`；只暂存了 `ContentView.swift` 中本任务 hunks，未提交工作区中已有的封面、Agent、MCP 和本地化改动。
+- 验证通过：名称解析定向测试、HTTP 分类定向测试、完整 Swift 54 项测试、macOS Release 构建、提交范围 `git diff --check`。
+
+# 为封面生成增加参考图片
+
+## 状态
+
+- 已完成（2026-07-17）
+
+## 目标
+
+- 在书签详情点击 Generate Cover 时，可选择无参考图、裁剪当前网页快照或粘贴剪贴板图片。
+- 参考图进入实际 Codex/OpenAI-compatible 图片请求，并在生成窗口中可见。
+- 生成任务将参考图片保存到 Seahorse 本地存储，重启后仍可查看对应记录。
+
+## 边界
+
+- 复用现有网页选区、剪贴板、ImageFileService 和生成任务持久化，不引入图片编辑依赖。
+- 不改变书签现有“捕获快照作为预览图”的行为。
+- 避开并保留工作区中已有的未提交改动。
+
+## 计划
+
+- [x] 扩展详情页入口与网页选区，收集可选参考图。
+- [x] 将参考图接入生成任务、Codex/compatible 请求和本地记录。
+- [x] 增加回归测试并运行 helper、Swift 测试、Release 构建和差异检查。
+
+## 审查记录
+
+- Generate Cover 改为原生选项菜单：可直接无参考图生成、进入当前网页视口的既有选区裁剪，或读取剪贴板中的图片；裁剪用途与原有“保存为书签预览”明确分离，生成窗口会预览并允许移除参考图。
+- 每个生成任务把参考图独立写入 `Images/cover-reference-*.png`，文件名随 `image-generations.json` 持久化，清理任务时与生成图一并安全删除；旧记录缺少新字段仍可解码。
+- Codex 请求把 PNG 作为 Responses `input_image`，OpenAI-compatible 请求复用已安装 OpenAI Swift SDK 的 Images Edits；验证通过 helper 25 项测试、TypeScript build、Swift 51 项测试、macOS Release build 和 `git diff --check`，未发起真实图片生成请求。
+
+# 让主页封面窗口只显示生成进度
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- 从主页工具入口打开封面窗口时，只展示生成记录与当前进度，不展示生成选项或上次书签。
+- 从书签详情的 Generate Cover 入口打开时，仍展示该书签的样式选择和生成操作。
+- 不影响正在运行任务、持久化历史、详情查看与 Apply。
+
+## 边界
+
+- 复用现有 `preparedBookmarkID` 区分创建与监控场景，不增加新的页面模式状态。
+- 只修改两个入口、条件渲染和必要测试，不调整生成任务生命周期。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 让每个窗口入口显式设置或清除临时书签目标。
+- [x] 没有临时目标时隐藏创建区域，只保留 Generations。
+- [x] 运行定向测试、完整 Swift 测试、Release 构建与差异检查。
+
+## 审查记录
+
+- 根因是详情入口写入的 `preparedBookmarkID` 存在共享单例中，主页入口重开窗口时既没有清理它，窗口也无条件渲染创建区域，因此复用了上次书签。
+- 主页工具入口现在先调用 `clearPreparedBookmark()` 再打开窗口；详情入口继续调用 `prepare(for:)`。窗口仅在临时目标能解析为 bookmark 时构建样式选择与 Generate Cover，否则只展示 Generations。
+- 验证通过：Agent Provider/封面定向测试、完整 Swift 50 项测试、macOS Release build 和 `git diff --check`；正在运行的任务与持久化历史没有改动，用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 确定链接与富化失败的修复方案
+
+## 状态
+
+- 已完成（2026-07-17）
+
+## 目标
+
+- 用现有代码与实际数据区分链接健康检查、网页元数据抓取和 AI 富化失败。
+- 依据 Apple 与 IETF 一手文档确定 HTTP 状态和重试语义。
+- 通过逐项压力测试形成最小、可验证的修复方案。
+
+## 边界
+
+- 本任务只调查和设计，不修改产品代码。
+- 研究只引用官方文档、标准与仓库源码，并在仓库中保存一份中文 Markdown 报告。
+
+## 计划
+
+- [x] 核对当前实现、失败数据与官方协议语义。
+- [x] 否决会掩盖部分成功或制造重试风暴的方案。
+- [x] 与用户逐项确认产品语义并完成方案审查。
+
+## 审查记录
+
+- 研究报告保存于 `docs/analysis/enrichment-and-link-health-resolution.md`，依据仓库源码、实际失败数据、Apple URLSession 文档、IETF RFC 9110 与 RFC 6585。
+- 已确认富化不影响书签可用性，旧失败只由用户主动恢复，临时网络错误只手动重试；链接健康采用可访问、无法确认、已失效三态，404 不进入批量删除，410 才自动判定失效。
+- 交付拆成两个独立提交：先修富化名称一致性、悬空 UUID 和问题列表，再修 HTTP 三态检查。本任务仅调查和设计，未修改产品代码。
+- `git diff --check` 通过。
+
+# 用真实生成图片替换封面样式模板
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- 封面生成页展示 8 张真实 AI 生成的样式示例，不再使用 SF Symbol、渐变或原生图形拼接模板。
+- 每张示例作为 Asset Catalog 资源嵌入 App，并与一个实际封面生成 prompt 一一对应。
+- 向用户列出最终 8 条封面样式 prompt。
+
+## 边界
+
+- 使用内置图片生成工具逐张生成；不使用 CLI、外部图片或新增依赖。
+- 示例统一为无文字、无 Logo、无水印的横向封面，避免把模板文字带入用户生成结果。
+- 只修改样式模型、样式卡展示、Asset Catalog 与对应测试，避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 定义 8 个样式、prompt 与资源名，并生成 8 张真实示例图。
+- [x] 将图片写入 Asset Catalog，删除代码绘制模板并接入样式卡。
+- [x] 验证图片资源、Swift 测试、Release 构建与差异。
+
+## 审查记录
+
+- 使用内置图片生成工具产出 Editorial、Minimal、Gradient、Illustration、Cinematic、Surreal、Soft 3D、Geometric 八张不同的 1536×1024 PNG；生成原件保留在 Codex 目录，项目副本分别写入八个 Asset Catalog imageset。
+- 样式卡统一通过 `Image(style.exampleAssetName)` 展示实际位图，已删除整段 SwiftUI 渐变、图形和 SF Symbol 样式预览；每个资源名与实际传入图片生成链路的 `CoverStyle.prompt` 一一对应。
+- 验证通过：八张图片尺寸一致且哈希各不相同，测试会实际加载全部八个 image asset；完整 Swift 50 项测试、资源定向测试、macOS Release build 和 `git diff --check` 均通过，用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 持久化封面生成记录并提供图片详情
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- 点击已生成的封面记录可进入详情页，通过现有图片浏览器缩放、平移查看图片。
+- 详情页展示生成与文件元数据，并可通过系统保存面板导出图片。
+- 生成图片和全部任务记录保存到 Seahorse 本地存储，重启后可恢复。
+
+## 边界
+
+- 复用现有 `ImageViewer`、`Images/` 与 `Data/` 目录，不新增窗口、数据库或依赖。
+- 明确清除记录时同步清除该记录的生成文件；Apply 继续保存独立 bookmark 预览副本，避免清除历史破坏封面。
+- 不发起会消耗用户额度的真实图片生成验证，并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 将生成图片与可恢复任务元数据持久化，并添加 Codable 回归测试。
+- [x] 为已完成记录增加可点击详情页、图片浏览、元数据和导出。
+- [x] 运行 Swift 测试、Release 构建和差异审查。
+
+## 审查记录
+
+- 图片生成成功后先写入 `Images/generated-cover-*.png`，再把任务、状态、样式、文件名、尺寸、格式和字节数原子写入 `Data/image-generations.json`；重启恢复全部记录，未完成任务会明确标记为中断。
+- 已完成记录的缩略图/标题可点击进入同窗口详情页；详情复用 `ImageViewer` 的缩放、平移和双击复位，右侧展示元数据，并通过 `NSSavePanel` 导出 PNG。
+- Apply 继续创建独立 `preview-*.png`，因此用户明确清除历史时可以安全删除对应生成文件，不会破坏 bookmark 当前封面。
+- 验证通过：完整 Swift 49 项测试、持久化定向回归、macOS Release build 和 `git diff --check`；未发起真实图片生成请求，用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 为封面生成提供样式与示例
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- 封面生成窗口提供多种可选择的视觉样式及对应示例图。
+- 用户先选择样式再发起生成，所选样式必须进入实际图片 prompt。
+
+## 边界
+
+- 示例图使用原生 SwiftUI 绘制，不新增静态位图资源或图片下载依赖。
+- 继续复用现有任务队列、Provider 路由和 Apply 流程，不增加图片编辑器或持久化历史。
+- 不发起会消耗用户额度的真实图片生成验证，并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 定义有限的封面样式及 prompt 映射，并添加回归测试。
+- [x] 将生成窗口改为先选样式、查看示例、再生成的流程。
+- [x] 运行 Swift 测试、Release 构建和差异审查。
+
+## 审查记录
+
+- 封面生成窗口提供 Editorial、Minimal、Gradient、Illustration、Cinematic 五种样式；示例由 SwiftUI 原生绘制，并补充选中态与辅助功能语义，没有新增图片资源或依赖。
+- bookmark 详情页现在只准备目标并打开生成窗口；用户选择样式并点击生成后才排队，任务会记录样式，且同一 `CoverStyle.prompt` 会进入 Codex 或 OpenAI-compatible 图片请求。
+- 验证通过：完整 Swift 48 项测试、macOS Release build 和 `git diff --check`；为避免消耗用户额度，未发起真实图片生成请求，用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 修复图片生成无反馈并提供独立窗口
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- 图片生成请求不再被 Swift 默认 60 秒超时提前取消。
+- 从详情页或主窗口触发生成时，打开独立图片生成窗口并持续展示进行中、失败和结果状态。
+
+## 边界
+
+- 复用现有图片生成任务列表与封面应用逻辑，不新增图片编辑器或历史存储系统。
+- 不发起会消耗用户额度的真实图片生成验证。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 对齐 Codex 图片请求与 helper 的长任务超时并添加回归断言。
+- [x] 将现有图片任务面板迁移为独立窗口，连接详情页和主窗口入口。
+- [x] 运行 Node/Swift 测试、Release 构建和差异审查。
+
+## 审查记录
+
+- 日志确认两次点击均已请求本机 helper，但 Swift 分别在 60.54 秒和 60.15 秒触发 `NSURLErrorDomain -1001`；原先的状态 popover 只挂在主窗口 Tools 按钮上，详情窗口触发后没有就地可见反馈。
+- Codex 图片请求 timeout 调整为 330 秒，略长于 helper 的 300 秒上游截止时间；回归测试直接断言请求值，其他 Codex 请求继续使用默认 timeout。
+- 原有任务面板改为唯一的 `Image Generation` 窗口；详情页生成按钮会在排队后立即打开窗口，主窗口 Tools 入口也打开同一窗口，生成中、失败、结果和 Apply 操作都留在该窗口。
+- 验证通过：完整 Swift 47 项测试、AgentService 6 项定向测试、macOS Release build 和 `git diff --check`；为避免消耗用户额度，未发起真实图片生成请求，用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 扩展 Codex 模型与图片 Provider 选择
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- Codex 设置可从 Pi 当前目录搜索并选择全部可用 Codex 模型。
+- 图片生成可从已配置且支持图片的 Provider 中选择。
+- Codex 被选为图片 Provider 时，通过 ChatGPT OAuth 和 Responses `image_generation` tool 生成封面。
+
+## 边界
+
+- 不开放 Pi 目录中的其他鉴权 Provider；继续支持 Codex、OpenAI-compatible 和 Claude-compatible。
+- Claude-compatible 不声明 OpenAI Image API 能力，因此不进入图片 Provider 列表。
+- 不维护会过期的 Codex 模型硬编码副本；模型目录由已安装 Pi 提供。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 暴露 Codex 模型目录和 OAuth 图片生成内部 endpoint，并添加边界测试。
+- [x] 在 Swift 设置与服务中保存图片 Provider、加载 Codex 模型并路由图片请求。
+- [x] 为 Codex 增加可搜索模型选择，为图片区域增加 Provider 选择。
+- [x] 运行 Node/Swift 测试、Release 构建和差异审查。
+
+## 审查记录
+
+- Codex 设置从已安装 Pi 的 `openai-codex` 目录读取模型，并分别提供可搜索的 Agent 模型与图片模型选择；图片列表只展示声明支持图片输入的模型。
+- 图片生成区可选择 Codex 或任意 OpenAI-compatible profile；Codex 通过 helper 内部持有的 ChatGPT OAuth 调用 Responses `image_generation`，Compatible 请求复用 profile 的 Keychain token 与 Base URL，Claude-compatible 不进入图片 Provider 列表。
+- OAuth 凭据始终留在 helper 内部，Swift 只接收模型目录和生成结果；为避免消耗用户额度，本轮未发起真实图片生成请求。
+- 验证通过：helper 25 项测试、TypeScript build、Swift 47 项测试、macOS Release build 和 `git diff --check`；用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 移除旧 AI API 重复设置
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- AI 设置页不再重复展示旧的 Base URL、Token、Model 和测试连接入口。
+- 保留 Provider 列表以及现有图片生成、自动解析和 prompt 设置。
+
+## 边界
+
+- 本轮只清理重复 UI；旧字段暂留内部，避免改变图片生成和自动解析行为。
+- 不改动用户已有的 `Seahorse/Localizable.xcstrings` 内容。
+
+## 计划
+
+- [x] 删除重复设置区块及其无用 View 状态和 action。
+- [x] 更新 Provider 说明文案与项目 lesson/context。
+- [x] 运行 Swift 测试、构建和差异检查。
+
+## 审查记录
+
+- AI 设置页已移除旧 Base URL、Token、Model 和 Test Connection 区块，同时删除对应的测试状态、alert 和 action；Provider 列表成为 Agent 配置的唯一可见入口。
+- 旧单组字段仅保留为图片生成和自动解析链路的内部兼容数据，本轮没有扩大这两条链路的重构范围。
+- 验证通过：Swift 44 项测试、macOS Release build 和 `git diff --check`；用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 支持多 Agent Provider 配置
+
+## 状态
+
+- 已完成（2026-07-16）
+
+## 目标
+
+- AI 设置允许保存多个命名 Provider 配置并选择当前 Agent Provider。
+- 支持 Codex OAuth、OpenAI-compatible 和 Claude-compatible（Anthropic Messages）。
+- 保留现有图像生成、自动解析和 prompt 设置行为。
+
+## 边界
+
+- 不引入通用 Provider 插件系统或远程模型发现。
+- Compatible Provider 只供内置 Agent 使用；其他 AI 功能继续使用现有单组 API 设置。
+- 新 Provider Token 存入 macOS Keychain，不写入 Provider JSON 或日志。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 实现 Provider 配置、迁移、选中状态和 Keychain 凭据存储。
+- [x] 重构 AI 设置页的 Provider 列表、新增、编辑、删除和 Codex 连接。
+- [x] 让 Swift/Node Agent 路由支持三种 Provider 配置。
+- [x] 添加迁移、请求编码、Claude runtime 和 HTTP 边界回归测试。
+- [x] 运行 Node/Swift 测试、Release 构建和差异审查。
+
+## 审查记录
+
+- AI 设置页现在可新增任意数量的 OpenAI-compatible 与 Claude-compatible profile，编辑名称、Base URL、Token、模型，删除非 Codex profile，并选择一个 profile 驱动内置 Agent；Codex 保持一键连接/断开且未连接时不可选中。
+- 旧 `ai_api_base_url`、`ai_api_token`、`ai_model` 首次迁移为默认 OpenAI-compatible profile；旧单组设置本身仍保留给图像生成和自动解析，Compatible Agent token 的新副本只存入 Keychain。
+- Swift 请求按选中 profile 编码 `openai-codex`、`openai-compatible` 或 `claude-compatible`；helper 分别路由到 Pi Codex Responses、OpenAI Chat Completions 和 Anthropic Messages。
+- 验证通过：helper 22 项测试、TypeScript build、Swift 44 项测试、macOS Release build 和 `git diff --check`；Claude 集成测试确认实际请求 `/v1/messages`、使用 `x-api-key` 并解析 SSE 响应。
+- Release 构建仍输出项目已有的 asset symbol、actor 隔离、废弃 API 和未使用值 warnings，本任务没有扩大处理范围；用户已有的 `Seahorse/Localizable.xcstrings` 改动未被覆盖。
+
+# 为内置 Agent 添加 Codex 一键登录
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 使用 Pi 内置 `openai-codex` OAuth 让用户一键连接 ChatGPT Plus/Pro 账号。
+- 连接后让 Seahorse 内置 Agent 使用 Codex 模型，现有 OpenAI-compatible 设置继续服务于其他 AI 功能。
+- 提供明确的已连接状态和断开入口，不暴露 OAuth 凭据。
+
+## 边界
+
+- 不把 ChatGPT/Codex 订阅凭据交给 Swift 界面，不写入 UserDefaults 或日志。
+- 不新增第三方依赖，不引入远程中转服务。
+- 本轮只将 Codex 接入内置 Agent，不改写图像生成和自动 AI 解析链路。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 核对 Pi `openai-codex` OAuth、模型和刷新能力。
+- [x] 为 helper 添加本机安全持久化、登录状态与 Agent 提供者路由。
+- [x] 在 AI 设置页添加一键连接、状态和断开交互。
+- [x] 为 OAuth HTTP 边界、Codex Agent 配置和 Swift 请求添加回归测试。
+- [x] 运行 Node/Swift 测试、构建和差异审查。
+
+## 审查记录
+
+- 已确认 Pi `0.80.7` 内置 `openai-codex` provider，支持 ChatGPT Plus/Pro OAuth、Codex Responses 模型和刷新 token；本实现没有使用 Codex Desktop MCP 反向注册。
+- AI 设置页的 `Connect Codex` 会调用内部鉴权 endpoint、打开 Pi 生成的 OpenAI PKCE 登录页并轮询状态；成功后 Agent 切换到 `gpt-5.4-mini`，断开后回退 OpenAI-compatible 配置。
+- helper 独占 OAuth 凭据和自动刷新；凭据以 atomic rename 写入 Application Support 的独立 `auth.json`，强制 `0600`，失败响应不透传上游敏感详情。
+- 验证通过：helper 19 项测试、TypeScript build、完整 Swift 测试套件、macOS Release build 和 `git diff --check`。
+- 真实 Pi OAuth 启动验证生成 `auth.openai.com/oauth/authorize` URL，包含 state、PKCE challenge 和 `localhost:1455/auth/callback`；测试没有登录账号或写入真实凭据。
+- Xcode 仍输出项目已有的 asset symbol、actor 隔离和 AppIntents metadata warnings，本任务没有扩大处理范围。
+
+# 定位修正 Base URL 后的 Agent 失败
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 从 `/Users/caishilin/.venom/logs/Seahorse.log` 定位最新 Agent 请求的实际失败点。
+- 用当前配置建立可重复的最小复现，区分 LLM 流、Pi 工具循环、helper bridge 与 Swift 数据层错误。
+- 本轮只诊断并给出根因；未获得修复授权前不修改产品实现。
+
+## 边界
+
+- 不输出 API token、内部 bearer token、完整模型回复或用户收藏内容。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+- 只读取日志和运行非破坏性诊断命令。
+
+## 计划
+
+- [x] 提取最新 Agent/helper/bridge 错误链和时间线。
+- [x] 建立并运行能够捕获当前症状的最小复现。
+- [x] 验证排序后的候选根因。
+- [x] 完成诊断审查并记录证据。
+
+## 审查记录
+
+- 日志中最新 UI Agent 请求在 18:24:55 连接本机 helper `127.0.0.1:17373`，0.9 秒后收到 HTTP 500；请求和响应长度与当前 `/agent` 失败链一致。
+- 当前持久化 `ai_api_base_url` 仍是 `https://api.bltcy.ai`，没有上次诊断要求的 `/v1`；App 于 18:24:45 启动的新进程和 helper 于 18:24:46 启动的新进程均不是旧进程残留。
+- 直接调用当前正在运行的 `/agent`，使用当前持久化配置和 `hello` 可在 0.85 秒内稳定复现 HTTP 500、`Stream ended without finish_reason`。
+- 同一个 helper 仅在诊断请求中临时把 Base URL 改为 `https://api.bltcy.ai/v1` 后，`hello` 返回 HTTP 200 和非空答案；带收藏搜索意图的请求也经完整 Agent/bridge 链返回 HTTP 200。
+- 在先前失败过的同一个 Pi session 上改用 `/v1` 后同样返回 HTTP 200，因此排除会话缓存、helper 旧版本和新增 bridge 故障；根因仍是设置值未包含 `/v1`。
+- 本轮只更新任务诊断记录，没有修改产品实现或用户设置。
+
+# 定位 Agent 流式响应缺少 finish_reason
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 用 Seahorse 当前配置复现 `Stream ended without finish_reason`。
+- 确认故障发生在 App、Pi 适配器还是上游 OpenAI-compatible 流式接口。
+- 给出证据充分的根因和最小修复选项，本轮不修改产品实现。
+
+## 边界
+
+- 诊断输出不得包含 API token、完整请求内容或模型回复正文。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+- 不在未确认根因前调整 provider 兼容参数或回退非流式调用。
+
+## 计划
+
+- [x] 定位 Pi 抛错条件并核对当前 helper 运行版本。
+- [x] 复现当前 Agent 调用链，记录稳定失败信号。
+- [x] 检查上游 SSE 结束事件并验证候选根因。
+- [x] 完成诊断审查并记录可复现证据。
+
+## 审查记录
+
+- App 当前配置的 Base URL 是 `https://api.bltcy.ai`；Pi 因而请求 `/chat/completions`，该地址实际返回 `200 text/html`，没有任何 SSE `data:` 事件。
+- Pi `0.80.7` 的 OpenAI completions adapter 会忽略非 SSE 内容，并在流结束后因从未收到非空 `choices[0].finish_reason` 抛出 `Stream ended without finish_reason`；完整 `AgentRuntime` 可稳定复现同一错误。
+- 同一服务改用 `https://api.bltcy.ai/v1/chat/completions` 后返回 `200 text/event-stream`，共观察到 13 个事件、一个 `finish_reason: "stop"` 和一个 `[DONE]`，没有 JSON 解析错误。
+- 临时把 Agent 配置的 Base URL 改为 `https://api.bltcy.ai/v1` 后，完整 Pi `AgentRuntime` 在 1.6 秒内成功返回非空答案；由此排除旧 helper、模型响应格式和网络提前断流。
+- 本轮只更新任务诊断记录，没有修改产品实现或用户设置。
+
+# 用 pi 替换旧 Agent 实现
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 在现有 Node helper 中集成 `@earendil-works/pi-agent-core`，提供有状态的多轮工具调用 Agent。
+- Agent 面板改为调用内部鉴权 endpoint，并删除 Swift 侧候选排序、prompt 拼装与严格 JSON 解析旧实现。
+- 复用现有 App bridge 和 `DataStorage`，只向 Agent 开放搜索、读取和列表工具。
+- 外部 MCP 关闭时 Agent 仍可使用；MCP endpoint 自身继续服从现有开关。
+
+## 边界
+
+- 不嵌入 coding-agent CLI、TUI 或文件系统工具，不重写存储层。
+- 没有用户确认 UI 前，不开放 create、update、delete 等写工具。
+- AI token、base URL 和 model 只随内部 loopback 请求传递，不在 helper 中持久化。
+- 保留并避开用户已有的 `Seahorse/Localizable.xcstrings` 改动。
+
+## 计划
+
+- [x] 为 Pi 工具循环、会话延续与内部 HTTP 路由添加回归测试。
+- [x] 实现 Pi runtime、只读工具和独立于 MCP 开关的 helper 生命周期。
+- [x] 替换 Swift `AgentService` 与 `AgentPanelView` 调用链。
+- [x] 运行 Node 测试/build、Swift 测试/macOS build、真实链路验证和 diff 审查。
+
+## 审查记录
+
+- helper 已集成 Pi `0.80.7`：同一 `sessionId` 保留多轮上下文，模型通过 7 个 search/get/list 工具读取 bookmark、tag 和 category；工具继续经现有 Swift bridge 进入 `DataStorage`。
+- `/agent` 使用 internal token，`/mcp` 使用 external token；helper 与 bridge 随 App 常驻，MCP 开关通过重启只改变外部 route，不再关闭 Agent 基础设施。
+- Swift `AgentService.send(_:to:)` 只发送会话、用户消息和当前 AI 配置；旧的 40 条候选排序、prompt 拼装、严格 JSON 解析和整库快照传递已删除。
+- DMG 打包会校验并内置 Node `>=22.19.0`、production dependencies 和 Pi/Node 许可证；App 优先运行 bundle 内 Node，开发构建才回退到 PATH。
+- 验证通过：helper 12 项测试、TypeScript build、Swift 40 项测试、macOS Release build、脚本语法与 `git diff --check`；production staging 中自带 Node `v22.22.2` 可启动 helper，未鉴权 `/agent` 返回预期 401。
+- production staging 实测 Node 可执行文件约 108 MB、production `node_modules` 约 146 MB；这是采用完整 Pi provider 栈和自带 runtime 的当前发布体积成本。
+- Xcode 仍输出项目已有的 asset symbol 冲突、`NotificationService` actor 隔离和 AppIntents metadata warnings，本任务没有扩大处理范围。
+
+# 设计 pi 的 App 注入方式
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 区分 pi 各包支持的运行环境，确认是否能直接嵌入原生 Swift App。
+- 为 Seahorse 定义最小且可测试的 Swift ↔ Agent runtime seam。
+- 说明 helper 生命周期、鉴权、AI 配置和打包方式。
+
+## 边界
+
+- 本轮只回答架构与注入方式，不修改产品源码或依赖。
+- 不把 coding-agent CLI、TUI 或文件系统工具嵌入 App。
+- 保留现有 App bridge 与 `DataStorage` 作为唯一数据访问路径。
+
+## 审查记录
+
+- `pi-ai` 核心可用于浏览器，但 pi coding-agent 和当前 `pi-agent-core` npm 包的正式运行要求是 Node `>=22.19.0`；Seahorse 没有可直接导入的 Swift/C ABI。
+- 推荐 seam 是 Swift `AgentClient` 的单一 `send(_:to:)` interface，调用点为 `agentClient.send(message, to: sessionID)`；生产 adapter 是本机 HTTP/NDJSON，测试 adapter 是内存 fake。
+- pi 实现放入现有 Node helper 代码库，并把进程角色提升为通用 Seahorse helper；内部 Agent endpoint 与外部 MCP endpoint 必须分别鉴权和启停。
+- 当前 helper 仅在 MCP 开启时启动并依赖 `/usr/bin/env node`，因此 Agent 接入前需要把 helper 生命周期与 MCP 开关解耦，并提供自带兼容 runtime 或独立可执行文件。
+- AI token、base URL 和 model 应由 Swift 在内部鉴权请求中临时传入，不在 helper 再保存一份；Agent 工具继续通过现有 `BridgeClient` 调用 Swift bridge。
+
+# 评估 pi 作为基础 Agent 基础设施
+
+## 状态
+
+- 已完成（2026-07-15）
+
+## 目标
+
+- 核对 `earendil-works/pi` 的官方能力、运行时边界、授权和嵌入方式。
+- 对照 Seahorse 现有 SwiftUI App、MCP helper、App bridge 与数据层，判断是否值得集成。
+- 给出最小接入方案、明确非目标、风险和可验证的下一步。
+
+## 边界
+
+- 本轮只做证据驱动的可行性评估，不修改产品源码、不引入依赖。
+- 保留并避开现有未提交的 `Seahorse/Localizable.xcstrings` 改动。
+- 优先复用现有 MCP 边界；不重写 `DataStorage`、JSON 存储或 SwiftUI UI。
+
+## 计划
+
+- [x] 建立 Seahorse Agent/MCP 相关工作图。
+- [x] 阅读 pi 官方仓库、文档、包结构与许可证。
+- [x] 比较集成选项并确定最小边界。
+- [x] 复核假设、风险与验证路径，完成审查记录。
+
+## 审查记录
+
+- 结论是可集成，但只应采用 `@earendil-works/pi-agent-core`/`pi-ai`，嵌入现有 Node helper；不采用 coding-agent CLI、TUI 或 RPC 模式，也不替换 Swift `DataStorage` 与 App bridge。
+- 目标流为 Agent 面板 → 内部鉴权的 helper agent endpoint → pi 工具循环 → 现有 `BridgeClient` → `MCPBookmarkBridgeService` → `DataStorage`；首版只开放 search/get/list 只读工具并使用内存会话。
+- 当前 Agent 面板是无状态的一次性 LLM 重排器；pi 可以补齐多轮上下文、工具调用、流式事件、取消和后续会话能力。
+- pi 不内置 MCP 或权限确认；未实现确认 UI 前不得向模型开放 create/update/delete 等写工具。
+- pi `0.80.7` 为 MIT，要求 Node `>=22.19.0`；Seahorse 当前通过 `/usr/bin/env node` 启动 helper，因此生产接入前必须解决自带兼容 Node runtime 或独立可执行文件。
+- 临时安装测量显示，现有 production helper 依赖约 23 MB，直接加入 pi-agent-core 后约 146 MB；正式发布前应验证 bundle/可执行文件方案和 DMG 增量。
+- 已用 pi faux provider 运行临时只读工具闭环：prompt、tool call、tool result、第二轮响应和完整 agent 事件序列均通过；未修改产品源码或依赖。
+
 # 实现下一版本全部 P0 功能
 
 ## 状态
