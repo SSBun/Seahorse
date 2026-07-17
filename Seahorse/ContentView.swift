@@ -42,6 +42,7 @@ struct ContentView: View {
     @State private var showingImportDialog = false
     @State private var showingDiagnosticResults = false
     @State private var showingBatchOperation = false
+    @State private var showingEnrichmentIssues = false
     @ObservedObject var batchParsingService: BatchParsingService
     @StateObject private var diagnosticService = DiagnosticService(dataStorage: .shared)
     @StateObject private var sortPreferenceManager = SortPreferenceManager.shared
@@ -272,24 +273,15 @@ struct ContentView: View {
                     }
 
                     if !autoParsingService.failedBookmarkIDs.isEmpty {
-                        Menu {
-                            ForEach(autoParsingService.failedBookmarkIDs, id: \.self) { id in
-                                Button {
-                                    autoParsingService.retryBookmark(id: id)
-                                } label: {
-                                    Label(
-                                        dataStorage.item(for: id)?.asBookmark?.title ?? "Bookmark",
-                                        systemImage: "arrow.clockwise"
-                                    )
-                                }
-                            }
+                        Button {
+                            showingEnrichmentIssues = true
                         } label: {
                             Label(
-                                "Enrichment Failed (\(autoParsingService.failedBookmarkIDs.count))",
+                                "Enrichment Issues (\(autoParsingService.failedBookmarkIDs.count))",
                                 systemImage: "exclamationmark.triangle.fill"
                             )
                         }
-                        .help("Retry failed bookmark enrichment")
+                        .help("View bookmark enrichment issues")
                     }
                 }
 
@@ -411,6 +403,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showingBatchOperation) {
             BatchOperationView(batchParsingService: batchParsingService)
+                .environmentObject(dataStorage)
+        }
+        .sheet(isPresented: $showingEnrichmentIssues) {
+            EnrichmentIssuesView(autoParsingService: autoParsingService)
                 .environmentObject(dataStorage)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("ShowImportDialog"))) { _ in

@@ -217,7 +217,7 @@ class BatchParsingService: ObservableObject {
             // Update category if suggested
             if let suggestedCategoryName = parsed.suggestedCategoryName {
                 let category = await MainActor.run {
-                    dataStorage.categories.first(where: { $0.name == suggestedCategoryName })
+                    dataStorage.category(named: suggestedCategoryName)
                 }
                 if let category = category {
                     updatedBookmark.categoryId = category.id
@@ -227,20 +227,15 @@ class BatchParsingService: ObservableObject {
             // Update tags (need to handle on main actor for DataStorage access)
             var tagIds: [UUID] = []
             for tagName in parsed.suggestedTagNames {
-                let existingTag = await MainActor.run {
-                    dataStorage.tags.first(where: { $0.name == tagName })
-                }
-                
-                if let existingTag = existingTag {
-                    tagIds.append(existingTag.id)
-                } else {
-                    // Create new tag
-                    let newTag = Tag(name: tagName, color: .blue)
-                    await MainActor.run {
-                        try? dataStorage.addTag(newTag)
+                let tagID = try await MainActor.run {
+                    if let existingTag = dataStorage.tag(named: tagName) {
+                        return existingTag.id
                     }
-                    tagIds.append(newTag.id)
+                    let newTag = Tag(name: tagName, color: .blue)
+                    try dataStorage.addTag(newTag)
+                    return newTag.id
                 }
+                tagIds.append(tagID)
             }
             updatedBookmark.tagIds = tagIds
             

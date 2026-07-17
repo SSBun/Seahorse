@@ -264,10 +264,10 @@ final class AutoParsingService: ObservableObject {
         }
 
         if sourceURL.contains("github.com"),
-           let github = dataStorage?.categories.first(where: { $0.name == "Github" }) {
+           let github = dataStorage?.category(named: "Github") {
             latest.categoryId = github.id
         } else if let categoryName = parsed.suggestedCategoryName {
-            if let existing = dataStorage?.categories.first(where: { $0.name == categoryName }) {
+            if let existing = dataStorage?.category(named: categoryName) {
                 latest.categoryId = existing.id
             } else if AISettings.shared.autoParsingCreateCategories {
                 let category = Category(name: categoryName, icon: "folder", color: .blue)
@@ -278,7 +278,7 @@ final class AutoParsingService: ObservableObject {
 
         var tagIDs: [UUID] = []
         for tagName in parsed.suggestedTagNames {
-            if let existing = dataStorage?.tags.first(where: { $0.name == tagName }) {
+            if let existing = dataStorage?.tag(named: tagName) {
                 tagIDs.append(existing.id)
             } else if AISettings.shared.autoParsingCreateTags {
                 let tag = Tag(name: tagName, color: .blue)

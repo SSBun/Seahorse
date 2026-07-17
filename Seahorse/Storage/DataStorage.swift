@@ -548,6 +548,11 @@ class DataStorage: ObservableObject {
         categories.removeAll { $0.id == category.id }
         rebuildCategoryCache()
     }
+
+    /// Returns the category whose name matches case-insensitively.
+    func category(named name: String) -> Category? {
+        categories.first { $0.name.lowercased() == name.lowercased() }
+    }
     
     func categoryExists(name: String, excluding: UUID? = nil) -> Bool {
         categories.contains { category in
@@ -607,6 +612,11 @@ class DataStorage: ObservableObject {
         rebuildTagCache()
         refreshSearchRecords(referencing: tag.id)
         itemsVersion += 1
+    }
+
+    /// Returns the tag whose name matches case-insensitively.
+    func tag(named name: String) -> Tag? {
+        tags.first { $0.name.lowercased() == name.lowercased() }
     }
     
     func tagExists(name: String, excluding: UUID? = nil) -> Bool {
