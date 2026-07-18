@@ -100,6 +100,32 @@ final class AutoParsingServiceTests: XCTestCase {
         XCTAssertEqual(loadedCount, 2)
     }
 
+    func testFailedBookmarkIsExcludedAfterMovingToTrash() async throws {
+        let originalSetting = AISettings.shared.autoParsingEnabled
+        AISettings.shared.autoParsingEnabled = false
+        defer { AISettings.shared.autoParsingEnabled = originalSetting }
+
+        let storage = DataStorage(database: MockDatabase())
+        let category = try XCTUnwrap(storage.categories.first)
+        let loader = MetadataLoaderStub(failFirstRequest: true)
+        let original = bookmark("trash", categoryID: category.id)
+        try storage.addBookmark(original)
+        let service = AutoParsingService(
+            dataStorage: storage,
+            metadataLoader: { try await loader.load($0) },
+            observesNotifications: false
+        )
+
+        try await waitUntil { service.status(for: original.id) == .failed }
+        let failed = try XCTUnwrap(storage.item(for: original.id)?.asBookmark)
+        XCTAssertEqual(service.failedBookmarkIDs, [original.id])
+
+        try storage.deleteBookmark(failed)
+
+        XCTAssertEqual(service.status(for: original.id), .failed)
+        XCTAssertTrue(service.failedBookmarkIDs.isEmpty)
+    }
+
     func testURLChangeDuringFetchRequeuesInsteadOfApplyingStaleMetadata() async throws {
         let originalSetting = AISettings.shared.autoParsingEnabled
         AISettings.shared.autoParsingEnabled = false

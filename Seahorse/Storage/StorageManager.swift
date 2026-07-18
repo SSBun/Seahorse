@@ -12,14 +12,21 @@ import OSLog
 /// Provides unified access to all storage directories
 class StorageManager {
     static let shared = StorageManager()
-    
+
+    private let storageRoot: URL
+
     // Security-scoped resource
     private var securityScopedURL: URL?
-    
-    private init() {
-        // Initialize and acquire security-scoped access
-        let (_, scopedURL) = getStorageDirectoryWithAccess()
-        self.securityScopedURL = scopedURL
+
+    private convenience init() {
+        self.init(resolveStorageDirectory: Self.resolveStorageDirectoryWithAccess)
+    }
+
+    /// Creates a manager that resolves and retains one storage root for its lifetime.
+    init(resolveStorageDirectory: () -> (root: URL, securityScopedURL: URL?)) {
+        let resolvedDirectory = resolveStorageDirectory()
+        storageRoot = resolvedDirectory.root
+        securityScopedURL = resolvedDirectory.securityScopedURL
     }
     
     deinit {
@@ -31,8 +38,7 @@ class StorageManager {
     
     /// Get the root storage directory (user-selected or default)
     func getStorageRoot() -> URL {
-        let (directory, _) = getStorageDirectoryWithAccess()
-        return directory
+        storageRoot
     }
     
     /// Get the Data directory for JSON files
@@ -98,7 +104,7 @@ class StorageManager {
     
     /// Get storage directory with active security-scoped access
     /// Returns tuple: (directory URL, security-scoped parent URL if applicable)
-    private func getStorageDirectoryWithAccess() -> (URL, URL?) {
+    private static func resolveStorageDirectoryWithAccess() -> (root: URL, securityScopedURL: URL?) {
         #if os(macOS)
         // Try to resolve security-scoped bookmark first
         if let bookmarkData = UserDefaults.standard.data(forKey: "seahorse.storage.bookmarkData") {

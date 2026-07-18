@@ -11,9 +11,10 @@ import UniformTypeIdentifiers
 
 struct RectangleBookmarkCardView: View {
     @EnvironmentObject var dataStorage: DataStorage
+    @EnvironmentObject var itemDetailState: ItemDetailState
+    @Environment(\.openWindow) private var openWindow
     let bookmark: Bookmark
     @State private var isHovered = false
-    @State private var showingEditSheet = false
     @State private var showingPreview = false
     
     var body: some View {
@@ -119,9 +120,15 @@ struct RectangleBookmarkCardView: View {
         .contextMenu {
             // Right-click context menu
             Button(action: {
-                showingEditSheet = true
+                openDetailWindow(startsAIParsing: true)
             }) {
-                Label("AI Parse", systemImage: "pencil")
+                Label("AI Parse…", systemImage: "sparkles")
+            }
+
+            Button {
+                openDetailWindow()
+            } label: {
+                Label("Edit", systemImage: "pencil")
             }
             
             Divider()
@@ -141,10 +148,6 @@ struct RectangleBookmarkCardView: View {
             }) {
                 Label("Move to Trash", systemImage: "trash")
             }
-        }
-        .sheet(isPresented: $showingEditSheet) {
-            AddBookmarkView(editingBookmark: bookmark)
-                .environmentObject(dataStorage)
         }
         .onLongPressGesture(minimumDuration: 0.5) {
             showingPreview = true
@@ -182,6 +185,15 @@ struct RectangleBookmarkCardView: View {
             .frame(maxWidth: 200)
         }
     }
+
+    private func openDetailWindow(startsAIParsing: Bool = false) {
+        itemDetailState.showItem(
+            bookmark.id,
+            source: "rectangle-grid",
+            startsAIParsing: startsAIParsing
+        )
+        openWindow(id: "item-detail")
+    }
     
     private func deleteBookmark() {
         do {
@@ -216,6 +228,7 @@ struct RectangleBookmarkCardView: View {
             )
         )
         .environmentObject(DataStorage.shared)
+        .environmentObject(ItemDetailState())
         
         RectangleBookmarkCardView(
             bookmark: Bookmark(
@@ -229,6 +242,7 @@ struct RectangleBookmarkCardView: View {
             )
         )
         .environmentObject(DataStorage.shared)
+        .environmentObject(ItemDetailState())
     }
     .padding()
     .frame(width: 500, height: 400)

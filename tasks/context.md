@@ -1,6 +1,7 @@
 # Workspace Context
 
 ## Components
+- `BookmarkParsingSession` 是新增页与 macOS 详情页共用的交互式解析会话，发布网页、元数据、AI 和建议准备四个真实阶段以及可提前展示的 AI resolution。
 - `ImageGenerationService` 保存待生成 bookmark ID，并把封面任务、样式、状态和图片元数据持久化到 `Data/image-generations.json`；生成 PNG 位于 `Images/`，macOS 唯一的 `Image Generation` 窗口提供样式、历史、图片详情、导出与 Apply。
 - `AISettings` 保存多个命名 Agent Provider、Agent/图片选中 ID，以及独立 Codex Agent/图片模型；OpenAI/Claude-compatible token 按 profile ID 存入 macOS Keychain，profile JSON 不含凭据。
 - `MCPHelper/src/codexAuth.ts` 拥有 Codex OAuth 登录、状态、断开和自动刷新；Swift 界面只通过内部鉴权 endpoint 读取状态和登录 URL。
@@ -16,6 +17,12 @@
 - `SeahorseTests/` 是搜索、JSON 持久化、图片 I/O 和模型性能回归测试目标。
 
 ## Relationships
+- macOS 主列表由 `ContentView.cachedItems` 驱动 `ItemCollectionView` 的 `LazyVStack`；每个 `StandardListItemView` 当前仍直接观察整个 `DataStorage`，后台解析或其他数据发布可能使全部可见行失效。
+- 富化问题列表的每行可打开详情、跳转默认浏览器、重试富化或经明确确认后移入回收站；富化失败计数只包含活动书签，回收站书签保留状态但不计数。
+- macOS 现有书签的 URL、标题、收藏、分类、标签与备注统一在 `ItemDetailView` 编辑；卡片和列表的 Edit / AI Parse 都路由到唯一详情窗口，`AddBookmarkView` 只负责新增。
+- 书签 AI 解析由 `AIManager` 发出一次 JSON Object 请求，再由纯本地 `BookmarkParsingPolicy` 解析已有分类、清理标签并验证 SF Symbol；自动、批量、手动新增和主动重解析共用同一 resolution。
+- 自动与批量 AI 解析只填补占位标题、空摘要、未分类和空标签；本轮 OGP 临时值只有在用户未改动时才可被 AI 替换。主动重解析通过逐字段 diff 确认并立即保存。
+- `StorageManager` 在初始化时只解析一次并持有 security-scoped 存储根；运行期所有 `Data/`、`Images/` 和 `Backups/` 路径复用该根，切换存储位置仍需重启 App。
 - `DataStorage.category(named:)` 与 `tag(named:)` 按持久层相同的 `lowercased()` 语义解析名称；自动与批量富化复用该入口，批量新标签的查询和创建在同一 `MainActor` 闭包内完成。
 - `DiagnosticService` 将链接结果分为 Accessible、Unverified 与 Broken；HEAD 405/501 会回退带 Range 的 GET，只有 Broken 可在诊断页选择并移入回收站。
 - 书签详情的 Generate Cover 入口可无参考图生成，也可复用网页选区裁剪当前视口或读取剪贴板图片；参考图在任务开始时另存为 `Images/cover-reference-*.png`、文件名随生成记录持久化，并作为 Codex Responses `input_image` 或 OpenAI-compatible Images Edits 输入。
@@ -42,6 +49,10 @@
 - tag 的 MCP 能力支持读取和删除；category 仍只读。
 
 ## Decisions and Conventions
+- 富化问题中的删除只允许用户主动确认后移入可恢复的回收站；确认文案必须说明富化失败不等于链接失效，不提供自动删除或永久删除。
+- 交互式书签解析必须显示真实阶段且在 AI 返回时立即展示建议摘要，不等待并行元数据结束；主动重解析只在逐字段 diff 确认后写入，元数据失败可继续评审，AI 失败或取消不写入。
+- AI 只能自动选择已有分类，自动与批量解析不创建分类；标签最多 4 个，其中新标签最多 2 个，并过滤分类重复、域名/站点名和泛化词。新分类建议只在手动交互中由用户确认。
+- 书签 AI 核心 JSON 协议与分类/标签规则固定在应用内；设置只允许选择输出语言、控制自动创建新标签，并添加不能覆盖核心规则的附加解析偏好。
 - URL 保存成功即代表书签可用；OGP、AI、分类或标签富化属于辅助能力，失败不影响链接健康，也不赋予删除资格。
 - 链接健康检查不把 HTTP 404 放入可批量删除集合，只显示“当前未找到”；HTTP 410 才自动归为已失效。
 - timeout、HTTP 429 和 5xx 等临时富化失败首版只手动重试；不增加后台自动重试器。
@@ -52,7 +63,7 @@
 - 已完成的封面记录在同一生成窗口内打开详情，图片交互复用 `ImageViewer`，导出复用 macOS `NSSavePanel`；不新增详情窗口或图片浏览依赖。
 - 封面样式固定为 Editorial、Minimal、Gradient、Illustration、Cinematic、Surreal、Soft 3D、Geometric；每个样式的真实生成示例以 1536×1024 PNG 嵌入 Asset Catalog，资源名与实际 prompt 共享 `CoverStyle` 模型。
 - 内置 Agent 支持多个命名的 `openai-compatible`、`claude-compatible` profile 和固定 `openai-codex` profile，并只激活其中一个；Compatible token 存入 Keychain，旧单组设置首次迁移为默认 OpenAI profile。
-- Codex Agent/图片模型从 Pi `openai-codex` 目录搜索选择；Codex 图片通过 OAuth 调用 Responses `image_generation`，OpenAI-compatible 图片复用 profile Keychain token 与 Base URL，Claude-compatible 不进入图片 Provider；旧单组字段只保留给自动 AI 解析，prompt 设置独立展示。
+- Codex Agent/图片模型从 Pi `openai-codex` 目录搜索选择；Codex 图片通过 OAuth 调用 Responses `image_generation`，OpenAI-compatible 图片复用 profile Keychain token 与 Base URL，Claude-compatible 不进入图片 Provider；旧 API Base URL、token 与 model 单组字段只保留给自动 AI 解析，核心解析 prompt 由应用固定。
 - Codex OAuth 凭据固定保存在 Application Support 的 `Seahorse/Codex/auth.json`，文件权限为 `0600`；不保存到 UserDefaults、自定义数据目录或日志。
 - 内置 Agent 固定使用 Pi `0.80.7` 的 `pi-agent-core`/`pi-ai`，首版只开放 bookmark/tag/category 的 search/get/list 工具；没有确认 UI 前不开放写工具。
 - 回收站的批量移入、恢复和永久删除会同步确认 `items.json` 原子写入；写盘失败时 JSONStorage 回滚内存候选状态并向调用方返回错误。

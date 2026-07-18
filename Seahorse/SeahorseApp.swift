@@ -115,6 +115,7 @@ struct ItemDetailWindowView: View {
             if let itemId = itemDetailState.currentItemId,
                let item = dataStorage.item(for: itemId) {
                 ItemDetailView(item: item)
+                    .id(item.id)
             } else {
                 VStack {
                     Text("Select an item to view details")
@@ -138,15 +139,29 @@ struct ItemDetailWindowView: View {
 @MainActor
 final class ItemDetailState: ObservableObject {
     @Published var currentItemId: UUID?
+    @Published private(set) var parsingRequestItemId: UUID?
     private var openRequestStartedAt: TimeInterval?
     private var openRequestSource = "unknown"
     var openRequestSourceName: String { openRequestSource }
 
-    func showItem(_ itemId: UUID, source: String = "unknown", requestedAt: TimeInterval = ProcessInfo.processInfo.systemUptime) {
+    func showItem(
+        _ itemId: UUID,
+        source: String = "unknown",
+        requestedAt: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        startsAIParsing: Bool = false
+    ) {
         openRequestStartedAt = requestedAt
         openRequestSource = source
         Log.info("detail_open showItem source=\(source) item_type_pending=true elapsed_ms=\(elapsedSinceOpenRequestMs())", category: .performance)
+        parsingRequestItemId = startsAIParsing ? itemId : nil
         currentItemId = itemId
+    }
+
+    /// Consumes the one-shot AI parsing request for the displayed bookmark.
+    func takeAIParsingRequest(for itemId: UUID) -> Bool {
+        guard parsingRequestItemId == itemId else { return false }
+        parsingRequestItemId = nil
+        return true
     }
 
     func elapsedSinceOpenRequestMs() -> String {

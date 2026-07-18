@@ -14,9 +14,6 @@ struct AddBookmarkView: View {
     @EnvironmentObject var dataStorage: DataStorage
     @Environment(\.dismiss) var dismiss
     
-    // Editing mode
-    let editingBookmark: Bookmark?
-    
     @State private var urlString = ""
     @State private var title = ""
     @State private var summary = ""
@@ -25,15 +22,11 @@ struct AddBookmarkView: View {
     @State private var isFavorite = false
     @State private var iconURL: String? = nil
     @State private var webMetadata: WebMetadata? = nil // OGP/Twitter Data
-    
-    init(editingBookmark: Bookmark? = nil) {
-        self.editingBookmark = editingBookmark
-    }
-    
-    @State private var isParsing = false
+    @StateObject private var parsingSession = BookmarkParsingSession()
+    @State private var parsingTask: Task<Void, Never>?
+    @State private var isFetchingMetadata = false
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var hasParseCompleted = false
     @State private var wasParsed = false // Track if bookmark was AI-parsed
     @State private var showingToast = false
     @State private var toastMessage = ""
@@ -45,13 +38,15 @@ struct AddBookmarkView: View {
     @State private var selectedNewTags: Set<String> = []
     @State private var hasManuallySelectedCategory = false
 
-    private let aiManager = AIManager()
+    private var isBusy: Bool {
+        parsingSession.isRunning || isFetchingMetadata
+    }
     
     var body: some View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text(editingBookmark == nil ? "Add Bookmark" : "Edit Bookmark")
+                Text("Add Bookmark")
                     .font(.system(size: 20, weight: .semibold))
                 
                 Spacer()
@@ -82,6 +77,7 @@ struct AddBookmarkView: View {
                                 HStack {
                                     TextField("https://example.com", text: $urlString)
                                         .textFieldStyle(RoundedBorderTextFieldStyle())
+                                        .disabled(isBusy)
                                     
                                     Button(action: {
                                         Task {
@@ -90,17 +86,13 @@ struct AddBookmarkView: View {
                                     }) {
                                         Label("Fetch Info", systemImage: "link")
                                     }
-                                    .disabled(urlString.isEmpty || isParsing)
+                                    .disabled(urlString.isEmpty || isBusy)
                                     
-                                    Button(action: {
-                                        Task {
-                                            parseURL()
-                                        }
-                                    }) {
-                                        Label(isParsing ? "Parsing..." : "AI Parse", systemImage: "sparkles")
+                                    Button(action: parseURL) {
+                                        Label(parsingSession.isRunning ? "Parsing..." : "AI Parse", systemImage: "sparkles")
                                     }
                                     .buttonStyle(.borderedProminent)
-                                    .disabled(urlString.isEmpty || isParsing)
+                                    .disabled(urlString.isEmpty || isBusy)
                                 }
                             }
                         }
@@ -108,6 +100,8 @@ struct AddBookmarkView: View {
                         Text("Enter the bookmark URL and click Parse to automatically fetch content and suggestions")
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
+
+                        BookmarkParsingProgressView(session: parsingSession)
                     }
                     
                     Divider()
@@ -272,12 +266,8 @@ struct AddBookmarkView: View {
                 
                 Spacer()
                 
-                Button(editingBookmark == nil ? "Add Bookmark" : "Save Changes") {
-                    if editingBookmark != nil {
-                        updateBookmark()
-                    } else {
-                        saveBookmark()
-                    }
+                Button("Add Bookmark") {
+                    saveBookmark()
                 }
                 .keyboardShortcut(.defaultAction)
                 .buttonStyle(.borderedProminent)
@@ -289,32 +279,16 @@ struct AddBookmarkView: View {
         }
         .frame(width: 600, height: 700)
         .onAppear {
-            if editingBookmark != nil {
-                populateFieldsIfEditing()
-            } else {
-                // Set default category based on URL
-                setDefaultCategoryForURL(urlString)
+            setDefaultCategory()
+        }
+        .onChange(of: urlString) { _, _ in
+            // Keep the default category until the user or parsing flow selects one.
+            if !hasManuallySelectedCategory {
+                setDefaultCategory()
             }
         }
-        .onChange(of: urlString) { oldValue, newValue in
-            // Auto-update category when URL changes (only if not editing and not manually selected)
-            if editingBookmark == nil && !hasManuallySelectedCategory {
-                setDefaultCategoryForURL(newValue)
-            }
-        }
-        // Refresh fields when snapshot tool or AI parse updates the bookmark
-        .onChange(of: dataStorage.itemsVersion) { [editingBookmark] _, _ in
-            if let id = editingBookmark?.id,
-               let latest = dataStorage.bookmarks.first(where: { $0.id == id }) {
-                urlString = latest.url
-                title = latest.title
-                summary = latest.notes ?? ""
-                selectedCategoryId = latest.categoryId
-                selectedTagIds = Set(latest.tagIds)
-                isFavorite = latest.isFavorite
-                iconURL = latest.icon
-                webMetadata = latest.metadata
-            }
+        .onDisappear {
+            parsingTask?.cancel()
         }
         .alert("Error", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
@@ -356,10 +330,7 @@ struct AddBookmarkView: View {
         let tags = dataStorage.tags.filter { selectedTagIds.contains($0.id) }
 
         // Read imageURL live from dataStorage so snapshot changes are reflected
-        let imageURL: String? = {
-            guard let id = editingBookmark?.id else { return webMetadata?.imageURL }
-            return dataStorage.bookmarks.first(where: { $0.id == id })?.metadata?.imageURL
-        }()
+        let imageURL = webMetadata?.imageURL
 
         ZStack(alignment: .bottom) {
             // Layer 1: OGP poster image if available, otherwise gradient + icon (matching StandardCardView previewArea)
@@ -490,122 +461,72 @@ struct AddBookmarkView: View {
     }
 
     private func parseURL() {
-        isParsing = true
-        hasParseCompleted = false
-        
-        Task {
+        let fillsTitle = BookmarkParsingPolicy.isPlaceholderTitle(title)
+        let fillsSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let fillsTags = selectedTagIds.isEmpty
+
+        parsingTask?.cancel()
+        parsingTask = Task {
             do {
-                // Step 1: Fetch web content
-                let (fetchedTitle, content) = try await aiManager.fetchWebContent(url: urlString)
-                
-                // Fetch favicon in parallel
-                async let faviconTask = aiManager.fetchFavicon(url: urlString)
-                
-                // Fetch OGP/Metadata in parallel
-                async let metadataTask = OpenGraphService.shared.fetchMetadata(url: URL(string: urlString)!)
-                
-                await MainActor.run {
-                    title = fetchedTitle
-                }
-                
-                // Step 2: Parse with AI
-                let categoryNames = dataStorage.categories
+                let categories = dataStorage.categories
                     .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
-                    .map { $0.name }
-                
-                let tagNames = dataStorage.tags.map { $0.name }
-                
-                let parsedData = try await aiManager.parseBookmarkContent(
-                    title: fetchedTitle,
-                    content: content,
-                    availableCategories: categoryNames,
-                    availableTags: tagNames
+                let output = try await parsingSession.parse(
+                    url: urlString,
+                    categories: categories,
+                    tags: dataStorage.tags
                 )
-                
-                // Get favicon result
-                let faviconURL = await faviconTask
-                
-                // Get Metadata result
-                let metadata = try? await metadataTask
-                
-                // Step 3: Process AI suggestions
-                await MainActor.run {
-                    // Only overwrite title if it's empty or "Untitled"
-                    if title.isEmpty || title == "Untitled" {
-                        title = parsedData.refinedTitle
+
+                let resolution = output.resolution
+                if fillsTitle {
+                    title = resolution.refinedTitle.isEmpty
+                        ? output.fetchedTitle
+                        : resolution.refinedTitle
+                }
+                if iconURL == nil {
+                    iconURL = output.faviconURL ?? resolution.suggestedSFSymbol
+                }
+                if let metadata = output.metadata {
+                    webMetadata = metadata
+                    if BookmarkParsingPolicy.isPlaceholderTitle(title) {
+                        title = metadata.title ?? title
                     }
-                    
-                    // Only overwrite icon if it's nil
-                    if iconURL == nil {
-                        // Use favicon if available, otherwise use AI-suggested SF Symbol
-                        iconURL = faviconURL ?? parsedData.suggestedSFSymbol
-                    }
-                    
-                    // Use Metadata if available
-                    if let metadata = metadata {
-                        webMetadata = metadata
-                        // If AI didn't find a good title and we still need one, use OGP title
-                        if title.isEmpty || title == "Untitled" {
-                            title = metadata.title ?? title
-                        }
-                        // If summary is empty, use OGP description (AI summary usually takes precedence if generated)
-                        if summary.isEmpty {
-                            summary = metadata.description ?? ""
-                        }
-                    } else {
-                        // If no metadata, use AI summary
-                         summary = parsedData.summary
-                    }
-                    
-                    // If we have an AI summary, use it (it's usually better than OGP description)
-                    if !parsedData.summary.isEmpty {
-                        summary = parsedData.summary
-                    }
-                    
-                    // Check for new category
-                    var newCategory: String?
-                    if let suggestedName = parsedData.suggestedCategoryName {
-                        if let existingCategory = dataStorage.categories.first(where: { $0.name.lowercased() == suggestedName.lowercased() }) {
-                            selectedCategoryId = existingCategory.id
-                        } else {
-                            newCategory = suggestedName
-                        }
-                    }
-                    
-                    // Check for new tags
-                    var newTags: [String] = []
-                    selectedTagIds.removeAll()
-                    for tagName in parsedData.suggestedTagNames {
-                        if let existingTag = dataStorage.tags.first(where: { $0.name.lowercased() == tagName.lowercased() }) {
-                            selectedTagIds.insert(existingTag.id)
-                        } else {
-                            newTags.append(tagName)
-                        }
-                    }
-                    
-                    isParsing = false
-                    hasParseCompleted = true
-                    wasParsed = true
-                    
-                    // Show dialog if there are new items to create
-                    if newCategory != nil || !newTags.isEmpty {
-                        suggestedNewCategory = newCategory
-                        suggestedNewTags = newTags
-                        selectedNewCategory = newCategory != nil
-                        selectedNewTags = Set(newTags)
-                        showingNewItemsDialog = true
-                    } else {
-                        // Show success toast
-                        toastMessage = "✨ Parsing completed successfully!"
-                        showingToast = true
+                    if fillsSummary, resolution.summary.isEmpty {
+                        summary = metadata.description ?? ""
                     }
                 }
+                if fillsSummary, !resolution.summary.isEmpty {
+                    summary = resolution.summary
+                }
+
+                var newCategory: String?
+                if !hasManuallySelectedCategory, let existingCategory = resolution.category {
+                    selectedCategoryId = existingCategory.id
+                } else if !hasManuallySelectedCategory {
+                    newCategory = resolution.suggestedNewCategoryName
+                }
+
+                var newTags: [String] = []
+                if fillsTags {
+                    selectedTagIds.formUnion(resolution.existingTags.map(\.id))
+                    newTags = resolution.suggestedNewTagNames
+                }
+
+                wasParsed = true
+                if newCategory != nil || !newTags.isEmpty {
+                    suggestedNewCategory = newCategory
+                    suggestedNewTags = newTags
+                    selectedNewCategory = newCategory != nil
+                    selectedNewTags = Set(newTags)
+                    showingNewItemsDialog = true
+                } else {
+                    toastMessage = "✨ Parsing completed successfully!"
+                    showingToast = true
+                }
+            } catch is CancellationError {
+                return
             } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    showingError = true
-                    isParsing = false
-                }
+                errorMessage = error.localizedDescription
+                showingError = true
             }
         }
     }
@@ -613,8 +534,8 @@ struct AddBookmarkView: View {
     private func fetchMetadataOnly() async {
         guard let url = URL(string: urlString) else { return }
         
-        isParsing = true
-        defer { isParsing = false }
+        isFetchingMetadata = true
+        defer { isFetchingMetadata = false }
         
         do {
             let metadata = try await OpenGraphService.shared.fetchMetadata(url: url)
@@ -650,35 +571,28 @@ struct AddBookmarkView: View {
         selectedNewCategory = false
         selectedNewTags.removeAll()
     }
-    
+
     private func createAndUseNewItems() {
         // Create new category if selected
         if selectedNewCategory, let newCategoryName = suggestedNewCategory {
-            let newCategory = Category(
-                name: newCategoryName,
-                icon: "folder.fill",
-                color: .blue
-            )
             do {
-                try dataStorage.addCategory(newCategory)
-                selectedCategoryId = newCategory.id
+                selectedCategoryId = try createCategoryIfNeeded(named: newCategoryName)
             } catch {
-                print("Failed to create category: \(error)")
+                errorMessage = error.localizedDescription
+                showingError = true
+                return
             }
         }
         
         // Create new tags if selected
-        for newTagName in selectedNewTags {
-            let newTag = Tag(
-                name: newTagName,
-                color: .blue
-            )
-            do {
-                try dataStorage.addTag(newTag)
-                selectedTagIds.insert(newTag.id)
-            } catch {
-                print("Failed to create tag: \(error)")
-            }
+        do {
+            let selectedNames = suggestedNewTags.filter { selectedNewTags.contains($0) }
+            let newTagIDs = try dataStorage.createTagsIfNeeded(named: selectedNames)
+            selectedTagIds.formUnion(newTagIDs)
+        } catch {
+            errorMessage = error.localizedDescription
+            showingError = true
+            return
         }
         
         clearNewItemSelections()
@@ -687,78 +601,19 @@ struct AddBookmarkView: View {
         toastMessage = "✨ Parsing completed successfully!"
         showingToast = true
     }
-    
-    private func populateFieldsIfEditing() {
-        guard let bookmark = editingBookmark else { return }
 
-        urlString = bookmark.url
-        title = bookmark.title
-        summary = bookmark.notes ?? ""
-        selectedCategoryId = bookmark.categoryId
-        selectedTagIds = Set(bookmark.tagIds)
-        isFavorite = bookmark.isFavorite
-        iconURL = bookmark.icon
-        webMetadata = bookmark.metadata
-        wasParsed = bookmark.isParsed // Preserve parsed status
-    }
-
-    private func setDefaultCategoryForURL(_ url: String) {
-        if isGithubURL(url) {
-            // Use Github category for github.com URLs
-            if let githubCategory = dataStorage.categories.first(where: { $0.name == "Github" }) {
-                selectedCategoryId = githubCategory.id
-                return
-            }
+    private func createCategoryIfNeeded(named name: String) throws -> UUID {
+        if let category = dataStorage.category(named: name) {
+            return category.id
         }
-        // Default to "None" category for non-github URLs
+        let category = Category(name: name, icon: "folder.fill", color: .blue)
+        try dataStorage.addCategory(category)
+        return category.id
+    }
+    
+    private func setDefaultCategory() {
         if let noneCategory = dataStorage.categories.first(where: { $0.name == "None" }) {
             selectedCategoryId = noneCategory.id
-        }
-    }
-
-    private func isGithubURL(_ url: String) -> Bool {
-        guard let url = URL(string: url),
-              let host = url.host?.lowercased() else {
-            return false
-        }
-        return host == "github.com" || host.hasSuffix(".github.com")
-    }
-    
-    private func updateBookmark() {
-        guard let editingBookmark = editingBookmark else { return }
-        guard !urlString.isEmpty, !title.isEmpty else { return }
-        
-        // Ensure a category is selected
-        let categoryId = selectedCategoryId ?? {
-            if let noneCategory = dataStorage.categories.first(where: { $0.name == "None" }) {
-                return noneCategory.id
-            }
-            return dataStorage.categories.first?.id ?? UUID()
-        }()
-        
-        let updatedBookmark = Bookmark(
-            id: editingBookmark.id,  // Keep the same ID
-            title: title,
-            url: urlString,
-            icon: iconURL ?? "link.circle.fill",
-            categoryId: categoryId,
-            isFavorite: isFavorite,
-            addedDate: editingBookmark.addedDate,  // Keep the original creation date
-            notes: summary.isEmpty ? nil : summary,
-            tagIds: Array(selectedTagIds),
-            isParsed: wasParsed || editingBookmark.isParsed, // Keep parsed status or update if newly parsed
-            metadata: webMetadata,
-            deletedAt: editingBookmark.deletedAt,
-            enrichmentStatus: editingBookmark.enrichmentStatus,
-            enrichmentError: editingBookmark.enrichmentError
-        )
-        
-        do {
-            try dataStorage.updateBookmark(updatedBookmark)
-            dismiss()
-        } catch {
-            errorMessage = error.localizedDescription
-            showingError = true
         }
     }
     

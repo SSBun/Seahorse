@@ -11,6 +11,12 @@ import Foundation
 import SwiftUI
 import OSLog
 
+private struct BatchParsingOutput {
+    let bookmarkID: UUID
+    let resolution: BookmarkParsingResolution
+    let preferredIcon: String?
+}
+
 @MainActor
 class BatchParsingService: ObservableObject {
     @Published var isRunning = false
@@ -95,13 +101,20 @@ class BatchParsingService: ObservableObject {
         var bookmarkIndex = 0
         var succeeded = 0
         var failed = 0
-        var parsedBookmarks: [AnyCollectionItem] = []
+        var parsingOutputs: [BatchParsingOutput] = []
+        let categories = dataStorage.categories
+            .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
+        let tags = dataStorage.tags
         
-        await withTaskGroup(of: (Int, Result<Bookmark, Error>).self) { group in
+        await withTaskGroup(of: (Int, Result<BatchParsingOutput, Error>).self) { group in
             // Start initial batch of concurrent tasks
             for i in 0..<min(maxConcurrentTasks, bookmarks.count) {
                 group.addTask {
-                    let result = await self.parseBookmark(bookmarks[i], dataStorage: dataStorage)
+                    let result = await self.parseBookmark(
+                        bookmarks[i],
+                        categories: categories,
+                        tags: tags
+                    )
                     return (i, result)
                 }
             }
@@ -122,8 +135,8 @@ class BatchParsingService: ObservableObject {
                 
                 // Collect successful results for one database commit after parsing.
                 switch result {
-                case .success(let updatedBookmark):
-                    parsedBookmarks.append(AnyCollectionItem(updatedBookmark))
+                case .success(let output):
+                    parsingOutputs.append(output)
                     succeeded += 1
                     
                 case .failure(let error):
@@ -142,7 +155,11 @@ class BatchParsingService: ObservableObject {
                     group.addTask {
                         // Small staggered delay to avoid overwhelming API
                         try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-                        let result = await self.parseBookmark(bookmarks[nextIndex], dataStorage: dataStorage)
+                        let result = await self.parseBookmark(
+                            bookmarks[nextIndex],
+                            categories: categories,
+                            tags: tags
+                        )
                         return (nextIndex, result)
                     }
                     
@@ -152,19 +169,30 @@ class BatchParsingService: ObservableObject {
             }
         }
 
-        let liveBookmarks = parsedBookmarks.compactMap { parsedItem -> AnyCollectionItem? in
-            guard let parsed = parsedItem.asBookmark,
-                  var latest = dataStorage.item(for: parsed.id)?.asBookmark,
+        let liveBookmarks = parsingOutputs.compactMap { output -> AnyCollectionItem? in
+            guard let latest = dataStorage.item(for: output.bookmarkID)?.asBookmark,
                   latest.enrichmentStatus == nil else {
                 return nil
             }
-            latest.title = parsed.title
-            latest.notes = parsed.notes
-            latest.icon = parsed.icon
-            latest.categoryId = parsed.categoryId
-            latest.tagIds = parsed.tagIds
-            latest.isParsed = parsed.isParsed
-            return AnyCollectionItem(latest)
+            let newTagIDs: [UUID]
+            do {
+                newTagIDs = try latest.tagIds.isEmpty && AISettings.shared.autoParsingCreateTags
+                    ? dataStorage.createTagsIfNeeded(named: output.resolution.suggestedNewTagNames)
+                    : []
+            } catch {
+                Log.error("Failed to create parsed bookmark tags: \(error)", category: .parsing)
+                return nil
+            }
+            var updated = output.resolution.bookmark(
+                fillingMissingValuesIn: latest,
+                unclassifiedCategoryID: dataStorage.category(named: "None")?.id,
+                newTagIDs: newTagIDs
+            )
+            if (updated.icon == "link.circle.fill" || updated.icon.isEmpty),
+               let preferredIcon = output.preferredIcon {
+                updated.icon = preferredIcon
+            }
+            return AnyCollectionItem(updated)
         }
         guard !liveBookmarks.isEmpty else { return }
         do {
@@ -175,71 +203,36 @@ class BatchParsingService: ObservableObject {
     }
     
     /// Parse a single bookmark (extracted for concurrent processing)
-    private func parseBookmark(_ bookmark: Bookmark, dataStorage: DataStorage) async -> Result<Bookmark, Error> {
+    private func parseBookmark(
+        _ bookmark: Bookmark,
+        categories: [Category],
+        tags: [Tag]
+    ) async -> Result<BatchParsingOutput, Error> {
         do {
             // Fetch web content
             let (title, content) = try await aiManager.fetchWebContent(url: bookmark.url)
-            
-            // Get categories and tags from data storage
-            let availableCategories = await MainActor.run {
-                dataStorage.categories
-                    .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
-                    .map { $0.name }
-            }
-            let availableTags = await MainActor.run {
-                dataStorage.tags.map { $0.name }
-            }
-            
+
             // Parse with AI
-            let parsed = try await aiManager.parseBookmarkContent(
-                title: title,
-                content: content,
-                availableCategories: availableCategories,
-                availableTags: availableTags
+            let resolution = try await aiManager.parseBookmarkContent(
+                BookmarkParsingInput(
+                    url: bookmark.url,
+                    title: title,
+                    content: content,
+                    categories: categories,
+                    tags: tags
+                )
             )
             
             // Fetch favicon
             let faviconURL = await aiManager.fetchFavicon(url: bookmark.url)
-            
-            // Update bookmark
-            var updatedBookmark = bookmark
-            updatedBookmark.title = parsed.refinedTitle
-            updatedBookmark.notes = parsed.summary
-            updatedBookmark.isParsed = true
-            
-            // Set icon: prefer favicon, fallback to AI-suggested SF Symbol, then default
-            if let faviconURL = faviconURL {
-                updatedBookmark.icon = faviconURL
-            } else if let suggestedSFSymbol = parsed.suggestedSFSymbol {
-                updatedBookmark.icon = suggestedSFSymbol
-            }
-            
-            // Update category if suggested
-            if let suggestedCategoryName = parsed.suggestedCategoryName {
-                let category = await MainActor.run {
-                    dataStorage.category(named: suggestedCategoryName)
-                }
-                if let category = category {
-                    updatedBookmark.categoryId = category.id
-                }
-            }
-            
-            // Update tags (need to handle on main actor for DataStorage access)
-            var tagIds: [UUID] = []
-            for tagName in parsed.suggestedTagNames {
-                let tagID = try await MainActor.run {
-                    if let existingTag = dataStorage.tag(named: tagName) {
-                        return existingTag.id
-                    }
-                    let newTag = Tag(name: tagName, color: .blue)
-                    try dataStorage.addTag(newTag)
-                    return newTag.id
-                }
-                tagIds.append(tagID)
-            }
-            updatedBookmark.tagIds = tagIds
-            
-            return .success(updatedBookmark)
+
+            return .success(
+                BatchParsingOutput(
+                    bookmarkID: bookmark.id,
+                    resolution: resolution,
+                    preferredIcon: faviconURL ?? resolution.suggestedSFSymbol
+                )
+            )
             
         } catch {
             return .failure(error)

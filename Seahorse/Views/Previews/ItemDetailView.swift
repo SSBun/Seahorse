@@ -27,6 +27,7 @@ private struct TextDetailMetadata {
 
 struct ItemDetailView: View {
     @EnvironmentObject var dataStorage: DataStorage
+    @EnvironmentObject var itemDetailState: ItemDetailState
     @Environment(\.dismissWindow) var dismissWindow
     @Environment(\.openWindow) private var openWindow
     
@@ -36,6 +37,7 @@ struct ItemDetailView: View {
     @State private var notes: String = ""
     @State private var isFavorite: Bool = false
     @State private var bookmarkTitle: String = ""
+    @State private var bookmarkURL: String = ""
     @State private var tagInputText: String = ""
     @FocusState private var isTagInputFocused: Bool
     @State private var tagToDelete: Tag?
@@ -43,12 +45,18 @@ struct ItemDetailView: View {
     @State private var alertMessage = ""
     @State private var showingAlert = false
     @State private var isPreviewDropTarget = false
-    @State private var showingEditSheet = false
     @State private var titleSaveTask: Task<Void, Never>?
+    @State private var urlSaveTask: Task<Void, Never>?
     @State private var notesSaveTask: Task<Void, Never>?
     @State private var imageDetailMetadata: ImageDetailMetadata?
     @State private var textDetailMetadata: TextDetailMetadata?
     @State private var isSelectingCoverReferenceSnapshot = false
+    @StateObject private var parsingSession = BookmarkParsingSession()
+    @State private var parsingTask: Task<Void, Never>?
+    @State private var pendingParsingOutput: BookmarkParsingSessionOutput?
+    @State private var pendingParsingDiff: BookmarkParsingDiff?
+    @State private var showingParsingDiff = false
+    @State private var parsingMessage: String?
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     
     // Extract specific item types
@@ -78,11 +86,18 @@ struct ItemDetailView: View {
             let startedAt = ProcessInfo.processInfo.systemUptime
             Log.info("detail_open detail_view_appear item_type=\(item.itemType.rawValue)", category: .performance)
             loadItemData()
+            startRequestedAIParsingIfNeeded()
             let elapsed = (ProcessInfo.processInfo.systemUptime - startedAt) * 1000
             Log.info("detail_open loadItemData_done item_type=\(item.itemType.rawValue) elapsed_ms=\(String(format: "%.1f", elapsed))", category: .performance)
         }
         .onDisappear {
+            parsingTask?.cancel()
             flushPendingTextEdits()
+        }
+        .onChange(of: itemDetailState.parsingRequestItemId) { _, requestedItemId in
+            if requestedItemId == item.id {
+                startRequestedAIParsingIfNeeded()
+            }
         }
         .task(id: dataStorage.itemsVersion) {
             await refreshDetailMetadata()
@@ -106,9 +121,13 @@ struct ItemDetailView: View {
         } message: {
             Text(alertMessage)
         }
-        .sheet(isPresented: $showingEditSheet) {
-            if let bookmark = bookmark {
-                AddBookmarkView(editingBookmark: bookmark)
+        .sheet(isPresented: $showingParsingDiff) {
+            if let diff = pendingParsingDiff {
+                BookmarkParsingDiffView(
+                    diff: diff,
+                    onApply: applyParsingDiff,
+                    onCancel: clearParsingDiff
+                )
             }
         }
     }
@@ -162,16 +181,6 @@ struct ItemDetailView: View {
                 Text("Details")
                     .font(.system(size: 16, weight: .semibold))
                 Spacer()
-                if bookmark != nil {
-                    Button(action: {
-                        showingEditSheet = true
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 13))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Refresh Info")
-                }
             }
             .padding()
             
@@ -181,7 +190,9 @@ struct ItemDetailView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     // Title editor (for bookmarks only)
                     if bookmark != nil {
+                        bookmarkParsingSection
                         titleSection
+                        favoriteSection
                     }
                     
                     // Category Selection
@@ -218,6 +229,44 @@ struct ItemDetailView: View {
     }
     
     // MARK: - Sidebar Sections
+
+    private var bookmarkParsingSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("URL & AI Parsing")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+
+            TextField("https://example.com", text: $bookmarkURL)
+                .font(.system(size: 11))
+                .textFieldStyle(.roundedBorder)
+                .disabled(parsingSession.isRunning)
+                .onChange(of: bookmarkURL) { _, newValue in
+                    scheduleBookmarkURLUpdate(newValue)
+                }
+
+            Button(action: startAIParsing) {
+                Label(
+                    parsingSession.isRunning
+                        ? "Parsing…"
+                        : (parsingMessage?.hasPrefix("Parsing failed") == true ? "Retry" : "AI Parse"),
+                    systemImage: "sparkles"
+                )
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(bookmarkURL.isEmpty || parsingSession.isRunning)
+
+            BookmarkParsingProgressView(session: parsingSession)
+
+            if let parsingMessage {
+                Text(parsingMessage)
+                    .font(.system(size: 10))
+                    .foregroundStyle(
+                        parsingMessage.hasPrefix("Parsing failed") ? Color.red : Color.secondary
+                    )
+            }
+        }
+    }
     
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -239,6 +288,18 @@ struct ItemDetailView: View {
                 .onChange(of: bookmarkTitle) { oldValue, newValue in
                     scheduleBookmarkTitleUpdate(newValue)
                 }
+        }
+    }
+
+    private var favoriteSection: some View {
+        Toggle(isOn: $isFavorite) {
+            Label("Favorite", systemImage: isFavorite ? "star.fill" : "star")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(isFavorite ? .yellow : .primary)
+        }
+        .toggleStyle(.switch)
+        .onChange(of: isFavorite) { _, newValue in
+            updateBookmarkFavorite(newValue)
         }
     }
     
@@ -458,7 +519,6 @@ struct ItemDetailView: View {
                 
                 // Type-specific metadata
                 if let bookmark = bookmark {
-                    metadataRow(label: "URL", value: bookmark.url)
                     if let domain = URL(string: bookmark.url)?.host {
                         metadataRow(label: "Domain", value: domain)
                     }
@@ -755,7 +815,132 @@ struct ItemDetailView: View {
         isFavorite = bookmark?.isFavorite ?? imageItem?.isFavorite ?? textItem?.isFavorite ?? false
         if let bookmark = bookmark {
             bookmarkTitle = bookmark.title
+            bookmarkURL = bookmark.url
         }
+    }
+
+    private func startRequestedAIParsingIfNeeded() {
+        guard bookmark != nil,
+              itemDetailState.takeAIParsingRequest(for: item.id) else { return }
+        startAIParsing()
+    }
+
+    private func startAIParsing() {
+        guard bookmark != nil,
+              !bookmarkURL.isEmpty,
+              !parsingSession.isRunning else { return }
+
+        parsingTask?.cancel()
+        pendingParsingOutput = nil
+        pendingParsingDiff = nil
+        showingParsingDiff = false
+        parsingMessage = nil
+
+        parsingTask = Task {
+            do {
+                let categories = dataStorage.categories
+                    .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
+                let output = try await parsingSession.parse(
+                    url: bookmarkURL,
+                    categories: categories,
+                    tags: dataStorage.tags
+                )
+                guard let currentBookmark = bookmark else { return }
+
+                let currentCategory = dataStorage.category(for: currentBookmark.categoryId)
+                let currentTags = dataStorage.tags(for: currentBookmark.tagIds)
+                let diff = BookmarkParsingDiff(
+                    currentTitle: currentBookmark.title,
+                    currentSummary: currentBookmark.notes ?? "",
+                    currentCategory: currentCategory,
+                    currentTags: currentTags,
+                    resolution: output.resolution
+                )
+
+                if diff.hasChanges {
+                    pendingParsingOutput = output
+                    pendingParsingDiff = diff
+                    showingParsingDiff = true
+                } else {
+                    parsingMessage = "No changes suggested."
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                parsingMessage = "Parsing failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func applyParsingDiff(_ selection: BookmarkParsingSelection) {
+        guard let output = pendingParsingOutput,
+              var updated = bookmark else {
+            clearParsingDiff()
+            return
+        }
+
+        let resolution = output.resolution
+        if selection.appliesTitle {
+            updated.title = resolution.refinedTitle
+        }
+        if selection.appliesSummary {
+            updated.notes = resolution.summary.isEmpty ? nil : resolution.summary
+        }
+        if selection.appliesCategory {
+            if let category = resolution.category {
+                updated.categoryId = category.id
+            } else if let name = resolution.suggestedNewCategoryName {
+                do {
+                    updated.categoryId = try createCategoryIfNeeded(named: name)
+                } catch {
+                    alertMessage = error.localizedDescription
+                    showingAlert = true
+                    return
+                }
+            }
+        }
+        if selection.appliesTags {
+            do {
+                let newTagIDs = try dataStorage.createTagsIfNeeded(
+                    named: resolution.suggestedNewTagNames
+                )
+                updated.tagIds = resolution.existingTags.map(\.id) + newTagIDs
+            } catch {
+                alertMessage = error.localizedDescription
+                showingAlert = true
+                return
+            }
+        }
+
+        updated.icon = output.faviconURL ?? resolution.suggestedSFSymbol ?? updated.icon
+        updated.metadata = output.metadata ?? updated.metadata
+        updated.isParsed = true
+        updated.modifiedDate = Date()
+
+        do {
+            try dataStorage.updateBookmark(updated)
+            loadItemData()
+            parsingMessage = "Selected changes applied."
+            clearParsingDiff()
+        } catch {
+            alertMessage = error.localizedDescription
+            showingAlert = true
+        }
+    }
+
+    private func clearParsingDiff() {
+        pendingParsingOutput = nil
+        pendingParsingDiff = nil
+        showingParsingDiff = false
+    }
+
+    private func createCategoryIfNeeded(named name: String) throws -> UUID {
+        if let category = dataStorage.category(named: name) {
+            return category.id
+        }
+        let category = Category(name: name, icon: "folder.fill", color: .blue)
+        try dataStorage.addCategory(category)
+        return category.id
     }
     
     private func updateCategory(_ categoryId: UUID?) {
@@ -838,12 +1023,37 @@ struct ItemDetailView: View {
         dataStorage.updateItem(AnyCollectionItem(bookmark))
     }
 
+    private func updateBookmarkURL(_ newURL: String) {
+        let trimmedURL = newURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedURL.isEmpty, var bookmark = bookmark else { return }
+        guard bookmark.url != trimmedURL else { return }
+        bookmark.url = trimmedURL
+        bookmark.modifiedDate = Date()
+        dataStorage.updateItem(AnyCollectionItem(bookmark))
+    }
+
+    private func updateBookmarkFavorite(_ newValue: Bool) {
+        guard var bookmark = bookmark, bookmark.isFavorite != newValue else { return }
+        bookmark.isFavorite = newValue
+        bookmark.modifiedDate = Date()
+        dataStorage.updateItem(AnyCollectionItem(bookmark))
+    }
+
     private func scheduleBookmarkTitleUpdate(_ title: String) {
         titleSaveTask?.cancel()
         titleSaveTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             updateBookmarkTitle(title)
+        }
+    }
+
+    private func scheduleBookmarkURLUpdate(_ url: String) {
+        urlSaveTask?.cancel()
+        urlSaveTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            updateBookmarkURL(url)
         }
     }
 
@@ -858,8 +1068,10 @@ struct ItemDetailView: View {
 
     private func flushPendingTextEdits() {
         titleSaveTask?.cancel()
+        urlSaveTask?.cancel()
         notesSaveTask?.cancel()
         updateBookmarkTitle(bookmarkTitle)
+        updateBookmarkURL(bookmarkURL)
         updateNotes(notes)
     }
     
@@ -967,6 +1179,8 @@ struct ItemDetailView: View {
         categoryId: UUID()
     )))
     .environmentObject(DataStorage.shared)
+    .environmentObject(ItemDetailState())
+    .environmentObject(ImageGenerationService.shared)
     .frame(width: 1200, height: 800)
 }
 

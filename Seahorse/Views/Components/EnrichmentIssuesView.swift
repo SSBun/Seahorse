@@ -1,12 +1,19 @@
 #if os(macOS)
+import AppKit
 import SwiftUI
 
 struct EnrichmentIssuesView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
     @EnvironmentObject private var dataStorage: DataStorage
+    @EnvironmentObject private var itemDetailState: ItemDetailState
     @ObservedObject var autoParsingService: AutoParsingService
 
     @State private var showingBulkRetryConfirmation = false
+    @State private var bookmarkToDelete: Bookmark?
+    @State private var showingDeleteConfirmation = false
+    @State private var deleteErrorMessage = ""
+    @State private var showingDeleteError = false
 
     /// Returns failed bookmarks ordered for display.
     /// - Complexity: O(n log n).
@@ -60,6 +67,25 @@ struct EnrichmentIssuesView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This reruns AI enrichment and may use API credits or update titles, summaries, and tags.")
+        }
+        .confirmationDialog(
+            "Move Bookmark to Trash?",
+            isPresented: $showingDeleteConfirmation,
+            presenting: bookmarkToDelete
+        ) { bookmark in
+            Button("Move to Trash", role: .destructive) {
+                moveToTrash(bookmark)
+            }
+            Button("Cancel", role: .cancel) {
+                bookmarkToDelete = nil
+            }
+        } message: { bookmark in
+            Text("Enrichment failure does not prove “\(bookmark.title)” is invalid. Move it to Trash only after checking the link. You can restore it later.")
+        }
+        .alert("Unable to Move Bookmark", isPresented: $showingDeleteError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage)
         }
     }
 
@@ -124,12 +150,50 @@ struct EnrichmentIssuesView: View {
 
             Spacer()
 
+            Menu {
+                Button("Open Details") {
+                    itemDetailState.showItem(bookmark.id, source: "enrichment-issues")
+                    openWindow(id: "item-detail")
+                }
+
+                Button("Open in Browser") {
+                    if let url = URL(string: bookmark.url) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                .disabled(URL(string: bookmark.url) == nil)
+            } label: {
+                Label("Open", systemImage: "arrow.up.forward.square")
+            }
+            .menuStyle(.button)
+
             Button("Retry") {
                 autoParsingService.retryBookmark(id: bookmark.id)
             }
             .buttonStyle(.bordered)
+
+            Button(role: .destructive) {
+                bookmarkToDelete = bookmark
+                showingDeleteConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+            .help("Move to Trash")
+            .accessibilityLabel("Move \(bookmark.title) to Trash")
         }
         .padding(.vertical, 4)
+    }
+
+    private func moveToTrash(_ bookmark: Bookmark) {
+        do {
+            try dataStorage.deleteBookmark(bookmark)
+            bookmarkToDelete = nil
+        } catch {
+            deleteErrorMessage = error.localizedDescription
+            showingDeleteError = true
+        }
     }
 }
 #endif

@@ -44,9 +44,14 @@ struct iOSSettingsView: View {
                 Section("AI") {
                     Toggle("Auto AI Parsing", isOn: $aiSettings.autoParsingEnabled)
                     if aiSettings.autoParsingEnabled {
-                        Toggle("Create New Categories", isOn: $aiSettings.autoParsingCreateCategories)
                         Toggle("Create New Tags", isOn: $aiSettings.autoParsingCreateTags)
                     }
+                    TextField(
+                        "Additional Parsing Instructions",
+                        text: $aiSettings.additionalParsingInstructions,
+                        axis: .vertical
+                    )
+                    .lineLimit(3...6)
                 }
 
                 Section("About") {

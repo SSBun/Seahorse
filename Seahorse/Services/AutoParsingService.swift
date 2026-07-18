@@ -52,7 +52,9 @@ final class AutoParsingService: ObservableObject {
     }
 
     var failedBookmarkIDs: [UUID] {
-        statuses.compactMap { $0.value == .failed ? $0.key : nil }
+        statuses.compactMap { id, status in
+            status == .failed && dataStorage?.item(for: id) != nil ? id : nil
+        }
     }
 
     func status(for id: UUID) -> BookmarkEnrichmentStatus? {
@@ -88,11 +90,6 @@ final class AutoParsingService: ObservableObject {
         }
         setStatus(.pending, error: nil, for: id)
         startWorkerIfNeeded()
-    }
-
-    /// Manually requests metadata plus AI parsing for a bookmark.
-    func parseSpecificBookmark(id: UUID) {
-        enqueueBookmark(id: id, forceAI: true)
     }
 
     func retryBookmark(id: UUID) {
@@ -195,6 +192,8 @@ final class AutoParsingService: ObservableObject {
             throw EnrichmentError.itemUnavailable
         }
         let sourceURL = BookmarkURLNormalizer.normalize(initial.url)
+        var metadataTitleApplied: String?
+        var metadataSummaryApplied: String?
 
         if initial.metadata == nil {
             setStatus(.fetchingMetadata, error: nil, for: id)
@@ -208,13 +207,17 @@ final class AutoParsingService: ObservableObject {
                     throw EnrichmentError.sourceChanged
                 }
                 if latest.title == "Loading..." || latest.title == "Untitled" || latest.title.isEmpty {
-                    latest.title = metadata.title ?? url.host ?? latest.title
+                    let title = metadata.title ?? url.host ?? latest.title
+                    latest.title = title
+                    metadataTitleApplied = title
                 }
-                if latest.notes == nil {
-                    latest.notes = metadata.description
+                if latest.notes == nil, let summary = metadata.description {
+                    latest.notes = summary
+                    metadataSummaryApplied = summary
                 }
                 latest.metadata = metadata
-                if let favicon = metadata.faviconURL {
+                if let favicon = metadata.faviconURL,
+                   (latest.icon == "link.circle.fill" || latest.icon.isEmpty) {
                     latest.icon = favicon
                 }
                 latest.enrichmentStatus = .fetchingMetadata
@@ -230,64 +233,52 @@ final class AutoParsingService: ObservableObject {
 
         guard runAI else { return }
         setStatus(.parsingWithAI, error: nil, for: id)
-        guard let bookmark = dataStorage?.item(for: id)?.asBookmark else {
+        guard let dataStorage,
+              let bookmark = dataStorage.item(for: id)?.asBookmark else {
             throw EnrichmentError.itemUnavailable
         }
         let (fetchedTitle, content) = try await aiManager.fetchWebContent(url: bookmark.url)
-        let availableTags = dataStorage?.tags.map(\.name) ?? []
-        let availableCategories = dataStorage?.categories
+        let categories = dataStorage.categories
             .filter { $0.name != "All Bookmarks" && $0.name != "Favorites" }
-            .map(\.name) ?? []
-        let parsed = try await aiManager.parseBookmarkContent(
-            title: fetchedTitle,
-            content: content,
-            availableCategories: availableCategories,
-            availableTags: availableTags
+        let tags = dataStorage.tags
+        let resolution = try await aiManager.parseBookmarkContent(
+            BookmarkParsingInput(
+                url: bookmark.url,
+                title: fetchedTitle,
+                content: content,
+                categories: categories,
+                tags: tags
+            )
         )
         let faviconURL = await aiManager.fetchFavicon(url: bookmark.url)
 
-        guard var latest = dataStorage?.item(for: id)?.asBookmark else {
+        guard let latest = dataStorage.item(for: id)?.asBookmark else {
             throw EnrichmentError.itemUnavailable
         }
         guard BookmarkURLNormalizer.normalize(latest.url) == sourceURL else {
             throw EnrichmentError.sourceChanged
         }
-        latest.title = parsed.refinedTitle
-        latest.notes = parsed.summary
-        latest.isParsed = true
-        latest.enrichmentStatus = .parsingWithAI
-        latest.enrichmentError = nil
-        if let faviconURL {
-            latest.icon = faviconURL
-        } else if let symbol = parsed.suggestedSFSymbol {
-            latest.icon = symbol
-        }
-
-        if sourceURL.contains("github.com"),
-           let github = dataStorage?.category(named: "Github") {
-            latest.categoryId = github.id
-        } else if let categoryName = parsed.suggestedCategoryName {
-            if let existing = dataStorage?.category(named: categoryName) {
-                latest.categoryId = existing.id
-            } else if AISettings.shared.autoParsingCreateCategories {
-                let category = Category(name: categoryName, icon: "folder", color: .blue)
-                try dataStorage?.addCategory(category)
-                latest.categoryId = category.id
+        let newTagIDs = try latest.tagIds.isEmpty && AISettings.shared.autoParsingCreateTags
+            ? dataStorage.createTagsIfNeeded(named: resolution.suggestedNewTagNames)
+            : []
+        let unclassifiedCategoryID = dataStorage.category(named: "None")?.id
+        var updated = resolution.bookmark(
+            fillingMissingValuesIn: latest,
+            unclassifiedCategoryID: unclassifiedCategoryID,
+            newTagIDs: newTagIDs,
+            provisionalTitle: metadataTitleApplied,
+            provisionalSummary: metadataSummaryApplied
+        )
+        updated.enrichmentStatus = .parsingWithAI
+        updated.enrichmentError = nil
+        if updated.icon == "link.circle.fill" || updated.icon.isEmpty {
+            if let faviconURL {
+                updated.icon = faviconURL
+            } else if let symbol = resolution.suggestedSFSymbol {
+                updated.icon = symbol
             }
         }
-
-        var tagIDs: [UUID] = []
-        for tagName in parsed.suggestedTagNames {
-            if let existing = dataStorage?.tag(named: tagName) {
-                tagIDs.append(existing.id)
-            } else if AISettings.shared.autoParsingCreateTags {
-                let tag = Tag(name: tagName, color: .blue)
-                try dataStorage?.addTag(tag)
-                tagIDs.append(tag.id)
-            }
-        }
-        latest.tagIds = tagIDs
-        try dataStorage?.updateBookmark(latest)
+        try dataStorage.updateBookmark(updated)
     }
 
     private func updateFallbackTitle(for id: UUID, sourceURL: String) {

@@ -56,27 +56,9 @@ class AISettings: ObservableObject {
         }
     }
 
-    @Published var pageSummaryPrompt: String {
+    @Published var additionalParsingInstructions: String {
         didSet {
-            UserDefaults.standard.set(pageSummaryPrompt, forKey: "ai_page_summary_prompt")
-        }
-    }
-    
-    @Published var categorizingPrompt: String {
-        didSet {
-            UserDefaults.standard.set(categorizingPrompt, forKey: "ai_categorizing_prompt")
-        }
-    }
-    
-    @Published var tagSuggestionPrompt: String {
-        didSet {
-            UserDefaults.standard.set(tagSuggestionPrompt, forKey: "ai_tag_suggestion_prompt")
-        }
-    }
-    
-    @Published var titleRefinementPrompt: String {
-        didSet {
-            UserDefaults.standard.set(titleRefinementPrompt, forKey: "ai_title_refinement_prompt")
+            UserDefaults.standard.set(additionalParsingInstructions, forKey: "ai_additional_parsing_instructions")
         }
     }
     
@@ -101,12 +83,6 @@ class AISettings: ObservableObject {
     @Published var autoParsingEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoParsingEnabled, forKey: "ai_auto_parsing_enabled")
-        }
-    }
-
-    @Published var autoParsingCreateCategories: Bool {
-        didSet {
-            UserDefaults.standard.set(autoParsingCreateCategories, forKey: "ai_auto_parsing_create_categories")
         }
     }
 
@@ -164,53 +140,9 @@ class AISettings: ObservableObject {
         self.imageModel = UserDefaults.standard.string(forKey: "ai_image_model") ?? "gpt-image-2"
         self.codexImageModel = UserDefaults.standard.string(forKey: Self.codexImageModelKey) ?? "gpt-5.4"
         
-        self.pageSummaryPrompt = UserDefaults.standard.string(forKey: "ai_page_summary_prompt") ?? """
-Summarize the following webpage content concisely in 50 words or less. Focus on the main topic and key points.
-
-Title: {title}
-Content: {content}
-
-Return only the summary text, nothing else. Keep it under 50 words.
-"""
-        
-        self.categorizingPrompt = UserDefaults.standard.string(forKey: "ai_categorizing_prompt") ?? """
-Based on the following webpage content and title, you MUST select the most appropriate category from the available categories. Do not return "None" or empty — always pick one.
-
-Title: {title}
-Content: {content}
-
-Available Categories: {categories}
-
-If an existing category fits, return only that category name. If none fit well, suggest a NEW category name (single word, capitalized, like "Technology", "Finance", "Design").
-
-Return only one category name, nothing else.
-"""
-        
-        self.tagSuggestionPrompt = UserDefaults.standard.string(forKey: "ai_tag_suggestion_prompt") ?? """
-Based on the following webpage content and title, suggest 2-4 relevant tags.
-
-Title: {title}
-Content: {content}
-
-Available Tags: {tags}
-
-You can suggest existing tags from the list OR create NEW tags if none fit well. New tags should be concise (1-2 words), lowercase, and descriptive.
-
-Return only the tag names separated by commas, nothing else. Example: swift, ios, tutorial, machine-learning
-"""
-        
-        self.titleRefinementPrompt = UserDefaults.standard.string(forKey: "ai_title_refinement_prompt") ?? """
-Clean up the following webpage title while preserving its original meaning. Only remove:
-- Site names or platform names (like "GitHub", "Medium", "Dev.to") if they appear as suffixes
-- URL paths and separators (like " | ", " - ", " :: ") that separate the main title from the site name
-- Redundant prefixes that don't add meaning
-
-Keep the main content and meaning intact. Do not rephrase or summarize.
-
-Original Title: {title}
-
-Return only the cleaned title, nothing else.
-"""
+        self.additionalParsingInstructions = UserDefaults.standard.string(
+            forKey: "ai_additional_parsing_instructions"
+        ) ?? ""
         
         // Load AI Language or use English as default
         if let savedLanguage = UserDefaults.standard.string(forKey: "ai_language"),
@@ -221,7 +153,6 @@ Return only the cleaned title, nothing else.
         }
 
         self.autoParsingEnabled = UserDefaults.standard.bool(forKey: "ai_auto_parsing_enabled")
-        self.autoParsingCreateCategories = UserDefaults.standard.object(forKey: "ai_auto_parsing_create_categories") as? Bool ?? false
         self.autoParsingCreateTags = UserDefaults.standard.object(forKey: "ai_auto_parsing_create_tags") as? Bool ?? true
 
         if

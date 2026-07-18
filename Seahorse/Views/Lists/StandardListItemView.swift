@@ -16,7 +16,6 @@ struct StandardListItemView: View {
     @Environment(\.openWindow) var openWindow
     let item: AnyCollectionItem
     @State private var isHovered = false
-    @State private var showingEditSheet = false
     private let rowHeight: CGFloat = 64
 
     // Extract specific item types
@@ -175,6 +174,22 @@ struct StandardListItemView: View {
             openDetailWindow()
         }
         .contextMenu {
+            if bookmark != nil {
+                Button {
+                    openDetailWindow(startsAIParsing: true)
+                } label: {
+                    Label("AI Parse…", systemImage: "sparkles")
+                }
+
+                Button {
+                    openDetailWindow()
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
+
+                Divider()
+            }
+
             Button(role: .destructive, action: {
                 do { try dataStorage.deleteItem(item) } catch { Log.error("Failed to delete item: (error)", category: .ui) }
             }) {
@@ -211,10 +226,15 @@ struct StandardListItemView: View {
     
     // MARK: - Actions
 
-    private func openDetailWindow() {
+    private func openDetailWindow(startsAIParsing: Bool = false) {
         let startedAt = ProcessInfo.processInfo.systemUptime
         Log.info("detail_open cell_tap source=list item_type=\(item.itemType.rawValue)", category: .performance)
-        itemDetailState.showItem(item.id, source: "list", requestedAt: startedAt)
+        itemDetailState.showItem(
+            item.id,
+            source: "list",
+            requestedAt: startedAt,
+            startsAIParsing: startsAIParsing
+        )
         openWindow(id: "item-detail")
         Log.info("detail_open openWindow_return source=list elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
     }

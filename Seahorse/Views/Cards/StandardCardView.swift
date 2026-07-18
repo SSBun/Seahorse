@@ -391,9 +391,7 @@ struct StandardCardView: View {
             openDetailWindow()
         }
         .sheet(isPresented: $showingEditSheet) {
-            if let bookmark = bookmark {
-                AddBookmarkView(editingBookmark: bookmark)
-            } else if let imageItem = imageItem {
+            if let imageItem = imageItem {
                 AddImageView(editingItem: imageItem)
             } else if let textItem = textItem {
                 AddTextView(editingItem: textItem)
@@ -538,13 +536,13 @@ struct StandardCardView: View {
                 }
 
                 Button(action: {
-                    autoParsingService.parseSpecificBookmark(id: bookmark.id)
+                    openDetailWindow(startsAIParsing: true)
                 }) {
-                    Label("Quick AI Parse", systemImage: "sparkles")
+                    Label("AI Parse…", systemImage: "sparkles")
                 }
 
                 Button(action: {
-                    showingEditSheet = true
+                    openDetailWindow()
                 }) {
                     Label("Edit", systemImage: "pencil")
                 }
@@ -644,10 +642,15 @@ struct StandardCardView: View {
     
     // MARK: - Actions
 
-    private func openDetailWindow() {
+    private func openDetailWindow(startsAIParsing: Bool = false) {
         let startedAt = ProcessInfo.processInfo.systemUptime
         Log.info("detail_open cell_tap source=grid item_type=\(item.itemType.rawValue)", category: .performance)
-        itemDetailState.showItem(item.id, source: "grid", requestedAt: startedAt)
+        itemDetailState.showItem(
+            item.id,
+            source: "grid",
+            requestedAt: startedAt,
+            startsAIParsing: startsAIParsing
+        )
         openWindow(id: "item-detail")
         Log.info("detail_open openWindow_return source=grid elapsed_ms=\(itemDetailState.elapsedSinceOpenRequestMs())", category: .performance)
     }

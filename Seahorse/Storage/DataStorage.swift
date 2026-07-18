@@ -618,6 +618,21 @@ class DataStorage: ObservableObject {
     func tag(named name: String) -> Tag? {
         tags.first { $0.name.lowercased() == name.lowercased() }
     }
+
+    /// Creates any missing tags and returns the identifiers for all supplied names.
+    func createTagsIfNeeded(named names: [String]) throws -> [UUID] {
+        var identifiers: [UUID] = []
+        for name in names {
+            if let tag = tag(named: name) {
+                identifiers.append(tag.id)
+            } else {
+                let tag = Tag(name: name, color: .blue)
+                try addTag(tag)
+                identifiers.append(tag.id)
+            }
+        }
+        return identifiers
+    }
     
     func tagExists(name: String, excluding: UUID? = nil) -> Bool {
         tags.contains { tag in

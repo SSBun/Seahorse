@@ -64,15 +64,9 @@ struct AISettingsView: View {
 
                     if aiSettings.autoParsingEnabled {
                         VStack(alignment: .leading, spacing: 8) {
-                            Toggle("Create New Categories", isOn: $aiSettings.autoParsingCreateCategories)
-                                .font(.system(size: 12))
-                            Text("Allow AI to create new categories when parsing")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
-
                             Toggle("Create New Tags", isOn: $aiSettings.autoParsingCreateTags)
                                 .font(.system(size: 12))
-                            Text("Allow AI to create new tags when parsing")
+                            Text("Allow AI to create at most two new tags when an existing tag does not fit")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                         }
@@ -82,57 +76,19 @@ struct AISettingsView: View {
 
                 Divider()
                 
-                // Page Summary Prompt
+                // Additional Parsing Instructions
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Page Summary Prompt")
+                    Text("Additional Parsing Instructions")
                         .font(.system(size: 13, weight: .semibold))
                     
-                    TextEditor(text: $aiSettings.pageSummaryPrompt)
+                    TextEditor(text: $aiSettings.additionalParsingInstructions)
                         .font(.system(size: 12, design: .monospaced))
                         .frame(height: 120)
                         .padding(4)
                         .background(Color(NSColor.controlBackgroundColor))
                         .cornerRadius(6)
                     
-                    Text("Use {title} and {content} as placeholders for webpage title and content")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider()
-                
-                // Categorizing Prompt
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Categorizing Prompt")
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    TextEditor(text: $aiSettings.categorizingPrompt)
-                        .font(.system(size: 12, design: .monospaced))
-                        .frame(height: 140)
-                        .padding(4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(6)
-                    
-                    Text("Use {title}, {content}, and {categories} as placeholders")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider()
-                
-                // Tag Suggestion Prompt
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Tag Suggestion Prompt")
-                        .font(.system(size: 13, weight: .semibold))
-                    
-                    TextEditor(text: $aiSettings.tagSuggestionPrompt)
-                        .font(.system(size: 12, design: .monospaced))
-                        .frame(height: 140)
-                        .padding(4)
-                        .background(Color(NSColor.controlBackgroundColor))
-                        .cornerRadius(6)
-                    
-                    Text("Use {title}, {content}, and {tags} as placeholders")
+                    Text("Optional preferences for language, tone, or emphasis. Core JSON, category, and tag rules always take priority.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

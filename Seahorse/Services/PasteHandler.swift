@@ -225,8 +225,7 @@ class PasteHandler: ObservableObject {
             guard !canonicalURLString.isEmpty else { return }
             DLog("Paste: create bookmark placeholder url='\(canonicalURLString)'", category: .paste)
 
-            // Get default category based on URL (Github for github.com, None otherwise)
-            let defaultCategoryId = self.getDefaultCategoryForURL(canonicalURLString)
+            let defaultCategoryId = self.defaultCategoryID()
             
             // Create initial bookmark with minimal info
             let bookmark = Bookmark(
@@ -364,26 +363,9 @@ class PasteHandler: ObservableObject {
     
     // MARK: - Helper Methods
     
-    // MARK: - Category Detection
-
-    private func getDefaultCategoryForURL(_ urlString: String) -> UUID {
-        if isGithubURL(urlString) {
-            // Use Github category for github.com URLs
-            if let githubCategory = dataStorage.categories.first(where: { $0.name == "Github" }) {
-                return githubCategory.id
-            }
-        }
-        // Default to "None" category for non-github URLs
+    private func defaultCategoryID() -> UUID {
         return dataStorage.categories.first(where: { $0.name == "None" })?.id
             ?? dataStorage.categories.first?.id
             ?? UUID()
-    }
-
-    private func isGithubURL(_ urlString: String) -> Bool {
-        guard let url = URL(string: urlString),
-              let host = url.host?.lowercased() else {
-            return false
-        }
-        return host == "github.com" || host.hasSuffix(".github.com")
     }
 }
