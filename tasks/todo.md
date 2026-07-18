@@ -1,3 +1,94 @@
+# 实现 JSON 损坏保护与 last-good 恢复
+
+## 状态
+
+- 已完成（2026-07-18）
+
+## 目标
+
+- 核心 JSON 任一文件损坏时，禁止用默认值或空数组静默覆盖用户数据。
+- 从一份跨文件一致的 last-good 快照恢复；主数据与快照均不可用时拒绝写入。
+- 保留损坏原文件，并提供可诊断的恢复状态。
+
+## 边界
+
+- 保留现有五个 JSON 文件、`JSONStorage` 和原子写入机制，不迁移数据库或增加依赖。
+- 只保护 categories、tags、smart collections、items 与 preferences；图片和其他独立服务记录不纳入该快照。
+- 先覆盖确定的数据丢失路径，不增加恢复管理 UI。
+
+## 计划
+
+- [x] 添加损坏主文件、损坏快照与写入保护的回归测试，并确认旧实现失败。
+- [x] 在 `JSONStorage` 中实现一致快照、恢复和不可写状态。
+- [x] 运行定向测试、完整测试、Release 构建和差异检查。
+
+## 审查记录
+
+- 旧实现下三个恢复测试均失败：损坏主文件不会恢复整组快照、损坏快照时仍可写入、有效主数据不会生成 last-good；证明测试覆盖了原始数据丢失路径。
+- `JSONStorage` 现在只从实际持久化状态刷新 schema 1 `last-good.json`：已存在的主文件必须可解码，历史版本缺失的文件沿用兼容默认值；任一主文件损坏时保留 `.corrupt-<UUID>` 原件并恢复整组快照，中断恢复通过 `recovery-in-progress` 标记在下次启动重试。
+- 主文件和 last-good 都不可用时进入 `.readOnly`，所有公开写入和 `forceSaveAllData()` 均拒绝覆盖现有文件；首次启动仍创建默认分类并建立首份快照。
+- 4 个恢复测试、7 个既有 JSON 性能测试和完整 `xcodebuild test` 均通过；Release `xcodebuild build` 与 `git diff --check` 通过，只有既有构建警告。
+
+# 删除分类时迁移全部条目到 None
+
+## 状态
+
+- 已完成（2026-07-18）
+
+## 目标
+
+- 删除自定义分类时，把 Bookmark、Image 与 Text（含回收站记录）统一迁移到 `None`。
+- 只有批量迁移成功后才删除分类，避免任何悬空 `categoryId`。
+
+## 边界
+
+- 规则实现于 `DataStorage`，UI 只发起一次删除请求。
+- 复用现有同步 `updateItems`，不增加事务框架或数据库迁移。
+- 本任务不实现 JSON last-good 恢复。
+
+## 计划
+
+- [x] 添加三类条目与回收站记录的回归测试，并确认旧实现失败。
+- [x] 在数据层批量迁移后删除分类，移除 UI 的 Bookmark 专用循环。
+- [x] 运行定向测试、完整测试和构建验证。
+
+## 审查记录
+
+- 旧实现下回归测试失败：分类已删除，但 Bookmark、Image 和回收站 Text 仍引用旧分类。
+- `DataStorage.deleteCategory` 现在先用一次 `updateItems` 把三类条目（含回收站）迁移到 `None`，迁移失败会直接中止删除；分类管理 UI 不再逐条处理 Bookmark。
+- 定向测试通过：`DataStorageCategoryTests.testDeletingCategoryMovesEveryItemTypeToNone()`。
+- 完整 `xcodebuild test`、Release `xcodebuild build` 与 `git diff --check` 均通过；构建仍有既有资源名和 Swift 并发警告，本任务未新增警告。
+
+# 设计分类引用与 JSON 恢复修复
+
+## 状态
+
+- 已完成（2026-07-18）
+
+## 目标
+
+- 给出删除分类时不产生 Bookmark、Image 或 Text 悬空引用的最小数据层方案。
+- 给出 JSON 解码或完整性校验失败时不会静默覆盖用户数据的恢复方案。
+
+## 边界
+
+- 本轮只确认根因和修复设计，不修改生产代码。
+- 保留现有 JSON 主存储，不迁移 SQLite/SwiftData。
+- 复用现有批量 item 更新、原子文件写入和手工备份能力。
+
+## 计划
+
+- [x] 核对分类删除的 UI、DataStorage 与 JSONStorage 调用顺序。
+- [x] 核对 JSON 加载失败、写入失败和现有备份恢复行为。
+- [x] 比较最小修复、每文件备份与一致快照方案并形成推荐设计。
+
+## 审查记录
+
+- 分类管理 UI 当前只重映射 Bookmark，逐条失败后仍继续删除分类；Image 与 Text 不处理。应由 `DataStorage.deleteCategory` 一次构造三类 item 更新，先同步持久化到 `None`，成功后再删除分类；中途失败最多留下空分类，不能留下悬空引用。
+- `JSONStorage` 当前在 `categories.json` 解码失败时创建并写回默认分类，在 `items.json` 解码失败时继续使用空数组；后续写入可能覆盖原数据。加载失败必须进入 recovered 或 unavailable 状态，不能按首次启动处理。
+- 推荐保留现有五个 JSON，并增加一个包含 schema version 与五类数据的 `last-good` 一致快照；主文件全部加载并通过引用完整性校验后才能更新快照。任一主文件失败时保留损坏原件、恢复整组快照并提示用户；主文件与快照都失败时切换只读恢复状态并禁止写入。
+- 不推荐五个文件各自独立回退，因为不同 generation 可能产生 category/tag/item 组合不一致；也不需要为该问题迁移 SQLite。
+
 # 审计列表滚动性能
 
 ## 状态
@@ -29,6 +120,7 @@
 - iOS `iOSItemListRow` 每次 body 都创建 `RelativeDateTimeFormatter`；应改用原生相对日期 `Text` 或共享格式器。macOS 已使用 `Text(date, style:)`，没有该问题。
 - 本机真实数据为 292 条，其中 239 个远程书签图标；Kingfisher 磁盘缓存已有 591 个文件。现有搜索基准通过：300 条记录构建 0.649 ms、查询 p95 0.822 ms，3,000 条 p95 9.853 ms，10,000 条 p95 27.676 ms，因此不应先重写搜索。
 - 本机 UI 控制通道启动失败，未取得交互式 Instruments 样本；动态收益仍需在 Release 构建中用 SwiftUI/Time Profiler 对比验证，当前运行进程是 Debug 构建。
+- 用户确认只处理 Critical 性能问题；本次没有发现该级别问题，所有静态优化建议保持未实现。
 
 # 从富化问题列表移除无效书签
 

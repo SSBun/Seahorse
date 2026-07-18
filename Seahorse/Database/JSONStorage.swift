@@ -10,6 +10,23 @@ import OSLog
 
 /// JSON-based persistent storage implementation
 class JSONStorage: DatabaseProtocol {
+    enum RecoveryState: Equatable {
+        case normal
+        case recovered
+        case readOnly
+    }
+
+    private struct StorageSnapshot: Codable {
+        let schemaVersion: Int
+        let items: [AnyCollectionItem]
+        let categories: [Category]
+        let tags: [Tag]
+        let smartCollections: [SmartCollection]
+        let preferences: [String: String]
+    }
+
+    private(set) var recoveryState: RecoveryState = .normal
+
     // Persistent storage
     private var items: [AnyCollectionItem] = []  // All collection items
     // bookmarks array removed - derived from items when needed
@@ -31,6 +48,8 @@ class JSONStorage: DatabaseProtocol {
     private let tagsURL: URL
     private let smartCollectionsURL: URL
     private let preferencesURL: URL
+    private let lastGoodURL: URL
+    private let recoveryMarkerURL: URL
     
     convenience init() {
         self.init(dataDirectory: StorageManager.shared.getDataDirectory())
@@ -59,6 +78,8 @@ class JSONStorage: DatabaseProtocol {
         tagsURL = dataDirectory.appendingPathComponent("tags.json")
         smartCollectionsURL = dataDirectory.appendingPathComponent("smart-collections.json")
         preferencesURL = dataDirectory.appendingPathComponent("preferences.json")
+        lastGoodURL = dataDirectory.appendingPathComponent("last-good.json")
+        recoveryMarkerURL = dataDirectory.appendingPathComponent("recovery-in-progress")
         
         // Load data from storage
         loadData()
@@ -75,95 +96,198 @@ class JSONStorage: DatabaseProtocol {
         Log.info("📖 Loading data from storage folder...", category: .database)
         Log.info("  Categories file: \(categoriesURL.path)", category: .database)
         Log.info("  Items file: \(itemsURL.path)", category: .database)
-        
-        // Verify file access
+
         let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: categoriesURL.deletingLastPathComponent().path) {
-            Log.info("  ✅ Parent directory exists", category: .database)
-            if fileManager.isReadableFile(atPath: categoriesURL.deletingLastPathComponent().path) {
-                Log.info("  ✅ Parent directory is readable", category: .database)
-            } else {
-                Log.error("  ❌ Parent directory is NOT readable - permission issue!", category: .database)
-            }
-        } else {
-            Log.warning("  ⚠️ Parent directory does not exist yet", category: .database)
-        }
-        
-        // Load categories
-        if fileManager.fileExists(atPath: categoriesURL.path) {
-            Log.info("  📄 Categories file exists", category: .database)
-            do {
-                let data = try Data(contentsOf: categoriesURL)
-                Log.info("  ✅ Read \(data.count) bytes from categories file", category: .database)
-                let loaded = try JSONDecoder().decode([Category].self, from: data)
-                categories = loaded
-                Log.info("  ✓ Loaded \(categories.count) categories", category: .database)
-            } catch {
-                Log.error("  ❌ Failed to load categories: \(error)", category: .database)
-                categories = createDefaultCategories()
+        let primaryURLs = [itemsURL, categoriesURL, tagsURL, smartCollectionsURL, preferencesURL]
+        let hasPrimaryData = primaryURLs.contains { fileManager.fileExists(atPath: $0.path) }
+
+        if !hasPrimaryData {
+            let initial = StorageSnapshot(
+                schemaVersion: 1,
+                items: [],
+                categories: createDefaultCategories(),
+                tags: [],
+                smartCollections: [],
+                preferences: [:]
+            )
+            apply(initial)
+            if writeLastGoodSnapshot(initial) {
                 saveCategoriesToDisk()
+            } else {
+                recoveryState = .readOnly
             }
-        } else {
-            // Initialize with default categories on first launch
-            categories = createDefaultCategories()
-            Log.info("  ℹ️ Created \(categories.count) default categories", category: .database)
-            saveCategoriesToDisk()
-        }
-        
-        // Load tags
-        if fileManager.fileExists(atPath: tagsURL.path) {
-            do {
-                let data = try Data(contentsOf: tagsURL)
-                Log.info("  ✅ Read \(data.count) bytes from tags file", category: .database)
-                let loaded = try JSONDecoder().decode([Tag].self, from: data)
-                tags = loaded
-                Log.info("  ✓ Loaded \(tags.count) tags", category: .database)
-            } catch {
-                Log.error("  ❌ Failed to load tags: \(error)", category: .database)
-            }
-        } else {
-            Log.info("  ℹ️ No tags file found (will be created on first save)", category: .database)
+            return
         }
 
-        if fileManager.fileExists(atPath: smartCollectionsURL.path) {
-            do {
-                let data = try Data(contentsOf: smartCollectionsURL)
-                smartCollections = try JSONDecoder().decode([SmartCollection].self, from: data)
-                Log.info("  ✓ Loaded \(smartCollections.count) smart collections", category: .database)
-            } catch {
-                Log.error("  ❌ Failed to load smart collections: \(error)", category: .database)
-            }
+        let primary = readPrimarySnapshot()
+        let invalidURLs = primary.invalidURLs + structuralInvalidURLs(in: primary.snapshot)
+        let interruptedRecovery = fileManager.fileExists(atPath: recoveryMarkerURL.path)
+        guard !invalidURLs.isEmpty || interruptedRecovery else {
+            apply(primary.snapshot)
+            _ = writeLastGoodSnapshot(primary.snapshot)
+            Log.info("  ✓ Loaded \(items.count) items and refreshed last-good snapshot", category: .database)
+            return
         }
-        
-        // Load items (supports all collection types)
-        if fileManager.fileExists(atPath: itemsURL.path) {
-            do {
-                let data = try Data(contentsOf: itemsURL)
-                Log.info("  ✅ Read \(data.count) bytes from items file", category: .database)
-                
-                let loaded = try JSONDecoder().decode([AnyCollectionItem].self, from: data)
-                items = loaded.map { normalizeItemPaths($0) }
-                Log.info("  ✓ Loaded \(items.count) items", category: .database)
-            } catch {
-                Log.error("  ❌ Failed to load items: \(error)", category: .database)
-            }
+
+        if interruptedRecovery {
+            Log.error("  ❌ Previous storage recovery was interrupted", category: .database)
         } else {
-            Log.info("  ℹ️ No items file found (will be created on first save)", category: .database)
+            Log.error(
+                "  ❌ Invalid storage files: \(invalidURLs.map(\.lastPathComponent).joined(separator: ", "))",
+                category: .database
+            )
         }
-        
-        // Load preferences
-        if fileManager.fileExists(atPath: preferencesURL.path) {
-            do {
-                let data = try Data(contentsOf: preferencesURL)
-                let loaded = try JSONDecoder().decode([String: String].self, from: data)
-                preferences = loaded
-                Log.info("  ✓ Loaded \(preferences.count) preferences", category: .database)
-            } catch {
-                Log.error("  ❌ Failed to load preferences: \(error)", category: .database)
+        guard let recovered = readLastGoodSnapshot(), structuralInvalidURLs(in: recovered).isEmpty else {
+            apply(primary.snapshot)
+            recoveryState = .readOnly
+            Log.error("  ❌ No valid last-good snapshot; storage is read-only", category: .database)
+            return
+        }
+
+        do {
+            try preserve(invalidURLs)
+            try writePrimarySnapshot(recovered)
+            apply(recovered)
+            recoveryState = .recovered
+            Log.warning("  ⚠️ Restored all core data from last-good snapshot", category: .database)
+        } catch {
+            apply(recovered)
+            recoveryState = .readOnly
+            Log.error("  ❌ Recovery could not be persisted; storage is read-only: \(error)", category: .database)
+        }
+    }
+
+    private func readPrimarySnapshot() -> (snapshot: StorageSnapshot, invalidURLs: [URL]) {
+        var invalidURLs: [URL] = []
+        let loadedItems = decode([AnyCollectionItem].self, from: itemsURL, default: [], invalidURLs: &invalidURLs)
+        let loadedCategories = decode([Category].self, from: categoriesURL, default: createDefaultCategories(), invalidURLs: &invalidURLs)
+        let loadedTags = decode([Tag].self, from: tagsURL, default: [], invalidURLs: &invalidURLs)
+        let loadedSmartCollections = decode([SmartCollection].self, from: smartCollectionsURL, default: [], invalidURLs: &invalidURLs)
+        let loadedPreferences = decode([String: String].self, from: preferencesURL, default: [:], invalidURLs: &invalidURLs)
+        return (
+            StorageSnapshot(
+                schemaVersion: 1,
+                items: loadedItems,
+                categories: loadedCategories,
+                tags: loadedTags,
+                smartCollections: loadedSmartCollections,
+                preferences: loadedPreferences
+            ),
+            invalidURLs
+        )
+    }
+
+    private func decode<Value: Decodable>(
+        _ type: Value.Type,
+        from url: URL,
+        default defaultValue: Value,
+        invalidURLs: inout [URL]
+    ) -> Value {
+        guard FileManager.default.fileExists(atPath: url.path) else { return defaultValue }
+        do {
+            return try JSONDecoder().decode(type, from: Data(contentsOf: url))
+        } catch {
+            invalidURLs.append(url)
+            Log.error("  ❌ Failed to load \(url.lastPathComponent): \(error)", category: .database)
+            return defaultValue
+        }
+    }
+
+    private func readLastGoodSnapshot() -> StorageSnapshot? {
+        guard let data = try? Data(contentsOf: lastGoodURL),
+              let snapshot = try? JSONDecoder().decode(StorageSnapshot.self, from: data),
+              snapshot.schemaVersion == 1 else {
+            return nil
+        }
+        return snapshot
+    }
+
+    private func structuralInvalidURLs(in snapshot: StorageSnapshot) -> [URL] {
+        var invalidURLs: [URL] = []
+        if Set(snapshot.items.map(\.id)).count != snapshot.items.count || snapshot.items.contains(where: { item in
+            switch item.itemType {
+            case .bookmark: return item.asBookmark?.id != item.id
+            case .image: return item.asImageItem?.id != item.id
+            case .text: return item.asTextItem?.id != item.id
             }
-        } else {
-            Log.info("  ℹ️ No preferences file found (will be created on first save)", category: .database)
+        }) {
+            invalidURLs.append(itemsURL)
         }
+        if Set(snapshot.categories.map(\.id)).count != snapshot.categories.count {
+            invalidURLs.append(categoriesURL)
+        }
+        if Set(snapshot.tags.map(\.id)).count != snapshot.tags.count {
+            invalidURLs.append(tagsURL)
+        }
+        if Set(snapshot.smartCollections.map(\.id)).count != snapshot.smartCollections.count {
+            invalidURLs.append(smartCollectionsURL)
+        }
+        return invalidURLs
+    }
+
+    private func apply(_ snapshot: StorageSnapshot) {
+        items = snapshot.items.map { normalizeItemPaths($0) }
+        categories = snapshot.categories
+        tags = snapshot.tags
+        smartCollections = snapshot.smartCollections
+        preferences = snapshot.preferences
+    }
+
+    private func currentSnapshot() -> StorageSnapshot {
+        queue.sync {
+            StorageSnapshot(
+                schemaVersion: 1,
+                items: items.map { normalizeItemPaths($0) },
+                categories: categories,
+                tags: tags,
+                smartCollections: smartCollections,
+                preferences: preferences
+            )
+        }
+    }
+
+    @discardableResult
+    private func writeLastGoodSnapshot(_ snapshot: StorageSnapshot) -> Bool {
+        do {
+            let data = try JSONEncoder().encode(snapshot)
+            try writeData(data, lastGoodURL)
+            return true
+        } catch {
+            Log.error("❌ Failed to save last-good.json: \(error)", category: .database)
+            return false
+        }
+    }
+
+    private func refreshLastGoodSnapshot() {
+        let primary = readPrimarySnapshot()
+        guard primary.invalidURLs.isEmpty, structuralInvalidURLs(in: primary.snapshot).isEmpty else {
+            Log.error("❌ Refused to refresh last-good snapshot from invalid primary data", category: .database)
+            return
+        }
+        writeLastGoodSnapshot(primary.snapshot)
+    }
+
+    private func preserve(_ invalidURLs: [URL]) throws {
+        for url in Set(invalidURLs) where FileManager.default.fileExists(atPath: url.path) {
+            let preservedURL = url.deletingLastPathComponent().appendingPathComponent(
+                "\(url.lastPathComponent).corrupt-\(UUID().uuidString)"
+            )
+            try FileManager.default.copyItem(at: url, to: preservedURL)
+        }
+    }
+
+    private func writePrimarySnapshot(_ snapshot: StorageSnapshot) throws {
+        try writeData(Data("recovery".utf8), recoveryMarkerURL)
+        try writeData(JSONEncoder().encode(snapshot.items), itemsURL)
+        try writeData(JSONEncoder().encode(snapshot.categories), categoriesURL)
+        try writeData(JSONEncoder().encode(snapshot.tags), tagsURL)
+        try writeData(JSONEncoder().encode(snapshot.smartCollections), smartCollectionsURL)
+        try writeData(JSONEncoder().encode(snapshot.preferences), preferencesURL)
+        try FileManager.default.removeItem(at: recoveryMarkerURL)
+    }
+
+    private func ensureWritable() throws {
+        guard recoveryState != .readOnly else { throw DatabaseError.saveFailed }
     }
     
     private func createDefaultCategories() -> [Category] {
@@ -185,7 +309,9 @@ class JSONStorage: DatabaseProtocol {
                 let items = self.queue.sync {
                     self.items.map { self.normalizeItemPaths($0) }
                 }
-                self.write(items, to: self.itemsURL)
+                if self.write(items, to: self.itemsURL) {
+                    self.refreshLastGoodSnapshot()
+                }
             }
         }
     }
@@ -193,37 +319,48 @@ class JSONStorage: DatabaseProtocol {
     private func saveCategoriesToDisk() {
         writeQueue.async {
             let categories = self.queue.sync { self.categories }
-            self.write(categories, to: self.categoriesURL)
+            if self.write(categories, to: self.categoriesURL) {
+                self.refreshLastGoodSnapshot()
+            }
         }
     }
     
     private func saveTagsToDisk() {
         writeQueue.async {
             let tags = self.queue.sync { self.tags }
-            self.write(tags, to: self.tagsURL)
+            if self.write(tags, to: self.tagsURL) {
+                self.refreshLastGoodSnapshot()
+            }
         }
     }
 
     private func saveSmartCollectionsToDisk() {
         writeQueue.async {
             let smartCollections = self.queue.sync { self.smartCollections }
-            self.write(smartCollections, to: self.smartCollectionsURL)
+            if self.write(smartCollections, to: self.smartCollectionsURL) {
+                self.refreshLastGoodSnapshot()
+            }
         }
     }
     
     private func savePreferencesToDisk() {
         writeQueue.async {
             let preferences = self.queue.sync { self.preferences }
-            self.write(preferences, to: self.preferencesURL)
+            if self.write(preferences, to: self.preferencesURL) {
+                self.refreshLastGoodSnapshot()
+            }
         }
     }
 
-    private func write<Value: Encodable>(_ value: Value, to url: URL) {
+    @discardableResult
+    private func write<Value: Encodable>(_ value: Value, to url: URL) -> Bool {
         do {
             let data = try JSONEncoder().encode(value)
             try writeData(data, url)
+            return true
         } catch {
             Log.error("❌ Failed to save \(url.lastPathComponent): \(error)", category: .database)
+            return false
         }
     }
 
@@ -235,6 +372,7 @@ class JSONStorage: DatabaseProtocol {
             itemsSaveGeneration += 1
             let data = try JSONEncoder().encode(snapshot)
             try writeData(data, itemsURL)
+            refreshLastGoodSnapshot()
         }
     }
     
@@ -331,6 +469,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func saveItem(_ item: AnyCollectionItem) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard !items.contains(where: { $0.id == item.id }) else {
                 throw DatabaseError.duplicateEntry
@@ -351,6 +490,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func updateItem(_ item: AnyCollectionItem) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = items.firstIndex(where: { $0.id == item.id }) else {
                 throw DatabaseError.notFound
@@ -373,6 +513,7 @@ class JSONStorage: DatabaseProtocol {
     }
 
     func updateItems(_ updatedItems: [AnyCollectionItem]) throws {
+        try ensureWritable()
         var previousItems: [AnyCollectionItem] = []
         try queue.sync(flags: .barrier) {
             previousItems = items
@@ -406,6 +547,7 @@ class JSONStorage: DatabaseProtocol {
         smartCollections importedSmartCollections: [SmartCollection],
         items importedItems: [AnyCollectionItem]
     ) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             let candidateItems = items + importedItems
             let candidateCategories = categories + importedCategories
@@ -440,6 +582,7 @@ class JSONStorage: DatabaseProtocol {
 
     func deleteItems(_ deletedItems: [AnyCollectionItem]) throws {
         guard !deletedItems.isEmpty else { return }
+        try ensureWritable()
         var previousItems: [AnyCollectionItem] = []
         try queue.sync(flags: .barrier) {
             previousItems = items
@@ -472,6 +615,7 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Category Operations
     
     func saveCategory(_ category: Category) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard !categories.contains(where: { $0.name.lowercased() == category.name.lowercased() }) else {
                 throw DatabaseError.duplicateEntry
@@ -482,6 +626,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func updateCategory(_ category: Category) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = categories.firstIndex(where: { $0.id == category.id }) else {
                 throw DatabaseError.notFound
@@ -496,6 +641,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func deleteCategory(_ category: Category) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = categories.firstIndex(where: { $0.id == category.id }) else {
                 throw DatabaseError.notFound
@@ -520,6 +666,7 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Tag Operations
     
     func saveTag(_ tag: Tag) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard !tags.contains(where: { $0.name.lowercased() == tag.name.lowercased() }) else {
                 throw DatabaseError.duplicateEntry
@@ -530,6 +677,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func updateTag(_ tag: Tag) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = tags.firstIndex(where: { $0.id == tag.id }) else {
                 throw DatabaseError.notFound
@@ -544,6 +692,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func deleteTag(_ tag: Tag) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = tags.firstIndex(where: { $0.id == tag.id }) else {
                 throw DatabaseError.notFound
@@ -568,6 +717,7 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Reorder Operations
     
     func reorderCategories(_ newCategories: [Category]) throws {
+        try ensureWritable()
         queue.sync(flags: .barrier) {
             categories = newCategories
         }
@@ -575,6 +725,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func reorderTags(_ newTags: [Tag]) throws {
+        try ensureWritable()
         queue.sync(flags: .barrier) {
             tags = newTags
         }
@@ -584,6 +735,7 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Smart Collection Operations
 
     func saveSmartCollection(_ smartCollection: SmartCollection) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard !smartCollections.contains(where: {
                 $0.id == smartCollection.id || $0.name.localizedCaseInsensitiveCompare(smartCollection.name) == .orderedSame
@@ -596,6 +748,7 @@ class JSONStorage: DatabaseProtocol {
     }
 
     func updateSmartCollection(_ smartCollection: SmartCollection) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
                 throw DatabaseError.notFound
@@ -611,6 +764,7 @@ class JSONStorage: DatabaseProtocol {
     }
 
     func deleteSmartCollection(_ smartCollection: SmartCollection) throws {
+        try ensureWritable()
         try queue.sync(flags: .barrier) {
             guard let index = smartCollections.firstIndex(where: { $0.id == smartCollection.id }) else {
                 throw DatabaseError.notFound
@@ -625,6 +779,7 @@ class JSONStorage: DatabaseProtocol {
     }
 
     func reorderSmartCollections(_ newSmartCollections: [SmartCollection]) throws {
+        try ensureWritable()
         queue.sync(flags: .barrier) {
             smartCollections = newSmartCollections
         }
@@ -634,6 +789,7 @@ class JSONStorage: DatabaseProtocol {
     // MARK: - Preferences Operations
     
     func savePreference(key: String, value: String) throws {
+        try ensureWritable()
         queue.sync(flags: .barrier) {
             preferences[key] = value
         }
@@ -647,6 +803,7 @@ class JSONStorage: DatabaseProtocol {
     }
     
     func deletePreference(key: String) throws {
+        try ensureWritable()
         queue.sync(flags: .barrier) {
             _ = preferences.removeValue(forKey: key)
         }
@@ -657,23 +814,24 @@ class JSONStorage: DatabaseProtocol {
     
     /// Force save all data synchronously (used before migration)
     func forceSaveAllData() {
-        let snapshot = queue.sync {
-            (
-                items.map { normalizeItemPaths($0) },
-                categories,
-                tags,
-                smartCollections,
-                preferences
-            )
+        guard recoveryState != .readOnly else {
+            Log.error("❌ Refused force save because storage is read-only", category: .database)
+            return
         }
+        let snapshot = currentSnapshot()
 
         writeQueue.sync {
             itemsSaveGeneration += 1
-            write(snapshot.0, to: itemsURL)
-            write(snapshot.1, to: categoriesURL)
-            write(snapshot.2, to: tagsURL)
-            write(snapshot.3, to: smartCollectionsURL)
-            write(snapshot.4, to: preferencesURL)
+            let writes = [
+                write(snapshot.items, to: itemsURL),
+                write(snapshot.categories, to: categoriesURL),
+                write(snapshot.tags, to: tagsURL),
+                write(snapshot.smartCollections, to: smartCollectionsURL),
+                write(snapshot.preferences, to: preferencesURL)
+            ]
+            if writes.allSatisfy({ $0 }) {
+                writeLastGoodSnapshot(snapshot)
+            }
         }
     }
 }

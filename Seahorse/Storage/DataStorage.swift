@@ -544,6 +544,32 @@ class DataStorage: ObservableObject {
     }
 
     func deleteCategory(_ category: Category) throws {
+        guard let noneCategory = categories.first(where: { $0.name.caseInsensitiveCompare("None") == .orderedSame }),
+              noneCategory.id != category.id else {
+            throw DatabaseError.deleteFailed
+        }
+
+        let modifiedDate = Date()
+        let reassignedItems = items.compactMap { item -> AnyCollectionItem? in
+            if var bookmark = item.asBookmark, bookmark.categoryId == category.id {
+                bookmark.categoryId = noneCategory.id
+                bookmark.modifiedDate = modifiedDate
+                return AnyCollectionItem(bookmark)
+            }
+            if var image = item.asImageItem, image.categoryId == category.id {
+                image.categoryId = noneCategory.id
+                image.modifiedDate = modifiedDate
+                return AnyCollectionItem(image)
+            }
+            if var text = item.asTextItem, text.categoryId == category.id {
+                text.categoryId = noneCategory.id
+                text.modifiedDate = modifiedDate
+                return AnyCollectionItem(text)
+            }
+            return nil
+        }
+
+        try updateItems(reassignedItems)
         try database.deleteCategory(category)
         categories.removeAll { $0.id == category.id }
         rebuildCategoryCache()

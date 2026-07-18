@@ -28,10 +28,6 @@ struct CategoryManagementView: View {
         defaultCategoryNames.contains(category.name)
     }
 
-    private func getNoneCategory() -> Category? {
-        dataStorage.categories.first(where: { $0.name == "None" })
-    }
-    
     private var availableColors: [Color] {
         AppConfig.shared.availableColors
     }
@@ -276,24 +272,6 @@ struct CategoryManagementView: View {
             showingAlert = true
             categoryToDelete = nil
             return
-        }
-        
-        // Check if there are bookmarks in this category
-        let bookmarksInCategory = dataStorage.bookmarks.filter { $0.categoryId == category.id }
-        if !bookmarksInCategory.isEmpty {
-            // Move bookmarks to "None" category
-            if let noneCategory = getNoneCategory() {
-                // Reassign all bookmarks to None category
-                for bookmark in bookmarksInCategory {
-                    var updated = bookmark
-                    updated.categoryId = noneCategory.id
-                    do {
-                        try dataStorage.updateBookmark(updated)
-                    } catch {
-                        print("Failed to move bookmark: \(error)")
-                    }
-                }
-            }
         }
         
         do {

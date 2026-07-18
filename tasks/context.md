@@ -17,6 +17,8 @@
 - `SeahorseTests/` 是搜索、JSON 持久化、图片 I/O 和模型性能回归测试目标。
 
 ## Relationships
+- `JSONStorage` 只从实际持久化状态刷新 schema 1 `last-good.json`，其中已存在的核心 JSON 必须可解码，历史版本缺失的文件沿用兼容默认值；主文件损坏时保留 `.corrupt-<UUID>` 并恢复整组快照，中断恢复会在下次启动重试，没有有效快照时进入只读并拒绝所有写入。
+- 删除自定义分类统一由 `DataStorage.deleteCategory` 先将所有 Bookmark、Image、Text（含回收站记录）批量迁移到 `None`，成功后再删除分类；分类管理 UI 不逐条迁移项目。
 - macOS 主列表由 `ContentView.cachedItems` 驱动 `ItemCollectionView` 的 `LazyVStack`；每个 `StandardListItemView` 当前仍直接观察整个 `DataStorage`，后台解析或其他数据发布可能使全部可见行失效。
 - 富化问题列表的每行可打开详情、跳转默认浏览器、重试富化或经明确确认后移入回收站；富化失败计数只包含活动书签，回收站书签保留状态但不计数。
 - macOS 现有书签的 URL、标题、收藏、分类、标签与备注统一在 `ItemDetailView` 编辑；卡片和列表的 Edit / AI Parse 都路由到唯一详情窗口，`AddBookmarkView` 只负责新增。
@@ -44,11 +46,12 @@
 
 ## Domain
 - `SmartCollection` 按 Category/Tag UUID 持久化筛选规则；引用缺失时规则保留但匹配为空，macOS/iOS 共用 `CollectionSearch` 语义。
-- 核心 JSON 没有 schema version 或显式迁移器；Category/Tag 关系以 item 内 UUID 逻辑引用表达，没有外键。
+- 五个核心主 JSON 保持原格式且没有显式迁移器；整组 `last-good.json` 使用 schema version 1。Category/Tag 关系以 item 内 UUID 逻辑引用表达，没有外键。
 - Seahorse collection item 包含 `bookmark`、`image`、`text` 三种类型。
 - tag 的 MCP 能力支持读取和删除；category 仍只读。
 
 ## Decisions and Conventions
+- 列表性能只处理有 Release 动态证据的 Critical 问题；当前逐行 `DataStorage` 订阅、观察范围拆分和 iOS 日期格式化均保持为未实施建议，除非后续 Instruments 证明滚动超过帧预算。
 - 富化问题中的删除只允许用户主动确认后移入可恢复的回收站；确认文案必须说明富化失败不等于链接失效，不提供自动删除或永久删除。
 - 交互式书签解析必须显示真实阶段且在 AI 返回时立即展示建议摘要，不等待并行元数据结束；主动重解析只在逐字段 diff 确认后写入，元数据失败可继续评审，AI 失败或取消不写入。
 - AI 只能自动选择已有分类，自动与批量解析不创建分类；标签最多 4 个，其中新标签最多 2 个，并过滤分类重复、域名/站点名和泛化词。新分类建议只在手动交互中由用户确认。
