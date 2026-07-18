@@ -1,0 +1,36 @@
+{
+  "name": "@ssbun/seahorse",
+  "version": "1.10.0",
+  "description": "通过 npm 安装 Seahorse macOS 素材管理应用",
+  "license": "UNLICENSED",
+  "homepage": "https://github.com/SSBun/Seahorse",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SSBun/Seahorse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SSBun/Seahorse/issues"
+  },
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "seahorse": "install.js"
+  },
+  "scripts": {
+    "postinstall": "node ./install.js"
+  },
+  "files": [
+    "install.js",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

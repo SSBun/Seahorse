@@ -4,6 +4,26 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-07-18
+
+### 新增
+
+- 新增内置多 Provider Agent、持久化封面生成工作流，以及 Smart Collections 和回收站管理。
+- 新增标准化 AI 书签解析：统一分类与标签规则、逐字段差异确认、真实解析阶段和失败重试。
+- 富化问题列表支持打开详情、跳转浏览器，并可经确认将书签移入回收站。
+- 新增 `@ssbun/seahorse` npm 安装入口，用于下载并打开对应版本的 GitHub Release DMG。
+
+### 改进
+
+- 书签查看与编辑统一到详情页，卡片和列表的编辑与 AI Parse 入口共用同一流程。
+- 链接诊断区分可访问、无法确认与已失效，避免将限流、权限或 TLS 错误误判为死链。
+- 自定义分类删除会先把所有类型条目迁移到 None，避免产生悬空引用。
+
+### 修复
+
+- 核心 JSON 损坏时从跨文件一致的 last-good 快照恢复；无法恢复时进入只读，防止覆盖用户数据。
+- 修复自定义存储目录解析失败导致已生成封面无法显示或打开的问题。
+
 ## [1.9.0] - 2026-07-15
 
 ### 新增
@@ -70,7 +90,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.10.0
 [1.9.0]: https://github.com/SSBun/Seahorse/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/SSBun/Seahorse/compare/v1.6.0...v1.7.0

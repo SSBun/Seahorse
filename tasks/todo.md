@@ -1,3 +1,40 @@
+# 发布 Seahorse 1.10.0
+
+## 状态
+
+- 进行中（2026-07-18）
+
+## 目标
+
+- 将 App minor 版本从 `1.9.0 (8)` 升级到 `1.10.0 (9)`，同步 CHANGELOG。
+- 构建并验证包含 MCP helper 的签名 Release App 与 DMG。
+- 经远端动作确认后推送 `main`、创建 `v1.10.0` 并发布 DMG。
+- 首次公开发布 npm 原生 App wrapper：`@ssbun/seahorse@1.10.0`。
+
+## 边界
+
+- 复用现有 `scripts/create-dmg.sh` 与 tag-triggered GitHub workflow。
+- 正式附件使用本地签名 DMG，不把 CI 的 `NO_SIGN=1` 构建描述为签名分发包。
+- npm 包只提供标准库下载/打开脚本，DMG 保留在 GitHub Release，不嵌入 npm tarball。
+- 本轮不增加 notarization、Sparkle appcast 或新的发布系统。
+
+## 计划
+
+- [x] 更新版本、build number、CHANGELOG 与发布任务记录。
+- [x] 运行完整测试，构建并验证 Release App、DMG、签名和校验和。
+- [x] 提交发布元数据并复核工作区。
+- [ ] 列出远端 push/tag/release 动作，取得确认后执行并监控完成。
+- [x] 添加并演练 `@ssbun/seahorse` 的最小原生 App npm wrapper。
+- [ ] 上传 GitHub Release DMG 后正式发布 npm，并验证 registry 版本。
+
+## 审查记录
+
+- 完整 macOS 测试套件通过；`scripts/create-dmg.sh 1.10.0` 成功构建 Release App、生产依赖和内嵌 Node `22.22.2`。
+- `hdiutil verify`、SHA256、DMG 挂载检查和内外两份 App 的 `codesign --verify --deep --strict` 均通过；产物版本为 `1.10.0 (9)`，SHA256 为 `a31e7f5956d1621971d235a17ddfe2c1139183e2e7f62435e8a2080cf2d9d1b5`。
+- App 使用 Apple Development 身份签名，未包含 notarization ticket；正式发布时必须明确这一限制。
+- 发布元数据提交为 `release: prepare 1.10.0`；构建产物位于忽略的 `dist/`，没有污染跟踪文件。
+- `@ssbun/seahorse@1.10.0` 尚未占用；`npm pack --dry-run` 只包含 3 个文件、包体 3.7KB，`npm publish --dry-run --access public` 通过且没有 metadata 修正警告。
+
 # 实现 JSON 损坏保护与 last-good 恢复
 
 ## 状态
