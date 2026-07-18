@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 进行中（2026-07-18）
+- 已完成（2026-07-18）
 
 ## 目标
 
@@ -23,9 +23,9 @@
 - [x] 更新版本、build number、CHANGELOG 与发布任务记录。
 - [x] 运行完整测试，构建并验证 Release App、DMG、签名和校验和。
 - [x] 提交发布元数据并复核工作区。
-- [ ] 列出远端 push/tag/release 动作，取得确认后执行并监控完成。
+- [x] 列出远端 push/tag/release 动作，取得确认后执行并监控完成。
 - [x] 添加并演练 `@ssbun/seahorse` 的最小原生 App npm wrapper。
-- [ ] 上传 GitHub Release DMG 后正式发布 npm，并验证 registry 版本。
+- [x] 上传 GitHub Release DMG 后正式发布 npm，并验证 registry 版本。
 
 ## 审查记录
 
@@ -35,6 +35,8 @@
 - 发布元数据提交为 `release: prepare 1.10.0`；构建产物位于忽略的 `dist/`，没有污染跟踪文件。
 - `@ssbun/seahorse@1.10.0` 尚未占用；`npm pack --dry-run` 只包含 3 个文件、包体 3.7KB，`npm publish --dry-run --access public` 通过且没有 metadata 修正警告。
 - 首次 `v1.10.0` workflow 在打包阶段失败：runner 默认 Homebrew Node 依赖 `@rpath/libnode.127.dylib`，触发可移植性保护；workflow 改为用 `actions/setup-node` 固定官方独立 Node `22.22.2`。
+- 修复后的 workflow `29644944600` 在提交 `b4ba4e2` 上通过，并创建 `Seahorse 1.10.0` Release；本地签名 DMG 与 SHA256 已上传，公开下载返回 HTTP 200。
+- `npm publish --access public` 成功；registry 的 `latest` 为 `@ssbun/seahorse@1.10.0`，公开 tarball 可安装且只包含 README、安装脚本和 manifest。
 
 # 实现 JSON 损坏保护与 last-good 恢复
 
