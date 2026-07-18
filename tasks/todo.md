@@ -34,6 +34,7 @@
 - App 使用 Apple Development 身份签名，未包含 notarization ticket；正式发布时必须明确这一限制。
 - 发布元数据提交为 `release: prepare 1.10.0`；构建产物位于忽略的 `dist/`，没有污染跟踪文件。
 - `@ssbun/seahorse@1.10.0` 尚未占用；`npm pack --dry-run` 只包含 3 个文件、包体 3.7KB，`npm publish --dry-run --access public` 通过且没有 metadata 修正警告。
+- 首次 `v1.10.0` workflow 在打包阶段失败：runner 默认 Homebrew Node 依赖 `@rpath/libnode.127.dylib`，触发可移植性保护；workflow 改为用 `actions/setup-node` 固定官方独立 Node `22.22.2`。
 
 # 实现 JSON 损坏保护与 last-good 恢复
 

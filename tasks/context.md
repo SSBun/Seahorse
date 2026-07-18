@@ -76,6 +76,7 @@
 - GitHub 发布工作流由 `v*` tag 触发；`v1.8.0` 与 `v1.9.0` 未发布 tag，因此 `1.10.0` 的 compare 基线是最近已发布的 `v1.7.0`。
 - Seahorse App 当前版本为 `1.10.0`，build number 为 `9`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
 - 正式 DMG 由本地 `scripts/create-dmg.sh` 构建并验证签名；GitHub Actions 的 `NO_SIGN=1` 产物只适合作为临时构建，不能作为签名分发包。
+- GitHub DMG workflow 用 `actions/setup-node` 固定官方 Node `22.22.2`，避免 runner 的动态 Homebrew Node 依赖 `@rpath/libnode.*.dylib` 而无法嵌入 App。
 - 根目录 `@ssbun/seahorse` npm wrapper 只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；当前分发包只支持 Apple Silicon macOS。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
