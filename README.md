@@ -115,7 +115,7 @@ Seahorse is more than just a bookmark manager—it's a versatile material collec
 
 ## System Requirements
 
-- macOS 13.0 or later
+- macOS 15.2 or later
 
 ## Download
 

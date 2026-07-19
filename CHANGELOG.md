@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-07-19
+
+### 新增
+
+- Agent 聊天改为独立、可调整尺寸的 macOS 窗口，不再占用主内容区域。
+
+### 改进
+
+- Agent 回复支持系统 Markdown 富文本，消息气泡、输入区和书签结果卡片使用更清晰的原生 macOS 布局。
+
+### 修复
+
+- Codex Agent 遇到临时 429、5xx、网络或流错误时最多重试一次；400、401、额度耗尽和取消保持单次请求，失败尝试不会重复工具调用。
+
 ## [1.10.0] - 2026-07-18
 
 ### 新增
@@ -90,7 +104,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/SSBun/Seahorse/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.10.0
 [1.9.0]: https://github.com/SSBun/Seahorse/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.8.0
