@@ -75,11 +75,11 @@
 - MCP 使用通用 `delete_item(id)` 将 bookmark、image 或 text 幂等移入回收站，并返回 `movedToTrash`/`alreadyInTrash`。
 - 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内、且永久删除后不再被任何条目引用的文件。
 - Xcode 与公开文档统一声明最低版本为 macOS 15.2、iOS 16.0。
-- GitHub 最新 Release 为 `v1.10.0`；`v1.8.0` 与 `v1.9.0` 未发布 tag，因此 `1.10.0` 的 compare 基线是此前最近已发布的 `v1.7.0`。
+- GitHub 最新 Release 为 `v1.11.0`；tag 指向发布准备提交，`main` 另保留发布后记录，compare 基线是 `v1.10.0`。
 - Seahorse App 当前版本为 `1.11.0`，build number 为 `10`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
 - 正式 DMG 由本地 `scripts/create-dmg.sh` 构建并验证签名；GitHub Actions 的 `NO_SIGN=1` 产物只适合作为临时构建，不能作为签名分发包。
 - GitHub DMG workflow 用 `actions/setup-node` 固定官方 Node `22.22.2`，避免 runner 的动态 Homebrew Node 依赖 `@rpath/libnode.*.dylib` 而无法嵌入 App。
-- 根目录 `@ssbun/seahorse` npm wrapper 只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；npm `latest` 当前为 `1.10.0`，分发包只支持 Apple Silicon macOS。
+- 根目录 `@ssbun/seahorse` npm wrapper 只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；npm `latest` 当前为 `1.11.0`，分发包只支持 Apple Silicon macOS。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
 - `scripts/create-dmg.sh` 会先构建 helper，再将 `dist`、production-only Node 依赖、Pi/Node 许可证和兼容的 Node `>=22.19.0` 独立运行时写入 App bundle，并使用原身份重签名后生成 DMG。

@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 进行中（2026-07-19）
+- 已完成（2026-07-19）
 
 ## 目标
 
@@ -25,10 +25,10 @@
 - [x] 更新版本、build number、CHANGELOG 与持久上下文。
 - [x] 运行全量测试和 npm dry-run，构建并验证签名 DMG。
 - [x] 通过最终发布差异的独立对抗式审查。
-- [ ] 提交发布元数据并推送 `main`，再创建并推送 `v1.11.0`。
-- [ ] 等待 tag workflow 结束并确认其创建的空 GitHub Release，用 CHANGELOG `1.11.0` 章节设置 Release notes。
-- [ ] 上传本地签名 `Seahorse-1.11.0.dmg` 与 `.sha256`，验证公开下载 HTTP 200、附件文件名和 GitHub asset digest。
-- [ ] 仅在上述 GitHub 检查全部通过后执行 `npm publish --access public`，再验证 registry 的 version 与 `latest`。
+- [x] 提交发布元数据并推送 `main`，再创建并推送 `v1.11.0`。
+- [x] 等待 tag workflow 结束并确认其创建的空 GitHub Release，用 CHANGELOG `1.11.0` 章节设置 Release notes。
+- [x] 上传本地签名 `Seahorse-1.11.0.dmg` 与 `.sha256`，验证公开下载 HTTP 200、附件文件名和 GitHub asset digest。
+- [x] 仅在上述 GitHub 检查全部通过后执行 `npm publish --access public`，再验证 registry 的 version 与 `latest`。
 
 ## Review status
 
@@ -46,6 +46,13 @@
 - `hdiutil verify`、SHA256、DMG 只读挂载和内外 App 的 `codesign --verify --deep --strict` 均通过；版本为 `1.11.0 (10)`，SHA256 为 `f271af6c53eb647088ede6aa1e6e39a3ffddef6cc68a9224840457c117a28539`。
 - App 使用 Apple Development 身份签名，未包含 notarization ticket；本轮不声称已公证。
 - 本地产物位于 `dist/Seahorse-1.11.0_20260719_213358/`，目录被 Git 忽略，工作树只包含上述 8 个发布相关文件。
+
+## 发布记录
+
+- 发布准备提交为 `6591d76`，annotated tag `v1.11.0` 解析到该提交；`origin/main` 在发布后另追加本记录。
+- GitHub Actions run `29689565520` 成功并按预期创建空 Release；随后已设置 `Seahorse 1.11.0` 发布说明并上传本地签名 DMG 与 SHA256。
+- GitHub 两个附件均返回 HTTP 200；DMG asset 为 83,220,943 bytes，远端 digest 与本地 SHA256 `f271af6c53eb647088ede6aa1e6e39a3ffddef6cc68a9224840457c117a28539` 一致。
+- `npm publish --access public` 成功；registry 的 `version` 与 `latest` 均为 `@ssbun/seahorse@1.11.0`，公开 tarball 返回 HTTP 200。
 
 # 补全 Codex Agent 临时错误重试
 
