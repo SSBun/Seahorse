@@ -1,6 +1,18 @@
-import { Agent, type AgentTool } from "@earendil-works/pi-agent-core";
-import { Type, type Model, type Static, type TSchema } from "@earendil-works/pi-ai";
+import { Agent, type AgentTool, type StreamFn } from "@earendil-works/pi-agent-core";
+import {
+  createAssistantMessageEventStream,
+  isRetryableAssistantError,
+  Type,
+  type Api,
+  type AssistantMessage,
+  type AssistantMessageEvent,
+  type Model,
+  type Static,
+  type TSchema,
+} from "@earendil-works/pi-ai";
+import { streamSimple } from "@earendil-works/pi-ai/compat";
 import { getBuiltinModels } from "@earendil-works/pi-ai/providers/all";
+import { setTimeout as delay } from "node:timers/promises";
 import type { BridgeClient, BridgePayload } from "./bridgeClient.js";
 import type { CodexAuthLike } from "./codexAuth.js";
 
@@ -60,6 +72,121 @@ Use the available tools to search and inspect the user's bookmarks, tags, and ca
 Never claim a bookmark exists unless a tool returned it.
 Answer concisely in the same language as the user.
 You have read-only access and cannot create, update, or delete data.`;
+
+const streamCodexWithSingleRetry: StreamFn = (model, context, options) => {
+  const output = createAssistantMessageEventStream();
+  void (async () => {
+    const responseStatuses: number[] = [];
+    let providerRetryReserved = false;
+    // Pi 0.80.7 reads this budget more than once. Keep it at zero until the raw
+    // HTTP status proves that its built-in body-aware 429/5xx retry is safe.
+    const httpRetryBudget = {
+      [Symbol.toPrimitive]: () => {
+        const status = responseStatuses.at(-1);
+        const retryable = status === 429 || (status !== undefined && status >= 500 && status < 600);
+        if (retryable) providerRetryReserved = true;
+        return retryable ? 1 : 0;
+      },
+    } as unknown as number;
+    const firstAttempt = await collectCodexAttempt(
+      model,
+      context,
+      {
+        ...options,
+        maxRetries: httpRetryBudget,
+        onResponse: async (response, requestModel) => {
+          responseStatuses.push(response.status);
+          await options?.onResponse?.(response, requestModel);
+        },
+      },
+      options?.signal,
+    );
+
+    if (!shouldRetryCodexError(firstAttempt.message, responseStatuses, providerRetryReserved)) {
+      firstAttempt.events.forEach((event) => output.push(event));
+      return;
+    }
+
+    try {
+      await delay(1_000, undefined, { signal: options?.signal });
+      const retry = streamSimple(model, context, { ...options, maxRetries: 0 });
+      for await (const event of retry) {
+        output.push(event);
+      }
+    } catch (error) {
+      output.push(codexFailure(model, error, options?.signal));
+    }
+  })();
+
+  return output;
+};
+
+async function collectCodexAttempt(
+  model: Model<Api>,
+  context: Parameters<StreamFn>[1],
+  options: Parameters<StreamFn>[2],
+  signal?: AbortSignal,
+): Promise<{ events: AssistantMessageEvent[]; message: AssistantMessage }> {
+  const events: AssistantMessageEvent[] = [];
+  try {
+    const stream = streamSimple(model, context, options);
+    for await (const event of stream) {
+      events.push(event);
+    }
+    return { events, message: await stream.result() };
+  } catch (error) {
+    const failure = codexFailure(model, error, signal);
+    return { events: [...events, failure], message: failure.error };
+  }
+}
+
+function shouldRetryCodexError(
+  message: AssistantMessage,
+  responseStatuses: number[],
+  providerRetryReserved: boolean,
+): boolean {
+  if (message.stopReason !== "error" || providerRetryReserved) return false;
+  const responseStatus = responseStatuses.at(-1);
+  if (responseStatus !== undefined && responseStatus >= 500 && responseStatus < 600) return true;
+  if (responseStatus !== undefined && responseStatus >= 400) return false;
+  const streamedStatus = message.errorMessage?.match(/\bHTTP\s+(4\d\d)\b/i)?.[1];
+  if (streamedStatus && streamedStatus !== "429") return false;
+  return isRetryableAssistantError(message);
+}
+
+function codexFailure(
+  model: Model<Api>,
+  error: unknown,
+  signal?: AbortSignal,
+): Extract<AssistantMessageEvent, { type: "error" }> {
+  const aborted = signal?.aborted === true;
+  return {
+    type: "error",
+    reason: aborted ? "aborted" : "error",
+    error: {
+      role: "assistant",
+      content: [],
+      api: model.api,
+      provider: model.provider,
+      model: model.id,
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: aborted ? "aborted" : "error",
+      errorMessage: aborted
+        ? "Request was aborted"
+        : error instanceof Error
+          ? error.message
+          : String(error),
+      timestamp: Date.now(),
+    },
+  };
+}
 
 /** Owns in-memory Pi agent sessions and routes their tools through the Swift bridge. */
 export class AgentRuntime {
@@ -222,6 +349,7 @@ export function createPiAgent(
         tools,
       },
       getApiKey: () => codexAuth.getAccessToken(),
+      streamFn: streamCodexWithSingleRetry,
     });
   }
 

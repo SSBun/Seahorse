@@ -1,3 +1,183 @@
+# 补全 Codex Agent 临时错误重试
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- Codex 默认请求路径遇到临时 429/5xx 时最多重试一次。
+- 400/401 等不可重试错误保持单次请求并原样失败。
+- 重试不得重复已完成的工具调用，也不得改变其他 Provider。
+
+## 边界
+
+- 只修改 helper 的 Codex Agent stream 配置与定向测试。
+- 复用 Pi provider；不新增依赖、不修改 UI、不扩大到图片生成。
+- 覆盖 HTTP 临时错误、不可重试错误和错误响应前已开始输出等边界，避免重复部分响应。
+
+## 计划
+
+- [x] 先添加会在当前实现下失败的回归测试。
+- [x] 实现一次、分类明确且不重复部分输出的重试。
+- [x] 运行定向测试、全量测试、TypeScript 构建、macOS 构建和差异检查。
+- [x] 通过独立对抗式审查。
+
+## Review status
+
+- Gate: APPROVED
+- Reviewer: `/root/codex_retry_reviewer`
+- Round: 3/3
+- Scope: `MCPHelper/src/agentRuntime.ts`、`MCPHelper/tests/agentRuntime.test.ts`、`tasks/context.md` 的本任务事实及需求与验证证据
+- Resolved: R1–R6；Reviewer 已批准最终受审差异
+- Unresolved: none
+
+# 审查当前本地改动
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- 以 `HEAD` 为基线审查当前未提交改动的规范符合度与需求符合度。
+- 运行与变更风险相称的最小验证，并只报告可操作问题。
+
+## 边界
+
+- 不修改产品代码。
+- 保留工作区现有未提交改动；本任务记录不纳入待审产品差异。
+
+## 计划
+
+- [x] 固定原始差异与需求来源。
+- [x] 并行完成规范与需求审查。
+- [x] 复核发现并运行最小验证。
+
+## 审查记录
+
+- 发现默认 WebSocket 路径收到 Codex 500 error event 时不会执行配置的一次重试；本地错误注入只产生一次请求并失败。
+- 发现 SSE 路径会把 401 等不可重试 HTTP 错误也重试一次；新增测试只验证 `maxRetries` 参数透传，没有覆盖错误分类与真实重试。
+- helper 全量 26 项测试、TypeScript 构建、Swift 解析、macOS Debug 构建与 `git diff --check` 均通过；除上述问题外未发现 UI 行为缺陷。
+
+# 修复 Codex Agent 临时 500 错误
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- Codex 上游出现临时 429/5xx 时不立即让聊天失败。
+- 保持不可重试错误、工具执行和其他 Provider 行为不变。
+
+## 边界
+
+- 复用 Pi Codex provider 的内置重试判断，只重试一次。
+- 不在 UI 吞掉错误，不实现自定义重试器。
+
+## 计划
+
+- [x] 用真实 helper 路径复现并定位失败边界。
+- [x] 为 Codex provider 请求启用一次内置重试。
+- [x] 运行 helper 测试、构建与 macOS 构建。
+- [x] 通过独立对抗式代码审查。
+
+## 审查记录
+
+- 真实 helper 的普通问候和书签工具查询均可成功；失败日志确认错误边界位于 Codex 上游请求，Pi Codex 默认不重试临时 500。
+- Codex Agent 现在复用 Pi 的临时错误判断并最多重试一次；重试发生在单次模型响应完成前，不会重复已经完成的工具调用，其他 Provider 与最终错误展示不变。
+- helper 定向测试 7 项、全量测试 26 项、TypeScript 构建、macOS Debug 构建与 `git diff --check` 均通过；独立 Reviewer 批准最终完整差异。
+
+# 恢复 Agent 窗口的标准层级
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- Agent 保持独立窗口，但不再始终置于其他窗口上方。
+
+## 边界
+
+- 只移除显式 AppKit 浮动层级，不改变窗口、聊天或详情行为。
+
+## 计划
+
+- [x] 移除 `.floating` 层级并更新持久上下文。
+- [x] 运行 Swift 解析、构建和差异检查。
+- [x] 通过独立对抗式代码审查。
+
+## 审查记录
+
+- `agent-chat` 保持唯一、可调整尺寸的普通 SwiftUI Window，并移除 AppKit `.floating` 层级，因此不再始终置顶。
+- Swift 解析、macOS Debug 构建与 `git diff --check` 均通过；独立 Reviewer 批准完整差异。
+
+# 将 Agent 聊天迁移为独立浮动窗口
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- 从主内容分栏移除 Agent 聊天。
+- 工具栏 Agent 按钮打开唯一、可调整尺寸的浮动窗口。
+- 保留 Markdown、书签卡片、会话和详情打开行为。
+
+## 边界
+
+- 使用现有 SwiftUI Window 场景与 WindowAccessor，不增加窗口管理抽象。
+- 不修改 Agent 服务、搜索协议或消息模型。
+
+## 计划
+
+- [x] 新增 Agent Window 场景并设置浮动层级。
+- [x] 从主窗口移除内嵌分栏和可见性状态。
+- [x] 运行 Swift 解析、构建和差异检查。
+- [x] 通过独立对抗式代码审查。
+
+## 审查记录
+
+- 主窗口已移除 Agent 分栏和可见性状态，工具栏按钮统一打开唯一 `agent-chat` Window。
+- Agent Window 复用现有 `WindowAccessor` 设置 AppKit `.floating` 层级，默认 380×680 点，并保留可调整尺寸、Markdown、书签卡片和详情窗口行为。
+- Swift 解析、macOS Debug 构建与 `git diff --check` 均通过；独立 Reviewer 批准完整差异。
+
+# 优化 Agent 聊天界面与交互
+
+## 状态
+
+- 已完成（2026-07-19）
+
+## 目标
+
+- 修正消息气泡占满整行和聊天区域层级失衡的问题。
+- 使用 macOS 系统颜色、材质、控件样式与间距组织标题、消息和输入区。
+- 支持拖拽调整 Agent 侧栏宽度，并用系统能力渲染 Markdown 回复。
+- 优化内联书签卡片的信息层级和点击呈现。
+- 保持现有 Agent 搜索、结果打开和会话行为不变。
+
+## 边界
+
+- 只修改 Agent 面板及其主窗口分栏容器，不重构 Agent 服务。
+- 不引入自定义设计系统、第三方依赖或新功能入口。
+
+## 计划
+
+- [x] 调整消息行、滚动区和输入区布局。
+- [x] 接入可拖拽系统分栏和 Markdown 渲染。
+- [x] 优化内联书签卡片。
+- [x] 运行 Swift 解析、构建和差异检查。
+- [x] 通过独立对抗式代码审查。
+
+## 审查记录
+
+- 主内容和 Agent 面板改用原生 `HSplitView`，主内容最小宽度 420 点，Agent 面板可在 300–600 点间拖拽，理想宽度为 380 点。
+- Agent 回复通过系统 `AttributedString(markdown:)` 渲染，解析失败回退原文；用户输入和错误文本保持字面显示。
+- 内联书签卡片使用系统字体、图标底板、分隔色和导航提示，详情窗口与 Agent 会话行为未变。
+- Swift 解析、macOS Debug 构建与 `git diff --check` 均通过；构建只包含既有警告，独立 Reviewer 解决 R1 后批准最终实现。
+
 # 发布 Seahorse 1.10.0
 
 ## 状态

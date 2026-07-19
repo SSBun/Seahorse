@@ -41,8 +41,8 @@ struct AgentPanelView: View {
             Divider()
             composer
         }
-        .frame(width: 320)
-        .background(.regularMaterial)
+        .frame(minWidth: 300, idealWidth: 380, maxWidth: 600, minHeight: 420, idealHeight: 680)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var header: some View {
@@ -57,6 +57,7 @@ struct AgentPanelView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .background(.bar)
     }
 
     private var transcript: some View {
@@ -68,7 +69,7 @@ struct AgentPanelView: View {
                             .id(message.id)
                     }
                 }
-                .padding(12)
+                .padding(14)
             }
             .onChange(of: messages.count) { _, _ in
                 if let last = messages.last {
@@ -80,14 +81,24 @@ struct AgentPanelView: View {
 
     @ViewBuilder
     private func messageView(_ message: AgentChatMessage) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(message.text)
-                .font(.system(size: 13))
-                .foregroundStyle(message.role == .error ? .red : .primary)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
-                .background(messageBackground(for: message.role))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        VStack(alignment: message.role == .user ? .trailing : .leading, spacing: 8) {
+            HStack {
+                if message.role == .user {
+                    Spacer(minLength: 40)
+                }
+
+                Text(renderedText(for: message))
+                    .font(.body)
+                    .foregroundStyle(message.role == .error ? .red : .primary)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(messageBackground(for: message.role), in: RoundedRectangle(cornerRadius: 12))
+
+                if message.role != .user {
+                    Spacer(minLength: 40)
+                }
+            }
 
             if !message.results.isEmpty {
                 VStack(spacing: 8) {
@@ -97,6 +108,7 @@ struct AgentPanelView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
     }
 
     private func resultButton(_ bookmark: Bookmark) -> some View {
@@ -104,23 +116,34 @@ struct AgentPanelView: View {
             itemDetailState.showItem(bookmark.id, source: "agent")
             openWindow(id: "item-detail")
         } label: {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(spacing: 12) {
                 BookmarkIconView(iconString: bookmark.icon, size: 18)
-                    .frame(width: 28, height: 28)
-                VStack(alignment: .leading, spacing: 4) {
+                    .frame(width: 34, height: 34)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(bookmark.title)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.callout.weight(.medium))
                         .lineLimit(2)
                     Text(host(for: bookmark.url))
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
+
                 Spacer(minLength: 0)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
-            .padding(10)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .padding(12)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.6), lineWidth: 1)
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
     }
@@ -139,10 +162,13 @@ struct AgentPanelView: View {
             } label: {
                 Image(systemName: "paperplane.fill")
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
             .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
             .help("Send")
         }
         .padding(10)
+        .background(.bar)
     }
 
     private func send() {
@@ -182,6 +208,13 @@ struct AgentPanelView: View {
         case .error:
             return Color.red.opacity(0.12)
         }
+    }
+
+    private func renderedText(for message: AgentChatMessage) -> AttributedString {
+        guard message.role == .assistant else {
+            return AttributedString(message.text)
+        }
+        return (try? AttributedString(markdown: message.text)) ?? AttributedString(message.text)
     }
 
     private func host(for urlString: String) -> String {

@@ -1,6 +1,7 @@
 # Workspace Context
 
 ## Components
+- macOS `AgentPanelView` 位于唯一、可调整尺寸的普通 `agent-chat` Window 场景中，不使用始终置顶层级；Agent 回复使用系统 Markdown 富文本，搜索结果继续打开唯一详情窗口。
 - `BookmarkParsingSession` 是新增页与 macOS 详情页共用的交互式解析会话，发布网页、元数据、AI 和建议准备四个真实阶段以及可提前展示的 AI resolution。
 - `ImageGenerationService` 保存待生成 bookmark ID，并把封面任务、样式、状态和图片元数据持久化到 `Data/image-generations.json`；生成 PNG 位于 `Images/`，macOS 唯一的 `Image Generation` 窗口提供样式、历史、图片详情、导出与 Apply。
 - `AISettings` 保存多个命名 Agent Provider、Agent/图片选中 ID，以及独立 Codex Agent/图片模型；OpenAI/Claude-compatible token 按 profile ID 存入 macOS Keychain，profile JSON 不含凭据。
@@ -51,6 +52,7 @@
 - tag 的 MCP 能力支持读取和删除；category 仍只读。
 
 ## Decisions and Conventions
+- Codex Agent 将 Pi provider 的原始 HTTP 429/5xx 判断与外层流错误分类合并为一次共享重试预算；400/401、额度耗尽、取消和其他 Provider 保持原行为，失败尝试的部分输出与工具事件不会外泄。
 - 列表性能只处理有 Release 动态证据的 Critical 问题；当前逐行 `DataStorage` 订阅、观察范围拆分和 iOS 日期格式化均保持为未实施建议，除非后续 Instruments 证明滚动超过帧预算。
 - 富化问题中的删除只允许用户主动确认后移入可恢复的回收站；确认文案必须说明富化失败不等于链接失效，不提供自动删除或永久删除。
 - 交互式书签解析必须显示真实阶段且在 AI 返回时立即展示建议摘要，不等待并行元数据结束；主动重解析只在逐字段 diff 确认后写入，元数据失败可继续评审，AI 失败或取消不写入。

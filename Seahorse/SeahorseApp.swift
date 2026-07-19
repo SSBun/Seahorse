@@ -96,6 +96,14 @@ struct SeahorseApp: App {
         .defaultSize(width: 760, height: 680)
         .defaultPosition(.center)
 
+        Window("Agent", id: "agent-chat") {
+            AgentPanelView()
+                .environmentObject(dataStorage)
+                .environmentObject(itemDetailState)
+        }
+        .defaultSize(width: 380, height: 680)
+        .defaultPosition(.center)
+
         // Settings window
         Settings {
             SettingsView()

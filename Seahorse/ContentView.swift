@@ -51,8 +51,6 @@ struct ContentView: View {
     @StateObject private var exportImportManager = ExportImportManager.shared
     @EnvironmentObject var imageGenerationService: ImageGenerationService
     @StateObject private var pasteHandler = PasteHandler(dataStorage: .shared)
-    @State private var isAgentPanelVisible = false
-
     @State private var cachedItems: [AnyCollectionItem] = []
     @State private var searchDebounceTask: Task<Void, Never>?
     @State private var filterTask: Task<Void, Never>?
@@ -197,18 +195,9 @@ struct ContentView: View {
             )
             .environmentObject(dataStorage)
         } detail: {
-            HStack(spacing: 0) {
-                mainContentArea
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(minWidth: 420)
-
-                if isAgentPanelVisible {
-                    Divider()
-                    AgentPanelView()
-                        .environmentObject(dataStorage)
-                        .environmentObject(itemDetailState)
-                }
-            }
+            mainContentArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 420)
             .navigationTitle(navigationTitle)
             .onDrop(of: [.url, .image, .plainText, .fileURL, .seahorseItemUUID], isTargeted: nil) { providers in
                 handleDrop(providers: providers)
@@ -322,11 +311,11 @@ struct ContentView: View {
                     .help("Add Item")
 
                     Button {
-                        isAgentPanelVisible.toggle()
+                        openWindow(id: "agent-chat")
                     } label: {
                         Label("Agent", systemImage: "sparkles")
                     }
-                    .help(isAgentPanelVisible ? "Hide Agent" : "Show Agent")
+                    .help("Open Agent")
                 }
             }
         }

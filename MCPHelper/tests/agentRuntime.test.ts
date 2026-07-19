@@ -2,9 +2,12 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { Agent } from "@earendil-works/pi-agent-core";
 import {
+  createAssistantMessageEventStream,
   fauxAssistantMessage,
   fauxToolCall,
+  registerApiProvider,
   registerFauxProvider,
+  unregisterApiProviders,
 } from "@earendil-works/pi-ai/compat";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BridgeClient } from "../src/bridgeClient.js";
@@ -278,6 +281,461 @@ describe("AgentRuntime", () => {
       api: "openai-codex-responses",
     });
     await expect(agent.getApiKey?.("openai-codex")).resolves.toBe("codex-access-token");
+  });
+
+  it.each(["Codex error: HTTP 500 upstream", "Codex error: rate limit 429"])(
+    "retries one transient streamed Codex error without exposing the failed attempt: %s",
+    async (errorMessage) => {
+      const faux = registerFauxProvider();
+      registrations.push(faux);
+      faux.setResponses([
+        fauxAssistantMessage("Discarded partial response.", {
+          stopReason: "error",
+          errorMessage,
+        }),
+        fauxAssistantMessage("Retried response."),
+      ]);
+      const agent = createPiAgent(
+        { provider: "openai-codex", model: "gpt-5.4-mini" },
+        [],
+        "codex-retry-session",
+        {
+          getAccessToken: vi.fn(async () => "codex-access-token"),
+          status: vi.fn(),
+          startLogin: vi.fn(),
+          disconnect: vi.fn(),
+        },
+      );
+
+      const stream = agent.streamFn(
+        faux.getModel(),
+        { systemPrompt: "Test", messages: [] },
+        { apiKey: "test-token" },
+      );
+      const eventTypes: string[] = [];
+      const events = (async () => {
+        for await (const event of stream) {
+          eventTypes.push(event.type);
+        }
+      })();
+
+      const response = await stream.result();
+      await events;
+
+      expect(faux.state.callCount).toBe(2);
+      expect(eventTypes).not.toContain("error");
+      expect(eventTypes.at(-1)).toBe("done");
+      expect(response.content).toEqual([{ type: "text", text: "Retried response." }]);
+    },
+  );
+
+  it("stops after one transient Codex retry", async () => {
+    const faux = registerFauxProvider();
+    registrations.push(faux);
+    faux.setResponses([
+      fauxAssistantMessage([], {
+        stopReason: "error",
+        errorMessage: "Codex error: HTTP 500 upstream",
+      }),
+      fauxAssistantMessage([], {
+        stopReason: "error",
+        errorMessage: "Codex error: HTTP 503 upstream",
+      }),
+      fauxAssistantMessage("Unexpected third attempt."),
+    ]);
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-single-retry-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+
+    const stream = agent.streamFn(
+      faux.getModel(),
+      { systemPrompt: "Test", messages: [] },
+      { apiKey: "test-token" },
+    );
+
+    const response = await stream.result();
+
+    expect(faux.state.callCount).toBe(2);
+    expect(faux.getPendingResponseCount()).toBe(1);
+    expect(response.stopReason).toBe("error");
+    expect(response.errorMessage).toContain("503");
+  });
+
+  it.each([
+    {
+      status: 400,
+      code: "bad_request",
+      message: "bad request",
+      expectedRequestCount: 1,
+      expectedError: "bad request",
+    },
+    {
+      status: 401,
+      code: "unauthorized",
+      message: "internal server error",
+      expectedRequestCount: 1,
+      expectedError: "internal server error",
+    },
+    {
+      status: 429,
+      code: "rate_limit_exceeded",
+      message: "temporary rate limit",
+      expectedRequestCount: 2,
+      expectedError: "usage limit",
+    },
+    {
+      status: 429,
+      code: "insufficient_quota",
+      message: "insufficient_quota",
+      expectedRequestCount: 1,
+      expectedError: "usage limit",
+    },
+    {
+      status: 500,
+      code: "server_error",
+      message: "temporary failure",
+      expectedRequestCount: 2,
+      expectedError: "temporary failure",
+    },
+    {
+      status: 501,
+      code: "unknown_error",
+      message: "plain failure",
+      expectedRequestCount: 2,
+      expectedError: "plain failure",
+    },
+  ])("applies the Codex HTTP retry policy to $status", async ({
+    status,
+    code,
+    message,
+    expectedRequestCount,
+    expectedError,
+  }) => {
+    let requestCount = 0;
+    const apiServer = http.createServer((_request, response) => {
+      requestCount += 1;
+      response.writeHead(status, {
+        "content-type": "application/json",
+        "retry-after-ms": "0",
+      });
+      response.end(JSON.stringify({ error: { code, message } }));
+    });
+    await new Promise<void>((resolve) => apiServer.listen(0, "127.0.0.1", resolve));
+    const { port } = apiServer.address() as AddressInfo;
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-non-retryable-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+    const authPayload = Buffer.from(
+      JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "test" } }),
+    ).toString("base64url");
+
+    try {
+      const response = await agent.streamFn(
+        { ...agent.state.model, baseUrl: `http://127.0.0.1:${port}` },
+        { systemPrompt: "Test", messages: [] },
+        { apiKey: `e30.${authPayload}.x`, transport: "sse" },
+      ).result();
+
+      expect(requestCount).toBe(expectedRequestCount);
+      expect(response.stopReason).toBe("error");
+      expect(response.errorMessage).toContain(expectedError);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        apiServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it("shares one retry budget when a 500 retry ends in a network failure", async () => {
+    let requestCount = 0;
+    const apiServer = http.createServer((_request, response) => {
+      requestCount += 1;
+      if (requestCount === 1) {
+        response.writeHead(500, {
+          "content-type": "application/json",
+          "retry-after-ms": "0",
+        });
+        response.end(JSON.stringify({ error: { code: "server_error", message: "first failure" } }));
+        return;
+      }
+      if (requestCount === 2) {
+        response.socket?.destroy(new Error("second request network failure"));
+        return;
+      }
+      const item = {
+        id: "msg-third",
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text: "Unexpected third response.", annotations: [] }],
+        status: "completed",
+      };
+      const events = [
+        { type: "response.output_item.added", output_index: 0, item },
+        { type: "response.output_item.done", output_index: 0, item },
+        {
+          type: "response.completed",
+          response: {
+            id: "response-third",
+            status: "completed",
+            output: [item],
+            usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+          },
+        },
+      ];
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""));
+    });
+    await new Promise<void>((resolve) => apiServer.listen(0, "127.0.0.1", resolve));
+    const { port } = apiServer.address() as AddressInfo;
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-shared-retry-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+    const authPayload = Buffer.from(
+      JSON.stringify({ "https://api.openai.com/auth": { chatgpt_account_id: "test" } }),
+    ).toString("base64url");
+
+    try {
+      const result = await agent.streamFn(
+        { ...agent.state.model, baseUrl: `http://127.0.0.1:${port}` },
+        { systemPrompt: "Test", messages: [] },
+        { apiKey: `e30.${authPayload}.x`, transport: "sse" },
+      ).result();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(requestCount).toBe(2);
+      expect(result.stopReason).toBe("error");
+      expect(result.errorMessage).toContain("fetch failed");
+      expect(result.errorMessage).not.toContain("Unexpected third response");
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        apiServer.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
+  it.each([
+    "Codex error: HTTP 400 internal server error",
+    "Codex error: HTTP 401 internal server error",
+    "Codex error: insufficient_quota",
+  ])("does not retry a streamed permanent Codex error: %s", async (errorMessage) => {
+    const faux = registerFauxProvider();
+    registrations.push(faux);
+    faux.setResponses([
+      fauxAssistantMessage([], { stopReason: "error", errorMessage }),
+      fauxAssistantMessage("Unexpected retry."),
+    ]);
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-streamed-permanent-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+
+    const response = await agent.streamFn(
+      faux.getModel(),
+      { systemPrompt: "Test", messages: [] },
+      { apiKey: "test-token" },
+    ).result();
+
+    expect(faux.state.callCount).toBe(1);
+    expect(faux.getPendingResponseCount()).toBe(1);
+    expect(response.errorMessage).toBe(errorMessage);
+  });
+
+  it("retries one network failure", async () => {
+    const faux = registerFauxProvider();
+    registrations.push(faux);
+    faux.setResponses([
+      () => {
+        throw new Error("fetch failed");
+      },
+      fauxAssistantMessage("Recovered response."),
+    ]);
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-network-retry-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+
+    const response = await agent.streamFn(
+      faux.getModel(),
+      { systemPrompt: "Test", messages: [] },
+      { apiKey: "test-token" },
+    ).result();
+
+    expect(faux.state.callCount).toBe(2);
+    expect(response.content).toEqual([{ type: "text", text: "Recovered response." }]);
+  });
+
+  it("does not retry an aborted Codex request", async () => {
+    const faux = registerFauxProvider();
+    registrations.push(faux);
+    faux.setResponses([
+      fauxAssistantMessage([], {
+        stopReason: "error",
+        errorMessage: "Codex error: HTTP 500 upstream",
+      }),
+      fauxAssistantMessage("Unexpected retry."),
+    ]);
+    const controller = new AbortController();
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-abort-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+    const stream = agent.streamFn(
+      faux.getModel(),
+      { systemPrompt: "Test", messages: [] },
+      { apiKey: "test-token", signal: controller.signal },
+    );
+
+    await vi.waitFor(() => expect(faux.state.callCount).toBe(1));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    controller.abort();
+    const response = await stream.result();
+
+    expect(faux.state.callCount).toBe(1);
+    expect(faux.getPendingResponseCount()).toBe(1);
+    expect(response.stopReason).toBe("aborted");
+  });
+
+  it("discards failed tool-call events before retrying", async () => {
+    const faux = registerFauxProvider();
+    registrations.push(faux);
+    faux.setResponses([
+      fauxAssistantMessage(fauxToolCall("search_bookmarks", { query: "discarded" }), {
+        stopReason: "error",
+        errorMessage: "Codex error: HTTP 500 upstream",
+      }),
+      fauxAssistantMessage("Recovered without a tool call."),
+    ]);
+    const template = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-tool-template",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+    const bridgeCall = vi.fn();
+    const runtime = new AgentRuntime(
+      { call: bridgeCall } as unknown as BridgeClient,
+      (_configuration, tools, sessionId) =>
+        new Agent({
+          sessionId,
+          initialState: {
+            systemPrompt: "Test agent",
+            model: faux.getModel(),
+            thinkingLevel: "off",
+            tools,
+          },
+          streamFn: template.streamFn,
+        }),
+    );
+
+    const response = await runtime.prompt({
+      sessionId: "codex-tool-events-session",
+      message: "Test",
+      configuration: { provider: "openai-codex", model: "gpt-5.4-mini" },
+    });
+
+    expect(faux.state.callCount).toBe(2);
+    expect(bridgeCall).not.toHaveBeenCalled();
+    expect(response.answer).toBe("Recovered without a tool call.");
+  });
+
+  it("returns a thrown second-attempt failure instead of replaying the first error", async () => {
+    const sourceId = "codex-second-attempt-throw";
+    let requestCount = 0;
+    const firstFailure = fauxAssistantMessage([], {
+      stopReason: "error",
+      errorMessage: "Codex error: HTTP 500 first attempt",
+    });
+    const provider = {
+      api: sourceId,
+      stream: () => {
+        requestCount += 1;
+        const stream = createAssistantMessageEventStream();
+        if (requestCount === 1) {
+          queueMicrotask(() => {
+            stream.push({ type: "start", partial: firstFailure });
+            stream.push({ type: "error", reason: "error", error: firstFailure });
+          });
+        } else {
+          stream[Symbol.asyncIterator] = async function* () {
+            throw new Error("second attempt exploded");
+          };
+        }
+        return stream;
+      },
+    };
+    registerApiProvider({ ...provider, streamSimple: provider.stream }, sourceId);
+    registrations.push({ unregister: () => unregisterApiProviders(sourceId) });
+    const agent = createPiAgent(
+      { provider: "openai-codex", model: "gpt-5.4-mini" },
+      [],
+      "codex-second-throw-session",
+      {
+        getAccessToken: vi.fn(async () => "codex-access-token"),
+        status: vi.fn(),
+        startLogin: vi.fn(),
+        disconnect: vi.fn(),
+      },
+    );
+
+    const response = await agent.streamFn(
+      { ...agent.state.model, api: sourceId },
+      { systemPrompt: "Test", messages: [] },
+      { apiKey: "test-token" },
+    ).result();
+
+    expect(requestCount).toBe(2);
+    expect(response.stopReason).toBe("error");
+    expect(response.errorMessage).toBe("second attempt exploded");
   });
 
   it("creates a Claude-compatible agent backed by an Anthropic Messages endpoint", async () => {

@@ -1,5 +1,6 @@
 # Lessons
 
+- 用户要求独立或 floating window 时，只创建普通独立窗口；除非明确要求始终置顶，否则不得设置 AppKit `.floating` window level。
 - 当用户询问“下一项功能”或纠正为 other features 时，应从尚未实现的用户功能 backlog 选择，不要把刚完成任务的技术收尾当成产品功能。
 - 当用户明确只关注 Critical 性能问题时，没有 Release 动态采样或帧预算超标证据的静态优化建议不得实施；保持现状并把建议标为延期。
 - 提到本地文档或 Markdown 文件时，必须显示真实完整绝对路径的纯文本，不能使用 Markdown 链接或缩写路径。
