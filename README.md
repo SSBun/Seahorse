@@ -1,10 +1,27 @@
-**English** | [中文](README_ZH.md)
+<div align="center">
+  <a href="https://ssbun.github.io/Seahorse">
+    <img src="https://raw.githubusercontent.com/SSBun/Seahorse/main/readme-hero.jpg" alt="Seahorse — Save anything. Find inspiration instantly.">
+  </a>
 
-# Seahorse
+  <p>A native macOS home for links, images, and text—captured in seconds and organized your way.</p>
 
-An elegant macOS material collection and management tool that makes saving inspiration simple and natural.
+  <p>
+    <a href="https://github.com/SSBun/Seahorse/releases/latest"><img src="https://img.shields.io/github/v/release/SSBun/Seahorse?style=flat-square&color=0ea5e9" alt="Latest release"></a>
+    <img src="https://img.shields.io/badge/macOS-15.2%2B-111827?style=flat-square&logo=apple" alt="macOS 15.2 or later">
+    <a href="https://www.npmjs.com/package/@ssbun/seahorse"><img src="https://img.shields.io/npm/v/@ssbun/seahorse?style=flat-square&color=cb3837" alt="npm version"></a>
+  </p>
 
-![Seahorse Screenshot](./snapshot.png)
+  <p>
+    <a href="https://github.com/SSBun/Seahorse/releases/latest"><strong>Download Seahorse</strong></a>
+    · <a href="https://ssbun.github.io/Seahorse">Website</a>
+    · <a href="README_ZH.md">中文</a>
+  </p>
+</div>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SSBun/Seahorse/main/snapshot.png" alt="Seahorse showing bookmarks, images, categories, and tags in grid view">
+</p>
+<p align="center"><sub>Product snapshot — one calm place for every spark of inspiration.</sub></p>
 
 ## Why Choose Seahorse?
 
@@ -168,3 +185,5 @@ If you have questions or suggestions, please feel free to open an issue on [GitH
 ---
 
 Making collection simple, ensuring inspiration is never lost. Seahorse, your material collection assistant.
+
+Discover more independent software on [Twelve Tools](https://twelve.tools).

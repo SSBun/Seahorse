@@ -1,3 +1,8 @@
+# 美化 README 宣传首页
+
+- 已完成（2026-07-20）
+- [任务记录](todo/beautify-readme.md)
+
 # 发布 Seahorse 1.11.0
 
 ## 状态
