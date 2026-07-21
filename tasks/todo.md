@@ -1,3 +1,13 @@
+# 发布 1.12.0 并用 1.12.1 验证 Sparkle 更新
+
+- 进行中（2026-07-21）
+- [任务记录](todo/release-1.12.0-and-sparkle-test-1.12.1.md)
+
+# 构建并打开 Seahorse 1.12.0 DMG
+
+- 已并入后续发布验证任务（2026-07-21）
+- [任务记录](todo/build-open-sparkle-dmg-1.12.0.md)
+
 # 升级并提交 Seahorse 1.12.0
 
 - 已完成（2026-07-21）
