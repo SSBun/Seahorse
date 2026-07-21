@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.12.1] - 2026-07-21
+
+### 说明
+
+- 本版本不包含产品功能变更，仅用于验证从 `1.12.0` 通过 Sparkle 检查、下载、验签并安装更新的完整链路。
+
 ## [1.12.0] - 2026-07-21
 
 ### 新增
@@ -114,7 +120,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.12.1...HEAD
+[1.12.1]: https://github.com/SSBun/Seahorse/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/SSBun/Seahorse/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/SSBun/Seahorse/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.10.0

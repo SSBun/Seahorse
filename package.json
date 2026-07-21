@@ -1,6 +1,6 @@
 {
   "name": "@ssbun/seahorse",
-  "version": "1.12.0",
+  "version": "1.12.1",
   "description": "通过 npm 安装 Seahorse macOS 素材管理应用",
   "license": "UNLICENSED",
   "homepage": "https://github.com/SSBun/Seahorse",

@@ -3,6 +3,16 @@
     <channel>
         <title>Seahorse</title>
         <item>
+            <title>1.12.1</title>
+            <pubDate>Tue, 21 Jul 2026 17:27:27 +0800</pubDate>
+            <link>https://github.com/SSBun/Seahorse</link>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>1.12.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/SSBun/Seahorse/releases/download/v1.12.1/Seahorse-1.12.1.dmg" length="84083614" type="application/octet-stream" sparkle:edSignature="o9j22q4v8BBALgnVvtoJt1dM/OxtSWNWknV4qsY/WH/1Xna82MP3DJr91955LLmqwsHEyHAlWbizcTwiknzrCA=="/>
+        </item>
+        <item>
             <title>1.12.0</title>
             <pubDate>Tue, 21 Jul 2026 17:07:53 +0800</pubDate>
             <link>https://github.com/SSBun/Seahorse</link>

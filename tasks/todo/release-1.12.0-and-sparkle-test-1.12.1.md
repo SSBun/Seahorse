@@ -19,9 +19,9 @@
 
 ## 计划
 
-- [ ] 完成 `1.12.0` 发布准备、独立审查与远端发布。
-- [ ] 安装并启动 `1.12.0` 基线。
-- [ ] 将版本升级到 `1.12.1 (12)`，完成构建、测试和签名 DMG。
+- [x] 完成 `1.12.0` 发布准备、独立审查与远端发布。
+- [x] 安装并启动 `1.12.0` 基线。
+- [x] 将版本升级到 `1.12.1 (12)`，完成构建、测试和签名 DMG。
 - [ ] 发布 `1.12.1`，更新 appcast 并验证公开资源。
 - [ ] 从 `1.12.0` 通过 Sparkle 更新到 `1.12.1`，记录验证结果。
 
@@ -30,6 +30,8 @@
 - Overall gate: PENDING
 - `1.12.0` 发布准备：APPROVED
 - Report: [release-1.12.0.md](../../reports/adversarial-review/release-1.12.0.md)
+- `1.12.1` 发布准备：APPROVED
+- Report: [release-1.12.1.md](../../reports/adversarial-review/release-1.12.1.md)
 
 ## 1.12.0 发布准备
 
@@ -40,3 +42,21 @@
 - `npm pack --dry-run` 与 `npm publish --dry-run --access public` 通过，仅包含 `README.md`、`install.js`、`package.json`。
 - 远端动作待独立审查通过后执行：提交并推送 `main`、创建并推送 `v1.12.0`、创建 GitHub Release 并上传 DMG/SHA256、发布 `@ssbun/seahorse@1.12.0`。
 - SSH 22 端口在当前网络不可用；已验证 GitHub HTTPS credential 通道的 push dry-run 成功，正式 push 使用该通道。
+
+## 1.12.0 发布结果
+
+- 提交 `56070f9`、tag `v1.12.0` 与 `main` 已推送；GitHub Actions run `29817357675` 成功创建 Release。
+- 本地签名 DMG 与 SHA256 已上传；DMG 为 84,083,481 bytes，GitHub digest 与本地 SHA256 一致，两个公开 URL 均返回 HTTP 200。
+- GitHub Pages appcast 已公开 `1.12.0` / build `11` 的 EdDSA 签名项。
+- `@ssbun/seahorse@1.12.0` 已发布，registry `latest` 为 `1.12.0`。
+- `/Applications/Seahorse.app` 已安装并运行 `1.12.0 (11)`，包含 Sparkle 且严格代码签名验证通过。
+
+## 1.12.1 发布准备
+
+- 仅修改 Xcode marketing/build version、npm manifest/lockfile、CHANGELOG、appcast 与任务上下文；没有产品代码变更。
+- macOS 77 项测试全部通过；全新 iOS Simulator build 通过，产物为 `1.12.1 (12)` 且不包含 Sparkle framework。
+- 签名 DMG 位于 `dist/Seahorse-1.12.1_20260721_172624/Seahorse-1.12.1.dmg`，大小为 84,083,614 bytes，SHA256 为 `3cc74fe096b46391fedffa142f77f8fd26c18c4630f783700eb891325e48c9a6`。
+- `hdiutil verify`、SHA256、版本 `1.12.1 (12)`、Sparkle framework 存在性与严格代码签名验证通过；App 未公证。
+- `docs/appcast.xml` 已用 Keychain 私钥生成 build `12` 的 EdDSA 签名项，URL 指向待发布的同一 DMG。
+- `npm pack --dry-run` 与 `npm publish --dry-run --access public` 通过，仅包含预期的 3 个文件；npm 尚不存在 `1.12.1`。
+- 远端动作待独立审查通过后执行：先本地提交并推送 `v1.12.1`，创建 GitHub Release、上传并验证 DMG/SHA256；确认附件 HTTP 200 后才推送 `main` 公开 build `12` appcast，最后发布 `@ssbun/seahorse@1.12.1`。
