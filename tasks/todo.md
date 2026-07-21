@@ -1,6 +1,11 @@
-# 发布 1.12.0 并用 1.12.1 验证 Sparkle 更新
+# 编写 Sparkle 2 集成 SOP
 
 - 进行中（2026-07-21）
+- [任务记录](todo/create-sparkle2-integration-sop.md)
+
+# 发布 1.12.0 并用 1.12.1 验证 Sparkle 更新
+
+- 已完成（2026-07-21）
 - [任务记录](todo/release-1.12.0-and-sparkle-test-1.12.1.md)
 
 # 构建并打开 Seahorse 1.12.0 DMG

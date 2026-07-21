@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 进行中（2026-07-21）
+- 已完成（2026-07-21）
 
 ## 目标
 
@@ -22,12 +22,13 @@
 - [x] 完成 `1.12.0` 发布准备、独立审查与远端发布。
 - [x] 安装并启动 `1.12.0` 基线。
 - [x] 将版本升级到 `1.12.1 (12)`，完成构建、测试和签名 DMG。
-- [ ] 发布 `1.12.1`，更新 appcast 并验证公开资源。
-- [ ] 从 `1.12.0` 通过 Sparkle 更新到 `1.12.1`，记录验证结果。
+- [x] 发布 `1.12.1`，更新 appcast 并验证公开资源。
+- [x] 从 `1.12.0` 通过 Sparkle 更新到 `1.12.1`，记录验证结果。
 
 ## Review status
 
-- Overall gate: PENDING
+- Overall gate: PENDING（等待最终提交记录收口）
+- Final report: [create-sparkle2-integration-sop.md](../../reports/adversarial-review/create-sparkle2-integration-sop.md)
 - `1.12.0` 发布准备：APPROVED
 - Report: [release-1.12.0.md](../../reports/adversarial-review/release-1.12.0.md)
 - `1.12.1` 发布准备：APPROVED
@@ -60,3 +61,12 @@
 - `docs/appcast.xml` 已用 Keychain 私钥生成 build `12` 的 EdDSA 签名项，URL 指向待发布的同一 DMG。
 - `npm pack --dry-run` 与 `npm publish --dry-run --access public` 通过，仅包含预期的 3 个文件；npm 尚不存在 `1.12.1`。
 - 远端动作待独立审查通过后执行：先本地提交并推送 `v1.12.1`，创建 GitHub Release、上传并验证 DMG/SHA256；确认附件 HTTP 200 后才推送 `main` 公开 build `12` appcast，最后发布 `@ssbun/seahorse@1.12.1`。
+
+## 1.12.1 发布结果
+
+- 发布准备提交 `984ab91`、tag `v1.12.1` 与 `main` 已推送；GitHub Actions release run `29818749900` 和 Pages run `29819236355` 均成功。
+- 本地签名 DMG 与 SHA256 已上传；DMG 为 84,083,614 bytes，GitHub digest 与本地 SHA256 `3cc74fe096b46391fedffa142f77f8fd26c18c4630f783700eb891325e48c9a6` 一致，两个公开 URL 均返回 HTTP 200。
+- GitHub Pages appcast 已公开 `1.12.1` / build `12` 的正确下载 URL、文件长度和 EdDSA 签名项。
+- `@ssbun/seahorse@1.12.1` 已发布，registry `latest` 为 `1.12.1`。
+- `/Applications/Seahorse.app` 的 `1.12.0 (11)` 已通过 Sparkle 检测到 `1.12.1`，并成功完成下载、EdDSA 验签、替换和重启。
+- 更新后的 `/Applications/Seahorse.app` 为 `1.12.1 (12)`；`codesign --verify --deep --strict` 通过，确认端到端更新链路成功。
