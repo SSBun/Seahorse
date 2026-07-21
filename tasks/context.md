@@ -1,6 +1,7 @@
 # Workspace Context
 
 ## Components
+- macOS `UpdateManager` 通过 Sparkle 2 `SPUStandardUpdaterController` 执行检查、下载、EdDSA 验签、安装与重启；Sparkle SPM product 设为 macOS-only，iOS target 不链接该 framework。
 - macOS `AgentPanelView` 位于唯一、可调整尺寸的普通 `agent-chat` Window 场景中，不使用始终置顶层级；Agent 回复使用系统 Markdown 富文本，搜索结果继续打开唯一详情窗口。
 - `BookmarkParsingSession` 是新增页与 macOS 详情页共用的交互式解析会话，发布网页、元数据、AI 和建议准备四个真实阶段以及可提前展示的 AI resolution。
 - `ImageGenerationService` 保存待生成 bookmark ID，并把封面任务、样式、状态和图片元数据持久化到 `Data/image-generations.json`；生成 PNG 位于 `Images/`，macOS 唯一的 `Image Generation` 窗口提供样式、历史、图片详情、导出与 Apply。
@@ -52,6 +53,7 @@
 - tag 的 MCP 能力支持读取和删除；category 仍只读。
 
 ## Decisions and Conventions
+- Sparkle feed 固定为 GitHub Pages 的 `https://ssbun.github.io/Seahorse/appcast.xml`；公钥随 App 提交，私钥只保存在本机 Keychain 的 `Seahorse` account，每次正式 DMG 发布后用 `scripts/generate-appcast.sh` 更新并提交 feed。
 - Codex Agent 将 Pi provider 的原始 HTTP 429/5xx 判断与外层流错误分类合并为一次共享重试预算；400/401、额度耗尽、取消和其他 Provider 保持原行为，失败尝试的部分输出与工具事件不会外泄。
 - 列表性能只处理有 Release 动态证据的 Critical 问题；当前逐行 `DataStorage` 订阅、观察范围拆分和 iOS 日期格式化均保持为未实施建议，除非后续 Instruments 证明滚动超过帧预算。
 - 富化问题中的删除只允许用户主动确认后移入可恢复的回收站；确认文案必须说明富化失败不等于链接失效，不提供自动删除或永久删除。
@@ -76,10 +78,10 @@
 - 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内、且永久删除后不再被任何条目引用的文件。
 - Xcode 与公开文档统一声明最低版本为 macOS 15.2、iOS 16.0。
 - GitHub 最新 Release 为 `v1.11.0`；tag 指向发布准备提交，`main` 另保留发布后记录，compare 基线是 `v1.10.0`。
-- Seahorse App 当前版本为 `1.11.0`，build number 为 `10`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
+- Seahorse App 当前版本为 `1.12.0`，build number 为 `11`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
 - 正式 DMG 由本地 `scripts/create-dmg.sh` 构建并验证签名；GitHub Actions 的 `NO_SIGN=1` 产物只适合作为临时构建，不能作为签名分发包。
 - GitHub DMG workflow 用 `actions/setup-node` 固定官方 Node `22.22.2`，避免 runner 的动态 Homebrew Node 依赖 `@rpath/libnode.*.dylib` 而无法嵌入 App。
-- 根目录 `@ssbun/seahorse` npm wrapper 只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；npm `latest` 当前为 `1.11.0`，分发包只支持 Apple Silicon macOS。
+- 根目录 `@ssbun/seahorse` npm wrapper 本地 manifest 为 `1.12.0`，只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；npm registry 的 `latest` 仍为 `1.11.0`，分发包只支持 Apple Silicon macOS。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
 - `scripts/create-dmg.sh` 会先构建 helper，再将 `dist`、production-only Node 依赖、Pi/Node 许可证和兼容的 Node `>=22.19.0` 独立运行时写入 App bundle，并使用原身份重签名后生成 DMG。

@@ -1,3 +1,13 @@
+# 升级并提交 Seahorse 1.12.0
+
+- 已完成（2026-07-21）
+- [任务记录](todo/update-minor-version-1.12.0.md)
+
+# 集成 Sparkle 2 自动更新
+
+- 已完成（2026-07-21）
+- [任务记录](todo/integrate-sparkle-updates.md)
+
 # 美化 README 宣传首页
 
 - 已完成（2026-07-20）

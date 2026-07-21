@@ -1,0 +1,16 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Seahorse</title>
+        <item>
+            <title>1.11.0</title>
+            <pubDate>Tue, 21 Jul 2026 15:56:14 +0800</pubDate>
+            <link>https://github.com/SSBun/Seahorse</link>
+            <sparkle:version>10</sparkle:version>
+            <sparkle:shortVersionString>1.11.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/SSBun/Seahorse/releases/download/v1.11.0/Seahorse-1.11.0.dmg" length="83220943" type="application/octet-stream" sparkle:edSignature="Rfz6g2hwG+HOK1V5PYVZE1TDyDs5YzkCkCychZU8abKoeDDoTq/Lm0E0BNZv+bO5DCLlf5E3zBNjwsrikqZ7Aw=="/>
+        </item>
+    </channel>
+</rss>

@@ -43,6 +43,9 @@ struct SeahorseApp: App {
         // Initialize NotificationService early to set up delegate
         // This ensures notifications show as banners when app is in foreground
         _ = NotificationService.shared
+
+        // Start Sparkle early so scheduled update checks do not depend on opening Settings.
+        _ = UpdateManager.shared
     }
 
     var body: some Scene {

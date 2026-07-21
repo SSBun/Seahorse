@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>SUFeedURL</key>
+	<string>https://ssbun.github.io/Seahorse/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>mYPTCFvkwafU4zBsW7iXh5yhUuwV89QL6LYdUT1fshU=</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

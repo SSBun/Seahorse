@@ -218,60 +218,11 @@ struct AdvancedSettingsView: View {
 
     @ViewBuilder
     private var updateStatusView: some View {
-        switch updateManager.updateStatus {
-        case .idle:
-            Button("Check for Updates") {
-                Task {
-                    await updateManager.checkForUpdates()
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        case .checking:
-            HStack(spacing: 6) {
-                ProgressView()
-                    .scaleEffect(0.6)
-                Text("Checking...")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-        case .updateAvailable(let version):
-            HStack(spacing: 6) {
-                Image(systemName: "arrow.down.circle.fill")
-                    .foregroundStyle(.green)
-                Text("Update available: v\(version)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.green)
-                Button("Download") {
-                    updateManager.openReleasePage()
-                }
-                .buttonStyle(.link)
-                .font(.system(size: 11))
-            }
-        case .upToDate:
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.blue)
-                Text("You're up to date!")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-        case .error(let message):
-            HStack(spacing: 6) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                Text("Error: \(message)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-                Button("Retry") {
-                    Task {
-                        await updateManager.checkForUpdates()
-                    }
-                }
-                .buttonStyle(.link)
-                .font(.system(size: 11))
-            }
+        Button("Check for Updates") {
+            updateManager.checkForUpdates()
         }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 
     private var permissionWarningView: some View {

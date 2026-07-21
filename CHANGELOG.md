@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-07-21
+
+### 新增
+
+- 新增 Sparkle 2 自动更新，支持在 App 内检查、下载、验签、安装并重启到新版本。
+
+### 改进
+
+- Advanced Settings 的更新入口改用 Sparkle 标准流程，并建立 EdDSA 签名的 GitHub Pages appcast feed。
+
 ## [1.11.0] - 2026-07-19
 
 ### 新增
@@ -104,7 +114,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/SSBun/Seahorse/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/SSBun/Seahorse/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/SSBun/Seahorse/compare/v1.7.0...v1.10.0
 [1.9.0]: https://github.com/SSBun/Seahorse/compare/v1.8.0...v1.9.0

@@ -69,7 +69,22 @@ codesign -vvv "Seahorse-vVERSION.dmg"
 6. Attach DMG file
 7. Click "Publish release"
 
-### 5. Post-Release
+### 5. 更新 Sparkle Feed
+
+使用上传到 GitHub Release 的同一个 DMG 生成已签名 appcast：
+
+```bash
+./scripts/generate-appcast.sh /path/to/Seahorse-X.Y.Z.dmg X.Y.Z
+```
+
+- [ ] 确认 `docs/appcast.xml` 指向已发布的 DMG URL
+- [ ] 提交并推送 `docs/appcast.xml`，让 GitHub Pages 发布 feed
+- [ ] 确认 https://ssbun.github.io/Seahorse/appcast.xml 可以访问
+- [ ] 从上一版本测试 **Check for Updates**
+
+EdDSA 私钥保存在本机 macOS Keychain 的 `Seahorse` account 中。必须安全备份，禁止提交到仓库。
+
+### 6. Post-Release
 - [ ] Verify GitHub release is published
 - [ ] Test download link works
 - [ ] Update README if needed

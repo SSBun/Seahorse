@@ -12,6 +12,7 @@
 		C48F0E792F923C3300D6D2E6 /* ZipArchive in Frameworks */ = {isa = PBXBuildFile; productRef = C48F0E782F923C3300D6D2E6 /* ZipArchive */; };
 		C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C4B4298B2EE00D5600EF6DB2 /* Kingfisher */; };
 		D20000012EC6C12F007D7FD4 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = D20000002EC6C12F007D7FD4 /* CHANGELOG.md */; };
+		E10000012FDD000100000001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; platformFilters = (macos, ); productRef = E10000032FDD000100000003 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,6 +56,7 @@
 				C4B4298C2EE00D5600EF6DB2 /* Kingfisher in Frameworks */,
 				C404BAF32EC7301C007D7FD4 /* OpenAI in Frameworks */,
 				C48F0E792F923C3300D6D2E6 /* ZipArchive in Frameworks */,
+				E10000012FDD000100000001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -121,6 +123,7 @@
 				C4B4298B2EE00D5600EF6DB2 /* Kingfisher */,
 				C44392422F7F68FB007B1605 /* Highlightr */,
 				C48F0E782F923C3300D6D2E6 /* ZipArchive */,
+				E10000032FDD000100000003 /* Sparkle */,
 			);
 			productName = Seahorse;
 			productReference = C404BA202EC6C12F007D7FD4 /* Seahorse.app */;
@@ -182,6 +185,7 @@
 				C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				C44392412F7F68FB007B1605 /* XCRemoteSwiftPackageReference "Highlightr" */,
 				C48F0E772F923C3300D6D2E6 /* XCRemoteSwiftPackageReference "ZipArchive" */,
+				E10000022FDD000100000002 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C404BA212EC6C12F007D7FD4 /* Products */;
@@ -365,7 +369,7 @@
 				CODE_SIGN_ENTITLEMENTS = Seahorse/Seahorse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_ASSET_PATHS = "\"Seahorse/Preview Content\"";
 				DEVELOPMENT_TEAM = 2795FFTPWT;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -383,7 +387,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.csl.cool.Seahorse;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -403,7 +407,7 @@
 				CODE_SIGN_ENTITLEMENTS = Seahorse/Seahorse.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEVELOPMENT_ASSET_PATHS = "\"Seahorse/Preview Content\"";
 				DEVELOPMENT_TEAM = 2795FFTPWT;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -421,7 +425,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.11.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.csl.cool.Seahorse;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
@@ -527,6 +531,14 @@
 				minimumVersion = 8.6.2;
 			};
 		};
+		E10000022FDD000100000002 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.4;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -549,6 +561,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C4B4298A2EE00D5600EF6DB2 /* XCRemoteSwiftPackageReference "Kingfisher" */;
 			productName = Kingfisher;
+		};
+		E10000032FDD000100000003 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = E10000022FDD000100000002 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
