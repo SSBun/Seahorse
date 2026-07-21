@@ -2,7 +2,7 @@
 
 ## 状态
 
-- 进行中（2026-07-21）
+- 已完成（2026-07-21）
 
 ## 目标
 
@@ -21,11 +21,11 @@
 - [x] 核对 Seahorse 的实际实现与 1.12.0 → 1.12.1 成功升级证据。
 - [x] 创建并验证用户级 Sparkle 2 集成 SOP。
 - [x] 完成独立对抗式审查。
-- [ ] 提交仓库全部本地变更。
+- [x] 提交仓库全部本地变更。
 
 ## Review status
 
-- Gate: PENDING（等待提交前记录复审）
+- Gate: APPROVED
 - Report: [create-sparkle2-integration-sop.md](../../reports/adversarial-review/create-sparkle2-integration-sop.md)
 
 ## 结果与验证
@@ -34,3 +34,4 @@
 - SOP 覆盖 SPM/macOS 平台过滤、EdDSA Keychain 密钥、标准 updater、签名归档、资产先于 feed 的发布顺序及两个连续版本的端到端验证。
 - 官方事实以 Sparkle 官方 documentation、publishing、sandboxing、ATS 和 upgrading 文档为依据。
 - `/Applications/Seahorse.app` 已从 `1.12.0 (11)` 更新到 `1.12.1 (12)`，严格代码签名验证通过。
+- 已审查范围提交为 `ba3977f`。

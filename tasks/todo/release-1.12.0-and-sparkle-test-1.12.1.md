@@ -27,7 +27,7 @@
 
 ## Review status
 
-- Overall gate: PENDING（等待最终提交记录收口）
+- Overall gate: APPROVED
 - Final report: [create-sparkle2-integration-sop.md](../../reports/adversarial-review/create-sparkle2-integration-sop.md)
 - `1.12.0` 发布准备：APPROVED
 - Report: [release-1.12.0.md](../../reports/adversarial-review/release-1.12.0.md)
