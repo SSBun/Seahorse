@@ -15,16 +15,6 @@ class NetworkManager {
     private init() {
         let configuration = URLSessionConfiguration.default
         
-        // Enable system proxy support (including VPN)
-        #if os(macOS)
-        configuration.connectionProxyDictionary = [
-            kCFNetworkProxiesHTTPEnable: true,
-            kCFNetworkProxiesHTTPSEnable: true,
-            // Use system proxy settings
-            kCFProxyTypeKey: kCFProxyTypeAutoConfigurationURL
-        ] as [AnyHashable: Any]
-        #endif
-        
         // Set timeout intervals
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
@@ -42,12 +32,12 @@ class NetworkManager {
         self.session = URLSession(configuration: configuration)
     }
     
-    /// Fetch data from URL with automatic proxy support
+    /// Fetches data for a URL request.
     func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         return try await session.data(for: request)
     }
     
-    /// Fetch data from URL with automatic proxy support
+    /// Fetches data from a URL.
     func data(from url: URL) async throws -> (Data, URLResponse) {
         return try await session.data(from: url)
     }

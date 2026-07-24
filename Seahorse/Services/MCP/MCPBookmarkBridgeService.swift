@@ -361,7 +361,7 @@ private extension MCPBookmarkBridgeService {
         )
 
         do {
-            try dataStorage.addBookmark(bookmark)
+            try dataStorage.addBookmark(bookmark, updateDuplicateAddedDate: false)
             return .success(bookmarkDetailJSON(bookmark))
         } catch {
             return .failure(code: "validation_error", message: error.localizedDescription)

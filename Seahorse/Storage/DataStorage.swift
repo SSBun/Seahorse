@@ -12,6 +12,7 @@ import OSLog
 @MainActor
 class DataStorage: ObservableObject {
     static let shared = DataStorage()
+    static let updateDuplicateBookmarkAddedDateKey = "updateDuplicateBookmarkAddedDate"
     
     static var preview: DataStorage = {
         let storage = DataStorage(database: MockDatabase())
@@ -21,13 +22,29 @@ class DataStorage: ObservableObject {
     private let database: DatabaseProtocol
     
     // Published properties for reactive UI updates
-    @Published var bookmarks: [Bookmark] = []
-    @Published var categories: [Category] = []
-    @Published var tags: [Tag] = []
-    @Published var smartCollections: [SmartCollection] = []
+    @Published var bookmarks: [Bookmark] = [] {
+        didSet { recordStoragePublication("bookmarks", oldCount: oldValue.count, newCount: bookmarks.count) }
+    }
+    @Published var categories: [Category] = [] {
+        didSet { recordStoragePublication("categories", oldCount: oldValue.count, newCount: categories.count) }
+    }
+    @Published var tags: [Tag] = [] {
+        didSet { recordStoragePublication("tags", oldCount: oldValue.count, newCount: tags.count) }
+    }
+    @Published var smartCollections: [SmartCollection] = [] {
+        didSet {
+            recordStoragePublication(
+                "smart_collections",
+                oldCount: oldValue.count,
+                newCount: smartCollections.count
+            )
+        }
+    }
 
     // New: Collection items supporting multiple types
-    @Published var items: [AnyCollectionItem] = []
+    @Published var items: [AnyCollectionItem] = [] {
+        didSet { recordStoragePublication("items", oldCount: oldValue.count, newCount: items.count) }
+    }
 
     var activeItems: [AnyCollectionItem] {
         items.filter { !$0.isDeleted }
@@ -47,6 +64,32 @@ class DataStorage: ObservableObject {
     private var _tagCache: [UUID: Tag] = [:]
     private var _itemCache: [UUID: AnyCollectionItem] = [:]
     private var _searchRecordCache: [UUID: CollectionSearch.Record] = [:]
+
+    private func recordStoragePublication(
+        _ property: String,
+        oldCount: Int,
+        newCount: Int
+    ) {
+#if os(macOS)
+        ListPerformanceMonitor.shared.recordStoragePublication(
+            property: property,
+            oldCount: oldCount,
+            newCount: newCount
+        )
+#endif
+    }
+
+    private func advanceItemsVersion(reason: String) {
+        itemsVersion += 1
+#if os(macOS)
+        ListPerformanceMonitor.shared.recordItemsVersion(
+            reason: reason,
+            version: itemsVersion,
+            totalItems: items.count,
+            activeItems: _searchRecordCache.count
+        )
+#endif
+    }
 
     /// O(1) category lookup by ID
     func category(for id: UUID) -> Category? {
@@ -178,7 +221,7 @@ class DataStorage: ObservableObject {
             if let bookmark = item.asBookmark, !item.isDeleted {
                 bookmarks.append(bookmark)
             }
-            itemsVersion += 1
+            advanceItemsVersion(reason: "add_item")
             
             // Post notification for menu icon shaking animation
             NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: item.id)
@@ -212,7 +255,7 @@ class DataStorage: ObservableObject {
 
             // Post notification for UI refresh (e.g., favorite toggle)
             NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
-            itemsVersion += 1
+            advanceItemsVersion(reason: "update_item")
         } catch {
             Log.error("❌ Failed to update item: \(error)", category: .database)
         }
@@ -231,7 +274,7 @@ class DataStorage: ObservableObject {
         bookmarks = items.filter { !$0.isDeleted }.compactMap(\.asBookmark)
         rebuildItemCache()
         rebuildSearchRecordCache()
-        itemsVersion += 1
+        advanceItemsVersion(reason: "update_items")
         NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
     }
 
@@ -257,7 +300,7 @@ class DataStorage: ObservableObject {
         rebuildTagCache()
         rebuildItemCache()
         rebuildSearchRecordCache()
-        itemsVersion += 1
+        advanceItemsVersion(reason: "import_data")
         NotificationCenter.default.post(name: NSNotification.Name("SeahorseItemAdded"), object: nil)
     }
     
@@ -330,7 +373,7 @@ class DataStorage: ObservableObject {
         bookmarks = items.filter { !$0.isDeleted }.compactMap(\.asBookmark)
         rebuildItemCache()
         rebuildSearchRecordCache()
-        itemsVersion += 1
+        advanceItemsVersion(reason: "permanent_delete")
         NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
 
         for path in pathsToDelete {
@@ -388,7 +431,7 @@ class DataStorage: ObservableObject {
         bookmarks = items.filter { !$0.isDeleted }.compactMap(\.asBookmark)
         rebuildItemCache()
         rebuildSearchRecordCache()
-        itemsVersion += 1
+        advanceItemsVersion(reason: "apply_updated_items")
         NotificationCenter.default.post(name: NSNotification.Name("DataStorageItemsUpdated"), object: nil)
     }
 
@@ -433,14 +476,31 @@ class DataStorage: ObservableObject {
     
     // MARK: - Bookmark Operations
     
-    func addBookmark(_ bookmark: Bookmark) throws {
+    func addBookmark(
+        _ bookmark: Bookmark,
+        updateDuplicateAddedDate: Bool = UserDefaults.standard.bool(
+            forKey: DataStorage.updateDuplicateBookmarkAddedDateKey
+        )
+    ) throws {
         var bookmark = bookmark
         if bookmark.enrichmentStatus == nil, bookmark.metadata == nil, !bookmark.isParsed {
             bookmark.enrichmentStatus = .pending
         }
         let normalizedURL = BookmarkURLNormalizer.normalize(bookmark.url)
-        if bookmarks.contains(where: { BookmarkURLNormalizer.normalize($0.url) == normalizedURL }) {
-            throw DatabaseError.duplicateBookmarkURL
+        if var existingBookmark = bookmarks.first(where: {
+            BookmarkURLNormalizer.normalize($0.url) == normalizedURL
+        }) {
+            guard updateDuplicateAddedDate else {
+                throw DatabaseError.duplicateBookmarkURL
+            }
+
+            existingBookmark.addedDate = Date()
+            try updateBookmark(existingBookmark)
+            let existingItem = AnyCollectionItem(existingBookmark)
+            NotificationCenter.default.post(name: .seahorseBookmarkRefreshed, object: existingBookmark.id)
+            NotificationService.shared.showBookmarkRefreshedNotification(for: existingItem)
+            Log.info("Refreshed duplicate bookmark added date: \(normalizedURL)", category: .database)
+            return
         }
         DLog("DataStorage: addBookmark start id=\(bookmark.id.uuidString) url='\(normalizedURL)'", category: .database)
         try database.saveBookmark(bookmark)
@@ -449,7 +509,7 @@ class DataStorage: ObservableObject {
         items.append(item) // Also add to items array
         _itemCache[bookmark.id] = item
         updateSearchRecord(for: item)
-        itemsVersion += 1
+        advanceItemsVersion(reason: "add_bookmark")
         DLog("DataStorage: addBookmark success id=\(bookmark.id.uuidString) bookmarks=\(bookmarks.count) items=\(items.count)", category: .database)
         
         // Post notification for menu icon shaking animation
@@ -477,7 +537,7 @@ class DataStorage: ObservableObject {
         _itemCache[bookmark.id] = item
         updateSearchRecord(for: item)
         // Increment version to notify views of in-place update
-        itemsVersion += 1
+        advanceItemsVersion(reason: "update_bookmark")
         DLog("DataStorage: updateBookmark success id=\(bookmark.id.uuidString)", category: .database)
     }
     
@@ -600,7 +660,7 @@ class DataStorage: ObservableObject {
         tags.append(tag)
         rebuildTagCache()
         refreshSearchRecords(referencing: tag.id)
-        itemsVersion += 1
+        advanceItemsVersion(reason: "add_tag")
     }
 
     func updateTag(_ tag: Tag) throws {
@@ -610,7 +670,7 @@ class DataStorage: ObservableObject {
         }
         rebuildTagCache()
         refreshSearchRecords(referencing: tag.id)
-        itemsVersion += 1
+        advanceItemsVersion(reason: "update_tag")
     }
 
     func deleteTag(_ tag: Tag) throws {
@@ -637,7 +697,7 @@ class DataStorage: ObservableObject {
         tags.removeAll { $0.id == tag.id }
         rebuildTagCache()
         refreshSearchRecords(referencing: tag.id)
-        itemsVersion += 1
+        advanceItemsVersion(reason: "delete_tag")
     }
 
     /// Returns the tag whose name matches case-insensitively.
@@ -763,4 +823,6 @@ class DataStorage: ObservableObject {
 extension Notification.Name {
     static let autoSyncStarted = Notification.Name("SeahorseAutoSyncStarted")
     static let autoSyncEnded = Notification.Name("SeahorseAutoSyncEnded")
+    static let seahorseBookmarkRefreshed = Notification.Name("SeahorseBookmarkRefreshed")
+    static let seahorseDuplicateBookmarkDetected = Notification.Name("SeahorseDuplicateBookmarkDetected")
 }

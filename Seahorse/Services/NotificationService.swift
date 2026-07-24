@@ -50,6 +50,14 @@ class NotificationService: NSObject, ObservableObject {
     }
     
     func showItemSavedNotification(itemType: String, title: String) {
+        showNotification(
+            title: "Item Saved",
+            body: "\(itemType): \(title)",
+            categoryIdentifier: "ITEM_SAVED"
+        )
+    }
+
+    private func showNotification(title: String, body: String, categoryIdentifier: String) {
         guard isEnabled else { return }
         
         // Check authorization status
@@ -68,10 +76,10 @@ class NotificationService: NSObject, ObservableObject {
             
             // Create notification content
             let content = UNMutableNotificationContent()
-            content.title = "Item Saved"
-            content.body = "\(itemType): \(title)"
+            content.title = title
+            content.body = body
             content.sound = .default
-            content.categoryIdentifier = "ITEM_SAVED"
+            content.categoryIdentifier = categoryIdentifier
             
             // Create notification request
             let request = UNNotificationRequest(
@@ -85,7 +93,7 @@ class NotificationService: NSObject, ObservableObject {
                 if let error = error {
                     Log.error("Failed to show notification: \(error)", category: .general)
                 } else {
-                    Log.info("Notification sent: \(itemType) - \(title)", category: .general)
+                    Log.info("Notification sent: \(title)", category: .general)
                 }
             }
         }
@@ -135,6 +143,22 @@ class NotificationService: NSObject, ObservableObject {
         let itemType = getItemTypeName(for: item)
         let title = getItemTitle(for: item)
         showItemSavedNotification(itemType: itemType, title: title)
+    }
+
+    func showBookmarkAlreadyCollectedNotification(for item: AnyCollectionItem) {
+        showNotification(
+            title: "Bookmark Already Collected",
+            body: "\(getItemTitle(for: item)) is already in your collection.",
+            categoryIdentifier: "BOOKMARK_ALREADY_COLLECTED"
+        )
+    }
+
+    func showBookmarkRefreshedNotification(for item: AnyCollectionItem) {
+        showNotification(
+            title: "Bookmark Collected Again",
+            body: "Moved \(getItemTitle(for: item)) to the top by updating its added time.",
+            categoryIdentifier: "BOOKMARK_REFRESHED"
+        )
     }
 }
 

@@ -59,19 +59,33 @@ class StatusBarManager: NSObject {
         NotificationCenter.default.publisher(for: NSNotification.Name("SeahorseItemAdded"))
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.performSuccessFeedback()
+                self?.performFeedback(sound: "Glass")
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .seahorseDuplicateBookmarkDetected)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.performFeedback(sound: "Tink")
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .seahorseBookmarkRefreshed)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.performFeedback(sound: "Pop")
             }
             .store(in: &cancellables)
     }
     
-    private func performSuccessFeedback() {
+    private func performFeedback(sound: String) {
         // 1. Shake Animation
         shakeIcon()
         
         // 2. Sound/Haptic (if enabled)
         if UserDefaults.standard.bool(forKey: "enableCopyFeedback") {
             // Play system sound
-            NSSound(named: "Glass")?.play()
+            NSSound(named: sound)?.play()
             // Haptic feedback
             NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .default)
         }

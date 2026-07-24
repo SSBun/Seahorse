@@ -15,8 +15,15 @@ struct StandardListItemView: View {
     @EnvironmentObject var itemDetailState: ItemDetailState
     @Environment(\.openWindow) var openWindow
     let item: AnyCollectionItem
+    let allowsImageLoading: Bool
     @State private var isHovered = false
+    @State private var loadedImagePath: String?
     private let rowHeight: CGFloat = 64
+
+    init(item: AnyCollectionItem, allowsImageLoading: Bool = true) {
+        self.item = item
+        self.allowsImageLoading = allowsImageLoading
+    }
 
     // Extract specific item types
     private var bookmark: Bookmark? { item.asBookmark }
@@ -74,16 +81,44 @@ struct StandardListItemView: View {
                     ))
 
                 if let bookmark = bookmark {
-                    BookmarkIconView(iconString: bookmark.icon, size: 20)
+                    BookmarkIconView(
+                        iconString: bookmark.icon,
+                        size: 20,
+                        allowsImageLoading: allowsImageLoading,
+                        onRemoteLoadResult: completeBookmarkIconLoad
+                    )
                         .frame(width: 30, height: 30)
                 } else if let imageItem = imageItem,
-                          !imageItem.imagePath.isEmpty {
+                          !imageItem.imagePath.isEmpty,
+                          allowsImageLoading || loadedImagePath == imageItem.imagePath {
                     let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
                         // Optimized: Use downsampling for remote images
                         KFImage(url)
                             .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 40, height: 40)))
                             .cacheMemoryOnly()
+                            .onSuccess { result in
+                                if performanceImagePath == imageItem.imagePath {
+                                    loadedImagePath = imageItem.imagePath
+                                }
+                                ListPerformanceMonitor.shared.completeImageLoad(
+                                    itemID: item.id,
+                                    role: "list_image_remote",
+                                    resource: imageItem.imagePath,
+                                    succeeded: true,
+                                    cacheType: String(describing: result.cacheType)
+                                )
+                            }
+                            .onFailure { _ in
+                                ListPerformanceMonitor.shared.completeImageLoad(
+                                    itemID: item.id,
+                                    role: "list_image_remote",
+                                    resource: imageItem.imagePath,
+                                    succeeded: false,
+                                    cacheType: "none"
+                                )
+                            }
+                            .cancelOnDisappear(true)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
@@ -93,11 +128,33 @@ struct StandardListItemView: View {
                             .setProcessor(DownsamplingImageProcessor(size: CGSize(width: 80, height: 80)))
                             .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
                             .cacheMemoryOnly()
+                            .onSuccess { result in
+                                if performanceImagePath == imageItem.imagePath {
+                                    loadedImagePath = imageItem.imagePath
+                                }
+                                ListPerformanceMonitor.shared.completeImageLoad(
+                                    itemID: item.id,
+                                    role: "list_image_local",
+                                    resource: imageItem.imagePath,
+                                    succeeded: true,
+                                    cacheType: String(describing: result.cacheType)
+                                )
+                            }
+                            .onFailure { _ in
+                                ListPerformanceMonitor.shared.completeImageLoad(
+                                    itemID: item.id,
+                                    role: "list_image_local",
+                                    resource: imageItem.imagePath,
+                                    succeeded: false,
+                                    cacheType: "none"
+                                )
+                            }
                             .placeholder {
                                 Image(systemName: "photo")
                                     .font(.system(size: 16))
                                     .foregroundStyle(.white.opacity(0.6))
                             }
+                            .cancelOnDisappear(true)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
@@ -167,6 +224,40 @@ struct StandardListItemView: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        .onAppear {
+            ListPerformanceMonitor.shared.recordCellAppeared(
+                itemType: item.itemType.rawValue
+            )
+            if shouldBeginPerformanceImageLoad, let path = performanceImagePath {
+                beginPerformanceImageLoad(path: path)
+            }
+        }
+        .onDisappear {
+            ListPerformanceMonitor.shared.recordCellDisappeared()
+            if let path = performanceImagePath {
+                cancelPerformanceImageLoad(path: path)
+            }
+        }
+        .onChange(of: allowsImageLoading) { _, allowsImageLoading in
+            guard let path = performanceImagePath else { return }
+            if allowsImageLoading {
+                if loadedImagePath != path {
+                    beginPerformanceImageLoad(path: path)
+                }
+            } else {
+                cancelPerformanceImageLoad(path: path)
+            }
+        }
+        .onChange(of: performanceImagePath) { oldPath, newPath in
+            if let oldPath {
+                cancelPerformanceImageLoad(path: oldPath)
+            }
+            if allowsImageLoading,
+               let newPath,
+               loadedImagePath != newPath {
+                beginPerformanceImageLoad(path: newPath)
+            }
+        }
         .onTapGesture(count: 2) {
             handleDoubleTap()
         }
@@ -222,6 +313,66 @@ struct StandardListItemView: View {
         case .image: return "Image"
         case .text: return "Note"
         }
+    }
+
+    private func performanceImageRole(for path: String) -> String? {
+        if bookmark != nil {
+            return "list_bookmark_icon_remote"
+        }
+        guard imageItem != nil else { return nil }
+        if let url = URL(string: path),
+           url.scheme == "http" || url.scheme == "https" {
+            return "list_image_remote"
+        }
+        return "list_image_local"
+    }
+
+    private var performanceImagePath: String? {
+        if let bookmark,
+           bookmark.icon.hasPrefix("http://") || bookmark.icon.hasPrefix("https://") {
+            return bookmark.icon
+        }
+        guard let path = imageItem?.imagePath, !path.isEmpty else { return nil }
+        return path
+    }
+
+    private var shouldBeginPerformanceImageLoad: Bool {
+        allowsImageLoading && loadedImagePath != performanceImagePath
+    }
+
+    private func beginPerformanceImageLoad(path: String) {
+        guard let role = performanceImageRole(for: path) else { return }
+        ListPerformanceMonitor.shared.beginImageLoad(
+            itemID: item.id,
+            role: role,
+            resource: path
+        )
+    }
+
+    private func cancelPerformanceImageLoad(path: String) {
+        guard let role = performanceImageRole(for: path) else { return }
+        ListPerformanceMonitor.shared.cancelImageLoad(
+            itemID: item.id,
+            role: role,
+            resource: path
+        )
+    }
+
+    private func completeBookmarkIconLoad(
+        iconString: String,
+        succeeded: Bool,
+        cacheType: String
+    ) {
+        if succeeded, bookmark?.icon == iconString {
+            loadedImagePath = iconString
+        }
+        ListPerformanceMonitor.shared.completeImageLoad(
+            itemID: item.id,
+            role: "list_bookmark_icon_remote",
+            resource: iconString,
+            succeeded: succeeded,
+            cacheType: cacheType
+        )
     }
     
     // MARK: - Actions

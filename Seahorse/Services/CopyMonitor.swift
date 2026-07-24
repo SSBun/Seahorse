@@ -262,16 +262,6 @@ class CopyMonitor: ObservableObject {
     }
     
     private func saveURL(_ urlString: String) async {
-        // Check if URL already exists
-        let existingBookmark = dataStorage.bookmarks.first { bookmark in
-            bookmark.url.lowercased() == urlString.lowercased()
-        }
-        
-        if existingBookmark != nil {
-            Log.info("URL already exists, skipping: \(urlString.prefix(50))", category: .general)
-            return
-        }
-        
         // Use PasteHandler to create bookmark
         await MainActor.run {
             // Create NSItemProvider from URL with proper type registration

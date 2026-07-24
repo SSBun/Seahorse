@@ -13,6 +13,7 @@ struct AdvancedSettingsView: View {
     @StateObject private var copyMonitor = CopyMonitor.shared
     @StateObject private var updateManager = UpdateManager.shared
     @AppStorage("enableSystemNotifications") private var isNotificationEnabled: Bool = false
+    @AppStorage(DataStorage.updateDuplicateBookmarkAddedDateKey) private var updateDuplicateBookmarkAddedDate = false
 
     @State private var showingPermissionAlert = false
     @State private var showingChangelog = false
@@ -109,6 +110,31 @@ struct AdvancedSettingsView: View {
                                 .toggleStyle(.switch)
                         }
                     }
+                }
+
+                Divider()
+
+                // Duplicate Bookmark Section
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Duplicate Bookmarks")
+                        .font(.system(size: 16, weight: .semibold))
+
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Update Added Time When Collected Again")
+                                .font(.system(size: 13, weight: .medium))
+
+                            Text("Move the existing bookmark to the top by updating its added time without replacing its content")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: $updateDuplicateBookmarkAddedDate)
+                            .toggleStyle(.switch)
+                    }
+                    .padding(.vertical, 8)
                 }
 
                 Divider()

@@ -1,3 +1,23 @@
+# 发布 Seahorse 1.13.0
+
+- Status: In Progress (2026-07-24 14:05)
+- [任务记录](todo/release-1.13.0.md)
+
+# 重复采集书签时更新时间并反馈
+
+- Status: Completed (2026-07-24 13:38)
+- [任务记录](todo/refresh-duplicate-bookmark-added-date.md)
+
+# 修复系统代理配置与滚动图片抖动
+
+- 已完成（2026-07-22）
+- [任务记录](todo/fix-system-proxy-and-scroll-image-churn.md)
+
+# 增加列表滚动性能监控日志
+
+- 已完成（2026-07-22）
+- [任务记录](todo/add-list-scroll-performance-logging.md)
+
 # 编写 Sparkle 2 集成 SOP
 
 - 已完成（2026-07-21）

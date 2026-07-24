@@ -136,8 +136,8 @@ if [ ! -f "$DMG_NAME" ]; then
   exit 1
 fi
 
-# Calculate checksum
-shasum -a 256 "$DMG_NAME" > "${DIST_DIR}/${DMG_NAME##*/}.sha256"
+# Calculate checksum with a portable basename so the adjacent DMG verifies after download.
+(cd "$DIST_DIR" && shasum -a 256 "${DMG_NAME##*/}" > "${DMG_NAME##*/}.sha256")
 
 echo -e "${GREEN}✓ DMG created: $DMG_NAME${NC}"
 echo -e "${GREEN}✓ Checksum: ${NC}"

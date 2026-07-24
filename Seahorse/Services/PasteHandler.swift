@@ -247,6 +247,12 @@ class PasteHandler: ObservableObject {
             } catch DatabaseError.duplicateBookmarkURL {
                 DLog("Paste: skipped duplicate url='\(canonicalURLString)'", category: .paste)
                 Log.info("Skipped duplicate bookmark URL: \(urlString)", category: .paste)
+                GlobalToastManager.shared.show(
+                    message: "Bookmark already collected",
+                    icon: "checkmark.circle.fill"
+                )
+                NotificationCenter.default.post(name: .seahorseDuplicateBookmarkDetected, object: bookmark.id)
+                NotificationService.shared.showBookmarkAlreadyCollectedNotification(for: AnyCollectionItem(bookmark))
             } catch {
                 Log.error("Failed to create bookmark: \(error)", category: .paste)
             }

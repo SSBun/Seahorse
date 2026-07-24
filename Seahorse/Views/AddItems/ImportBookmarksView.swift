@@ -239,7 +239,7 @@ struct ImportBookmarksView: View {
                 var duplicateCount = 0
                 for bookmark in bookmarks {
                     do {
-                        try dataStorage.addBookmark(bookmark)
+                        try dataStorage.addBookmark(bookmark, updateDuplicateAddedDate: false)
                         addedCount += 1
                     } catch DatabaseError.duplicateBookmarkURL {
                         // Skip duplicates silently

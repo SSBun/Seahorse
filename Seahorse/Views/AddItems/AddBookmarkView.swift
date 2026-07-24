@@ -643,6 +643,11 @@ struct AddBookmarkView: View {
         do {
             try dataStorage.addBookmark(bookmark)
             dismiss()
+        } catch DatabaseError.duplicateBookmarkURL {
+            toastMessage = "Bookmark already collected"
+            showingToast = true
+            NotificationCenter.default.post(name: .seahorseDuplicateBookmarkDetected, object: bookmark.id)
+            NotificationService.shared.showBookmarkAlreadyCollectedNotification(for: AnyCollectionItem(bookmark))
         } catch {
             errorMessage = error.localizedDescription
             showingError = true

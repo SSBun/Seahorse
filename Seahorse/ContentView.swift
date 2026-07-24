@@ -54,6 +54,7 @@ struct ContentView: View {
     @State private var cachedItems: [AnyCollectionItem] = []
     @State private var searchDebounceTask: Task<Void, Never>?
     @State private var filterTask: Task<Void, Never>?
+    @State private var filterRequestID = 0
 
     @State private var windowDelegate = MainWindowDelegate()
     
@@ -87,10 +88,11 @@ struct ContentView: View {
         }
     }
 
-    private func recalculateFilteredItems() {
+    private func recalculateFilteredItems(reason: String) {
         filterTask?.cancel()
         guard let sidebarSelection else {
             cachedItems = []
+            Log.info("list_perf filter_skip reason=\(reason) cause=no_selection", category: .performance)
             return
         }
 
@@ -99,6 +101,7 @@ struct ContentView: View {
         case .category(let id):
             guard let category = dataStorage.category(for: id) else {
                 cachedItems = []
+                Log.info("list_perf filter_skip reason=\(reason) cause=missing_category", category: .performance)
                 return
             }
             criteria = CollectionSearch.Criteria(
@@ -121,6 +124,7 @@ struct ContentView: View {
         case .smartCollection(let id):
             guard let smartCollection = dataStorage.smartCollections.first(where: { $0.id == id }) else {
                 cachedItems = []
+                Log.info("list_perf filter_skip reason=\(reason) cause=missing_smart_collection", category: .performance)
                 return
             }
             criteria = CollectionSearch.criteria(
@@ -149,14 +153,68 @@ struct ContentView: View {
             )
         case .trash:
             cachedItems = []
+            Log.info("list_perf filter_skip reason=\(reason) cause=trash_view", category: .performance)
             return
         }
 
+        filterRequestID += 1
+        let requestID = filterRequestID
+        let snapshotInterval = ListPerformanceMonitor.shared.beginSnapshot(
+            itemCount: dataStorage.items.count,
+            reason: reason
+        )
         let records = dataStorage.searchRecordsSnapshot()
+        ListPerformanceMonitor.shared.endSnapshot(
+            snapshotInterval,
+            recordCount: records.count,
+            reason: reason
+        )
+        let filterInterval = ListPerformanceMonitor.shared.beginFilter(
+            requestID: requestID,
+            reason: reason,
+            recordCount: records.count,
+            queryLength: criteria.query.count + criteria.additionalQuery.count,
+            selection: performanceSelectionName,
+            kind: String(describing: criteria.kind),
+            order: String(describing: criteria.order)
+        )
         filterTask = Task { @MainActor in
             let results = await CollectionSearch.itemsAsync(in: records, matching: criteria)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                ListPerformanceMonitor.shared.endFilter(
+                    filterInterval,
+                    requestID: requestID,
+                    resultCount: 0,
+                    applyMs: 0,
+                    cancelled: true
+                )
+                return
+            }
+            let applyStartedAt = ProcessInfo.processInfo.systemUptime
             cachedItems = results
+            let applyMs = max(
+                Int((ProcessInfo.processInfo.systemUptime - applyStartedAt) * 1_000),
+                0
+            )
+            ListPerformanceMonitor.shared.endFilter(
+                filterInterval,
+                requestID: requestID,
+                resultCount: results.count,
+                applyMs: applyMs,
+                cancelled: false
+            )
+        }
+    }
+
+    private var performanceSelectionName: String {
+        switch sidebarSelection {
+        case .category: "category"
+        case .tag: "tag"
+        case .smartCollection: "smart_collection"
+        case .recent: "recent"
+        case .unorganized: "unorganized"
+        case .trash: "trash"
+        case .none: "none"
         }
     }
 
@@ -331,7 +389,7 @@ struct ContentView: View {
                 sidebarSelection = .category(firstCategory.id)
             }
             // Initial calculation
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "initial_appear")
         }
         // Debounce search text changes (300ms delay) - always applies final value
         .onChange(of: searchText) { _, newValue in
@@ -349,23 +407,23 @@ struct ContentView: View {
             }
         }
         .onChange(of: sidebarSelection) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "sidebar_selection")
         }
         .onChange(of: selectedKind) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "item_kind")
         }
         .onChange(of: debouncedSearchText) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "search")
         }
         .onChange(of: sortPreferenceManager.sortOption) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "sort")
         }
         // Watch for data changes (items added/deleted or updated in-place)
         .onChange(of: dataStorage.itemsVersion) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "items_version")
         }
         .onChange(of: dataStorage.smartCollections) { _, _ in
-            recalculateFilteredItems()
+            recalculateFilteredItems(reason: "smart_collections")
         }
         .onDisappear {
             searchDebounceTask?.cancel()
@@ -415,6 +473,12 @@ struct ContentView: View {
             let message = notification.userInfo?["message"] as? String ?? ""
             let icon = notification.userInfo?["icon"] as? String ?? "checkmark.circle.fill"
             GlobalToastManager.shared.show(message: message, icon: icon)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .seahorseBookmarkRefreshed)) { _ in
+            GlobalToastManager.shared.show(
+                message: "Bookmark moved to the top",
+                icon: "arrow.up.circle.fill"
+            )
         }
         .onPasteCommand(of: [.url, .image, .plainText]) { providers in
             pasteHandler.handlePaste(providers: providers)

@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-07-24
+
+### 新增
+
+- Advanced Settings 新增重复书签处理开关；开启后再次采集已有链接会刷新原书签的添加时间，并在默认 Newest 列表中移到第一位。
+- 新增低开销的本地列表性能诊断日志，可关联筛选、滚动、图片加载与数据发布，且不记录书签内容。
+
+### 改进
+
+- 快速滚动时保留已经显示的海报、缩略图和 favicon，只暂停尚未开始或仍在等待的图片请求，滚动停止后自动恢复。
+- 网络请求直接继承 macOS 的系统代理与 VPN 配置，不再写入不完整的自定义代理字典。
+
+### 修复
+
+- 重复采集书签时不再静默无响应；未刷新与已刷新使用不同的 toast、系统通知和反馈音。
+
 ## [1.12.1] - 2026-07-21
 
 ### 说明
@@ -120,7 +136,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.12.1...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/SSBun/Seahorse/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/SSBun/Seahorse/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/SSBun/Seahorse/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/SSBun/Seahorse/compare/v1.10.0...v1.11.0

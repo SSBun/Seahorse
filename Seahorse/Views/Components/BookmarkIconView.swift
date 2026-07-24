@@ -12,41 +12,61 @@ import Kingfisher
 struct BookmarkIconView: View {
     let iconString: String
     let size: CGFloat
+    let allowsImageLoading: Bool
+    let onRemoteLoadResult: ((String, Bool, String) -> Void)?
     @State private var dataImage: NSImage?
+    @State private var loadedIconString: String?
     
-    init(iconString: String, size: CGFloat = 32) {
+    init(
+        iconString: String,
+        size: CGFloat = 32,
+        allowsImageLoading: Bool = true,
+        onRemoteLoadResult: ((String, Bool, String) -> Void)? = nil
+    ) {
         self.iconString = iconString
         self.size = size
+        self.allowsImageLoading = allowsImageLoading
+        self.onRemoteLoadResult = onRemoteLoadResult
     }
     
     var body: some View {
         Group {
             if iconString.hasPrefix("http://") || iconString.hasPrefix("https://") {
-                // Remote URL
-                KFImage(URL(string: iconString))
-                    .setProcessor(DownsamplingImageProcessor(size: CGSize(width: size * 2, height: size * 2)))
-                    .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
-                    .cacheOriginalImage()
-                    .placeholder {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                    }
-                    .fade(duration: 0.15)
-                    .onFailure { _ in
-                        // Fallback will be handled by parent or just empty
-                    }
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                if allowsImageLoading || loadedIconString == iconString {
+                    // Remote URL
+                    KFImage(URL(string: iconString))
+                        .setProcessor(DownsamplingImageProcessor(size: CGSize(width: size * 2, height: size * 2)))
+                        .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
+                        .cacheOriginalImage()
+                        .placeholder {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                        }
+                        .fade(duration: 0.15)
+                        .onSuccess { result in
+                            loadedIconString = iconString
+                            onRemoteLoadResult?(
+                                iconString,
+                                true,
+                                String(describing: result.cacheType)
+                            )
+                        }
+                        .onFailure { _ in
+                            onRemoteLoadResult?(iconString, false, "none")
+                        }
+                        .cancelOnDisappear(true)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    placeholderIcon
+                }
             } else if iconString.hasPrefix("data:image") {
-                if let dataImage {
+                if loadedIconString == iconString, let dataImage {
                     Image(nsImage: dataImage)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } else {
-                    // Fallback if data URL parsing fails
-                    Image(systemName: "link.circle.fill")
-                        .font(.system(size: size))
-                        .foregroundStyle(.white)
+                    placeholderIcon
                 }
             } else {
                 // SF Symbol
@@ -55,15 +75,30 @@ struct BookmarkIconView: View {
                 .foregroundStyle(.white)
             }
         }
-        .task(id: iconString) {
-            guard iconString.hasPrefix("data:image") else {
-                dataImage = nil
-                return
-            }
-            dataImage = await Task.detached(priority: .utility) {
+        .task(id: dataImageLoadID) {
+            guard allowsImageLoading, iconString.hasPrefix("data:image") else { return }
+            let decodeTask = Task.detached(priority: .utility) {
                 DataIconCache.image(for: iconString)
-            }.value
+            }
+            let decodedImage = await withTaskCancellationHandler {
+                await decodeTask.value
+            } onCancel: {
+                decodeTask.cancel()
+            }
+            guard !Task.isCancelled else { return }
+            dataImage = decodedImage
+            loadedIconString = decodedImage == nil ? nil : iconString
         }
+    }
+
+    private var placeholderIcon: some View {
+        Image(systemName: "link.circle.fill")
+            .font(.system(size: size))
+            .foregroundStyle(.white)
+    }
+
+    private var dataImageLoadID: String? {
+        allowsImageLoading ? iconString : nil
     }
 }
 
@@ -74,9 +109,12 @@ private enum DataIconCache {
         if let cached = cache.object(forKey: value as NSString) {
             return cached
         }
-        guard let separator = value.firstIndex(of: ","),
+        guard !Task.isCancelled,
+              let separator = value.firstIndex(of: ","),
               let data = Data(base64Encoded: String(value[value.index(after: separator)...])),
-              let image = NSImage(data: data) else {
+              !Task.isCancelled,
+              let image = NSImage(data: data),
+              !Task.isCancelled else {
             return nil
         }
         cache.setObject(image, forKey: value as NSString)

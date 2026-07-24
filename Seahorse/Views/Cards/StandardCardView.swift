@@ -20,8 +20,15 @@ struct StandardCardView: View {
     @Environment(\.openWindow) var openWindow
     @StateObject private var appearanceManager = AppearanceManager.shared
     let item: AnyCollectionItem
+    let allowsImageLoading: Bool
     @State private var isHovered = false
     @State private var showingEditSheet = false
+    @State private var loadedImagePath: String?
+
+    init(item: AnyCollectionItem, allowsImageLoading: Bool = true) {
+        self.item = item
+        self.allowsImageLoading = allowsImageLoading
+    }
 
     // Extract specific item types - O(1) lookup via DataStorage cache
     private var bookmark: Bookmark? { dataStorage.item(for: item.id)?.asBookmark }
@@ -102,7 +109,10 @@ struct StandardCardView: View {
             case .bookmark:
                 // Gradient + Icon for bookmarks (or OGP Image)
                 VStack(spacing: 0) {
-                    if let bookmark = bookmark, let metadata = bookmark.metadata, let previewURL = metadata.imageURL {
+                    if let bookmark = bookmark,
+                       let metadata = bookmark.metadata,
+                       let previewURL = metadata.imageURL,
+                       allowsImageLoading || loadedImagePath == previewURL {
                         GeometryReader { geo in
                             previewImage(
                                 for: previewURL,
@@ -139,7 +149,9 @@ struct StandardCardView: View {
                 
             case .image:
                 // Actual image preview - fills entire card
-                if let imageItem = imageItem, !imageItem.imagePath.isEmpty {
+                if let imageItem = imageItem,
+                   !imageItem.imagePath.isEmpty,
+                   allowsImageLoading || loadedImagePath == imageItem.imagePath {
                     let resolvedPath = StorageManager.shared.resolveImagePath(imageItem.imagePath)
                     if let url = URL(string: imageItem.imagePath), (url.scheme == "http" || url.scheme == "https") {
                         // Remote Image - use Kingfisher with disk cache
@@ -148,14 +160,28 @@ struct StandardCardView: View {
                                 .placeholder {
                                     Color.gray.opacity(0.1)
                                 }
+                                .onSuccess { result in
+                                    completePerformanceImageLoad(
+                                        path: imageItem.imagePath,
+                                        role: "grid_image_remote",
+                                        succeeded: true,
+                                        cacheType: String(describing: result.cacheType)
+                                    )
+                                }
                                 .onFailure { _ in
-                                    // Show blank on timeout/error
+                                    completePerformanceImageLoad(
+                                        path: imageItem.imagePath,
+                                        role: "grid_image_remote",
+                                        succeeded: false,
+                                        cacheType: "none"
+                                    )
                                 }
                                 .setProcessor(DownsamplingImageProcessor(size: geo.size))
                                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
                                 .loadDiskFileSynchronously()
                                 .cacheOriginalImage()
                                 .fade(duration: 0.25)
+                                .cancelOnDisappear(true)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geo.size.width, height: geo.size.height)
@@ -173,14 +199,28 @@ struct StandardCardView: View {
                                 .placeholder {
                                     Color.gray.opacity(0.1)
                                 }
+                                .onSuccess { result in
+                                    completePerformanceImageLoad(
+                                        path: imageItem.imagePath,
+                                        role: "grid_image_local",
+                                        succeeded: true,
+                                        cacheType: String(describing: result.cacheType)
+                                    )
+                                }
                                 .onFailure { _ in
-                                    // Fallback gradient on error
+                                    completePerformanceImageLoad(
+                                        path: imageItem.imagePath,
+                                        role: "grid_image_local",
+                                        succeeded: false,
+                                        cacheType: "none"
+                                    )
                                 }
                                 .setProcessor(DownsamplingImageProcessor(size: geo.size))
                                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
                                 .loadDiskFileSynchronously()
                                 .cacheOriginalImage()
                                 .fade(duration: 0.25)
+                                .cancelOnDisappear(true)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: geo.size.width, height: geo.size.height)
@@ -373,6 +413,40 @@ struct StandardCardView: View {
         .onHover { hovering in
             isHovered = hovering
         }
+        .onAppear {
+            ListPerformanceMonitor.shared.recordCellAppeared(
+                itemType: item.itemType.rawValue
+            )
+            if shouldBeginPerformanceImageLoad, let path = performanceImagePath {
+                beginPerformanceImageLoad(path: path)
+            }
+        }
+        .onDisappear {
+            ListPerformanceMonitor.shared.recordCellDisappeared()
+            if let path = performanceImagePath {
+                cancelPerformanceImageLoad(path: path)
+            }
+        }
+        .onChange(of: allowsImageLoading) { _, allowsImageLoading in
+            guard let path = performanceImagePath else { return }
+            if allowsImageLoading {
+                if loadedImagePath != path {
+                    beginPerformanceImageLoad(path: path)
+                }
+            } else {
+                cancelPerformanceImageLoad(path: path)
+            }
+        }
+        .onChange(of: performanceImagePath) { oldPath, newPath in
+            if let oldPath {
+                cancelPerformanceImageLoad(path: oldPath)
+            }
+            if allowsImageLoading,
+               let newPath,
+               loadedImagePath != newPath {
+                beginPerformanceImageLoad(path: newPath)
+            }
+        }
         .onDrag {
             let provider = NSItemProvider(item: item.id.uuidString as NSString, typeIdentifier: UTType.seahorseItemUUID.identifier)
             provider.suggestedName = displayTitle
@@ -415,6 +489,53 @@ struct StandardCardView: View {
         case .image: return "Image"
         case .text: return "Note"
         }
+    }
+
+    private func performanceImageRole(for path: String) -> String? {
+        switch item.itemType {
+        case .bookmark:
+            return isRemoteImagePath(path)
+                ? "grid_bookmark_preview_remote"
+                : "grid_bookmark_preview_local"
+        case .image:
+            return isRemoteImagePath(path) ? "grid_image_remote" : "grid_image_local"
+        case .text:
+            return nil
+        }
+    }
+
+    private var performanceImagePath: String? {
+        switch item.itemType {
+        case .bookmark:
+            return bookmark?.metadata?.imageURL
+        case .image:
+            guard let path = imageItem?.imagePath, !path.isEmpty else { return nil }
+            return path
+        case .text:
+            return nil
+        }
+    }
+
+    private var shouldBeginPerformanceImageLoad: Bool {
+        allowsImageLoading && loadedImagePath != performanceImagePath
+    }
+
+    private func beginPerformanceImageLoad(path: String) {
+        guard let role = performanceImageRole(for: path) else { return }
+        ListPerformanceMonitor.shared.beginImageLoad(
+            itemID: item.id,
+            role: role,
+            resource: path
+        )
+    }
+
+    private func cancelPerformanceImageLoad(path: String) {
+        guard let role = performanceImageRole(for: path) else { return }
+        ListPerformanceMonitor.shared.cancelImageLoad(
+            itemID: item.id,
+            role: role,
+            resource: path
+        )
     }
     
     // MARK: - Drag Preview
@@ -475,14 +596,28 @@ struct StandardCardView: View {
                     Rectangle()
                         .fill(Color.gray.opacity(0.1))
                 }
+                .onSuccess { result in
+                    completePerformanceImageLoad(
+                        path: path,
+                        role: "grid_bookmark_preview_remote",
+                        succeeded: true,
+                        cacheType: String(describing: result.cacheType)
+                    )
+                }
                 .onFailure { _ in
-                    // fallback handled below
+                    completePerformanceImageLoad(
+                        path: path,
+                        role: "grid_bookmark_preview_remote",
+                        succeeded: false,
+                        cacheType: "none"
+                    )
                 }
                 .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
                 .loadDiskFileSynchronously()
                 .cacheOriginalImage()
                 .fade(duration: 0.25)
+                .cancelOnDisappear(true)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size.width, height: size.height)
@@ -497,20 +632,57 @@ struct StandardCardView: View {
                     Rectangle()
                         .fill(Color.gray.opacity(0.1))
                 }
+                .onSuccess { result in
+                    completePerformanceImageLoad(
+                        path: path,
+                        role: "grid_bookmark_preview_local",
+                        succeeded: true,
+                        cacheType: String(describing: result.cacheType)
+                    )
+                }
                 .onFailure { _ in
-                    // fallback handled below
+                    completePerformanceImageLoad(
+                        path: path,
+                        role: "grid_bookmark_preview_local",
+                        succeeded: false,
+                        cacheType: "none"
+                    )
                 }
                 .setProcessor(DownsamplingImageProcessor(size: CGSize(width: max(size.width, 400), height: max(size.height, 300))))
                 .scaleFactor(NSScreen.main?.backingScaleFactor ?? 2.0)
                 .loadDiskFileSynchronously()
                 .cacheOriginalImage()
                 .fade(duration: 0.25)
+                .cancelOnDisappear(true)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: size.width, height: size.height)
                 .clipped()
                 .contentShape(Rectangle())
         }
+    }
+
+    private func isRemoteImagePath(_ path: String) -> Bool {
+        guard let scheme = URL(string: path)?.scheme else { return false }
+        return scheme == "http" || scheme == "https"
+    }
+
+    private func completePerformanceImageLoad(
+        path: String,
+        role: String,
+        succeeded: Bool,
+        cacheType: String
+    ) {
+        if succeeded, performanceImagePath == path {
+            loadedImagePath = path
+        }
+        ListPerformanceMonitor.shared.completeImageLoad(
+            itemID: item.id,
+            role: role,
+            resource: path,
+            succeeded: succeeded,
+            cacheType: cacheType
+        )
     }
     
     // MARK: - Context Menu
