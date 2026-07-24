@@ -1,7 +1,7 @@
 ---
 created: 2026-07-24
 task: release-1.13.0
-review_cycles: 2
+review_cycles: 4
 ---
 
 # Seahorse 1.13.0 发布审查
@@ -42,10 +42,22 @@ Topic: MCP Helper 依赖审计告警
 
 **Conclusion:** 当前发布路径未发现可观察的适用攻击面，依赖告警不阻断本次 Apple Silicon macOS 发布。
 
+Topic: 最终 Sparkle feed 与审查 Gate 一致性
+
+> **E3:** GitHub Release 的签名 DMG 与摘要附件完成公网校验后，将已审临时 feed 实体化为 `docs/appcast.xml`，并主动把第 2 轮批准标记为失效。
+>
+> **R3:** feed 的版本、build、URL、长度与 EdDSA 签名均正确，但任务 Review 小节仍把旧批准写成当前有效结论，要求先消除状态矛盾。
+>
+> **E4:** 将任务 Review 状态改为 `SUPERSEDED/PENDING`，明确旧批准失效、最终 feed 正在重审；feed 与发布物未再变化。
+>
+> **R4:** 确认审查报告、任务状态、feed 和 GitHub 公网附件一致，所有问题均已解决。
+
+**Conclusion:** 最终 Sparkle feed 通过重新审查，且发布 Gate 的记录在整个过程中保持 fail-closed。
+
 ---
 
 **Final decision:** `APPROVED`
 
-**Outcome:** 版本 `1.13.0 (13)` 的完整发布差异与最终本地产物通过独立审查，两个阻断问题均已用最小改动修复并验证。
+**Outcome:** 版本 `1.13.0 (13)` 的代码、签名发布物、GitHub 附件与最终 Sparkle feed 通过独立审查，所有阻断问题均已解决。
 
 **Remaining:** none

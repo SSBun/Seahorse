@@ -3,6 +3,16 @@
     <channel>
         <title>Seahorse</title>
         <item>
+            <title>1.13.0</title>
+            <pubDate>Fri, 24 Jul 2026 14:30:26 +0800</pubDate>
+            <link>https://github.com/SSBun/Seahorse</link>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>1.13.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/SSBun/Seahorse/releases/download/v1.13.0/Seahorse-1.13.0.dmg" length="84153249" type="application/octet-stream" sparkle:edSignature="rcPqo6HGSDOuRqW7wYF7iaTuCga3UR0NA4ZExpahJoinPh87uF4DsQiYiFiJjcOdNWZK/IxArit6Wgj2Fh3iCQ=="/>
+        </item>
+        <item>
             <title>1.12.1</title>
             <pubDate>Tue, 21 Jul 2026 17:27:27 +0800</pubDate>
             <link>https://github.com/SSBun/Seahorse</link>
@@ -21,16 +31,6 @@
             <sparkle:minimumSystemVersion>15.2</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
             <enclosure url="https://github.com/SSBun/Seahorse/releases/download/v1.12.0/Seahorse-1.12.0.dmg" length="84083481" type="application/octet-stream" sparkle:edSignature="0aYMXK5CqxwtTZ3x+F1AKDgapvbEKP21/W5q3tIq8cHqd8+wGI43DLreQcTEoOUHd4ZiQiP2L/6DkwANGAjlAQ=="/>
-        </item>
-        <item>
-            <title>1.11.0</title>
-            <pubDate>Tue, 21 Jul 2026 15:56:14 +0800</pubDate>
-            <link>https://github.com/SSBun/Seahorse</link>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>1.11.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.2</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/SSBun/Seahorse/releases/download/v1.11.0/Seahorse-1.11.0.dmg" length="83220943" type="application/octet-stream" sparkle:edSignature="Rfz6g2hwG+HOK1V5PYVZE1TDyDs5YzkCkCychZU8abKoeDDoTq/Lm0E0BNZv+bO5DCLlf5E3zBNjwsrikqZ7Aw=="/>
         </item>
     </channel>
 </rss>

@@ -1,6 +1,6 @@
 # 发布 Seahorse 1.13.0
 
-Status: In Progress (2026-07-24 14:05)
+Status: In Progress (2026-07-24 14:33)
 
 ## Scope
 
@@ -29,5 +29,5 @@ Status: In Progress (2026-07-24 14:05)
 
 ## Review
 
-- 独立审查结论：`APPROVED`（2 轮，无未解决问题）。
+- 独立审查结论：`APPROVED`（4 轮，R1–R4 全部解决，无未解决问题）。
 - 审查记录：[release-1.13.0.md](../../reports/adversarial-review/release-1.13.0.md)

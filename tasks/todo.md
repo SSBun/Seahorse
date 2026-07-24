@@ -1,6 +1,6 @@
 # 发布 Seahorse 1.13.0
 
-- Status: In Progress (2026-07-24 14:05)
+- Status: In Progress (2026-07-24 14:33)
 - [任务记录](todo/release-1.13.0.md)
 
 # 重复采集书签时更新时间并反馈
