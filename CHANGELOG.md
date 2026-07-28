@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-07-28
+
+### 修复
+
+- 修复 App 长时间运行后搜索逐渐变慢的问题；辅助功能权限轮询不再重复发布未变化状态，避免主窗口持续重建并累积 SwiftUI 观察对象。
+
 ## [1.13.0] - 2026-07-24
 
 ### 新增
@@ -136,7 +142,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/SSBun/Seahorse/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/SSBun/Seahorse/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/SSBun/Seahorse/compare/v1.12.0...v1.12.1
 [1.12.0]: https://github.com/SSBun/Seahorse/compare/v1.11.0...v1.12.0

@@ -1,3 +1,8 @@
+# 发布 Seahorse 1.14.0
+
+- Status: In Progress (2026-07-28 13:38)
+- [任务记录](todo/release-1.14.0.md)
+
 # 修复搜索随应用运行时间增长的性能退化
 
 - Status: Completed (2026-07-28 12:50)
