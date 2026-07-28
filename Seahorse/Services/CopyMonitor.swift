@@ -81,10 +81,12 @@ class CopyMonitor: ObservableObject {
     private func updateAccessibilityPermission() {
         let hadPermission = hasAccessibilityPermission
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: false]
-        hasAccessibilityPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        let hasPermission = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        guard hasPermission != hadPermission else { return }
+        hasAccessibilityPermission = hasPermission
 
         // If permission was just granted, try to start monitoring
-        if !hadPermission && hasAccessibilityPermission && isEnabled {
+        if hasPermission && isEnabled {
             Log.info("Accessibility permission granted, starting copy monitoring...", category: .general)
             startMonitoring()
         }

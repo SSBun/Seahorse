@@ -20,6 +20,7 @@
 - `SeahorseTests/` 是搜索、JSON 持久化、图片 I/O 和模型性能回归测试目标。
 
 ## Relationships
+- `CopyMonitor` 每 2 秒检查辅助功能权限，但只有权限值真实变化时才更新 `@Published hasAccessibilityPermission`；重复发布相同值会让持有它的 `SeahorseApp` 根场景持续失效并累积 SwiftUI observation/tag graph，最终拖慢搜索等主窗口交互。— 变更权限轮询或 App 根状态所有权时必须复查长时间对象计数，权威来源：`CopyMonitor.swift`、`SeahorseApp.swift`。
 - 用户通过手动新增、粘贴/拖放或双拷贝再次采集活动书签 URL 时，`DataStorage.addBookmark` 按 `updateDuplicateBookmarkAddedDate` 偏好决定保持重复错误或只刷新原书签 `addedDate`；默认 `Newest` 列表随 `itemsVersion` 重算后将刷新项排在第一位，其他显式排序保持自身语义，导入与 MCP 创建继续严格拒绝重复。— 变更重复采集行为时必须同时核对排序、提示与反馈事件，权威来源：`DataStorage.swift`、`ContentView.swift`、`CollectionSearch.swift`、`AdvancedSettingsView.swift`。
 - `JSONStorage` 只从实际持久化状态刷新 schema 1 `last-good.json`，其中已存在的核心 JSON 必须可解码，历史版本缺失的文件沿用兼容默认值；主文件损坏时保留 `.corrupt-<UUID>` 并恢复整组快照，中断恢复会在下次启动重试，没有有效快照时进入只读并拒绝所有写入。
 - 删除自定义分类统一由 `DataStorage.deleteCategory` 先将所有 Bookmark、Image、Text（含回收站记录）批量迁移到 `None`，成功后再删除分类；分类管理 UI 不逐条迁移项目。

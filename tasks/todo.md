@@ -1,3 +1,8 @@
+# 修复搜索随应用运行时间增长的性能退化
+
+- Status: Completed (2026-07-28 12:50)
+- [任务记录](todo/fix-search-bar-progressive-lag.md)
+
 # 发布 Seahorse 1.13.0
 
 - Status: Completed (2026-07-24 14:58)
