@@ -1,7 +1,7 @@
 ---
 created: 2026-07-28
 task: release-1.14.0
-review_cycles: 2
+review_cycles: 4
 ---
 
 # Seahorse 1.14.0 发布审查
@@ -26,10 +26,22 @@ Topic: 发布提交与工具产物边界
 
 **Conclusion:** 发布提交范围、顺序和远程门禁明确，不会提交评审工具文件或提前公开 appcast。
 
+Topic: 实际 Sparkle appcast 是否与最终公开 DMG 一致
+
+> **E1:** GitHub Release 的正式 DMG 已公开并重新下载验证，大小为 `84,151,488` bytes，SHA256 为 `f3e2b32abc9301e4f26d5dfebb9cee619920e8fb943bcddac21b0a119ddf14c0`；随后生成实际 `docs/appcast.xml`，首项为 `1.14.0 (14)`，URL、长度与 EdDSA 签名齐全。
+>
+> **R1:** 复核确认 XML 有效，首项字段精确匹配公开资产，签名可解码为 64-byte Ed25519 数据；feed 保留当前版本及两个历史版本，且 npm 尚未提前发布。复核产生的确认性说明仍需独立确认后才能闭环。
+>
+> **E2:** Editor 逐项确认 appcast 字段、历史保留策略与工作树边界，不修改任何产物。
+>
+> **R2:** 最终复核确认所有说明已关闭，没有阻断问题、未答问题或未确认说明，批准实际 appcast。
+
+**Conclusion:** 实际 Sparkle feed 与最终公开、摘要验证过的 DMG 字节一致，可以提交并公开。
+
 ---
 
 **Final decision:** `APPROVED`
 
-**Outcome:** Seahorse `1.14.0 (14)` 的代码修复、版本元数据、签名本地产物与远程发布顺序通过独立审查。
+**Outcome:** Seahorse `1.14.0 (14)` 的代码修复、版本元数据、签名发布物与实际 Sparkle appcast 通过独立审查。
 
 **Remaining:** none
