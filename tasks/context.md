@@ -1,5 +1,23 @@
 # Workspace Context
 
+## Project Core
+
+### Purpose
+- Seahorse 是面向 macOS 与 iOS 的素材采集和管理应用，统一保存、分类、搜索书签、图片与文本。
+
+### Global Vocabulary
+- Collection item 指 `bookmark`、`image`、`text` 三类条目；Category 与 Tag 通过 UUID 关联条目，删除标记由 `deletedAt` 表示。
+- `DataStorage` 是应用内统一数据入口；`MCPHelper` 是 Node.js sidecar，App 内 MCP bridge 负责把外部或 Agent action 转换为 `DataStorage` 操作。
+
+### System Map
+- SwiftUI/AppKit 界面与采集、解析、搜索等服务通过 `DataStorage` 读取和修改条目；`JSONStorage` 与 `StorageManager` 负责 `Data/`、`Images/`、`Backups/` 下的本地持久化。
+- macOS、iOS 与 MCP 共用 `CollectionSearch` 的搜索语义；外部 MCP 和内置 Agent 经 `MCPHelper` 与 App bridge 进入同一数据层。
+
+### Global Invariants
+- 真实数据写入统一经过 `DataStorage`；`MCPHelper` 不直接读写 Seahorse JSON 数据。
+- 普通界面、搜索、Agent 与 MCP 只暴露 `deletedAt == nil` 的活动条目；永久删除才移除持久化记录。
+- Category 与 Tag 名称按 `lowercased()` 语义保持唯一，条目关系仅保存已成功持久化对象的 UUID。
+
 ## Components
 - macOS 主列表通过 `ListPerformanceMonitor` 使用 OSLog/signpost 关联筛选、滚动阶段与回调间隙、可见 cell、图片/cache 和 `DataStorage` 发布；高频 cell 与图片事件分别进入 0.5 秒聚合汇总，不记录用户内容。
 - macOS `UpdateManager` 通过 Sparkle 2 `SPUStandardUpdaterController` 执行检查、下载、EdDSA 验签、安装与重启；Sparkle SPM product 设为 macOS-only，iOS target 不链接该 framework。
