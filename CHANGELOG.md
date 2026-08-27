@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-27
+
+### 新增
+
+- 支持将书签、图片和文本从网格或列表拖到侧边栏现有分类，移动后即时刷新并持久化。
+
 ## [1.14.0] - 2026-07-28
 
 ### 修复
@@ -142,7 +148,8 @@
 
 - 移除旧的浏览器书签同步实现。
 
-[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/SSBun/Seahorse/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/SSBun/Seahorse/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/SSBun/Seahorse/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/SSBun/Seahorse/compare/v1.12.1...v1.13.0
 [1.12.1]: https://github.com/SSBun/Seahorse/compare/v1.12.0...v1.12.1
