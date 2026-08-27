@@ -169,9 +169,12 @@ struct SidebarView: View {
         ZStack {
             Color.clear
                 .contentShape(Rectangle())
-                .onDrop(of: [.text], isTargeted: Binding(
+                .onDrop(of: [.seahorseItemUUID], isTargeted: Binding(
                     get: { dropTargetCategory == category.id },
-                    set: { dropTargetCategory = $0 ? category.id : nil }
+                    set: { isTargeted in
+                        dropTargetCategory = isTargeted ? category.id : nil
+                        Log.info("item_drag target_changed active=\(isTargeted)", category: .ui)
+                    }
                 )) { providers in
                     handleDrop(providers: providers, category: category)
                 }
@@ -208,17 +211,33 @@ struct SidebarView: View {
     }
 
     private func handleDrop(providers: [NSItemProvider], category: Category) -> Bool {
-        guard let provider = providers.first else { return false }
+        Log.info("item_drag drop_received provider_count=\(providers.count)", category: .ui)
+        guard let provider = providers.first else {
+            Log.warning("item_drag drop_rejected reason=no_provider", category: .ui)
+            return false
+        }
 
-        provider.loadItem(forTypeIdentifier: UTType.text.identifier, options: nil) { data, _ in
-            guard let data = data as? Data,
+        provider.loadDataRepresentation(forTypeIdentifier: UTType.seahorseItemUUID.identifier) { data, error in
+            if let error {
+                Log.error("item_drag payload_load_failed error_type=\(String(describing: type(of: error)))", category: .ui)
+                return
+            }
+            guard let data,
                   let uuidString = String(data: data, encoding: .utf8),
                   let itemId = UUID(uuidString: uuidString) else {
+                Log.warning("item_drag payload_invalid", category: .ui)
                 return
             }
 
             DispatchQueue.main.async {
-                guard var item = dataStorage.item(for: itemId) else { return }
+                guard var item = dataStorage.item(for: itemId) else {
+                    Log.warning("item_drag item_not_found", category: .ui)
+                    return
+                }
+                guard item.categoryId != category.id else {
+                    Log.info("item_drag update_skipped reason=same_category item_type=\(item.itemType.rawValue)", category: .ui)
+                    return
+                }
 
                 if var bookmark = item.asBookmark {
                     bookmark.categoryId = category.id
@@ -233,10 +252,16 @@ struct SidebarView: View {
                     textItem.modifiedDate = Date()
                     item = AnyCollectionItem(textItem)
                 } else {
+                    Log.error("item_drag update_failed reason=unsupported_item", category: .ui)
                     return
                 }
 
                 dataStorage.updateItem(item)
+                if dataStorage.item(for: itemId)?.categoryId == category.id {
+                    Log.info("item_drag update_succeeded item_type=\(item.itemType.rawValue)", category: .ui)
+                } else {
+                    Log.error("item_drag update_failed reason=persistence item_type=\(item.itemType.rawValue)", category: .ui)
+                }
             }
         }
         return true

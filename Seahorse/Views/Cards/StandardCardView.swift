@@ -448,9 +448,8 @@ struct StandardCardView: View {
             }
         }
         .onDrag {
-            let provider = NSItemProvider(item: item.id.uuidString as NSString, typeIdentifier: UTType.seahorseItemUUID.identifier)
-            provider.suggestedName = displayTitle
-            return provider
+            Log.info("item_drag source_started view=grid item_type=\(item.itemType.rawValue)", category: .ui)
+            return NSItemProvider.seahorseItem(id: item.id, suggestedName: displayTitle)
         } preview: {
             dragPreview
         }

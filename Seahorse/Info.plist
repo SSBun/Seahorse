@@ -2,6 +2,19 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Seahorse Item Identifier</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.csl.cool.Seahorse.item-uuid</string>
+		</dict>
+	</array>
 	<key>SUFeedURL</key>
 	<string>https://ssbun.github.io/Seahorse/appcast.xml</string>
 	<key>SUPublicEDKey</key>

@@ -12,7 +12,25 @@ import AppKit
 #endif
 
 extension UTType {
-    static let seahorseItemUUID = UTType(exportedAs: "com.csl.cool.Seahorse.item-uuid")
+    static let seahorseItemUUID = UTType(
+        exportedAs: "com.csl.cool.Seahorse.item-uuid",
+        conformingTo: .data
+    )
+}
+
+extension NSItemProvider {
+    static func seahorseItem(id: UUID, suggestedName: String) -> NSItemProvider {
+        let provider = NSItemProvider()
+        provider.suggestedName = suggestedName
+        provider.registerDataRepresentation(
+            forTypeIdentifier: UTType.seahorseItemUUID.identifier,
+            visibility: .ownProcess
+        ) { completion in
+            completion(Data(id.uuidString.utf8), nil)
+            return nil
+        }
+        return provider
+    }
 }
 
 @MainActor

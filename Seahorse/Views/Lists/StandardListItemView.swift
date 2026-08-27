@@ -258,6 +258,10 @@ struct StandardListItemView: View {
                 beginPerformanceImageLoad(path: newPath)
             }
         }
+        .onDrag {
+            Log.info("item_drag source_started view=list item_type=\(item.itemType.rawValue)", category: .ui)
+            return NSItemProvider.seahorseItem(id: item.id, suggestedName: displayTitle)
+        }
         .onTapGesture(count: 2) {
             handleDoubleTap()
         }

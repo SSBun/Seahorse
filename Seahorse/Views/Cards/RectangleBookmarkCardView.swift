@@ -157,9 +157,7 @@ struct RectangleBookmarkCardView: View {
                 .environmentObject(dataStorage)
         }
         .onDrag {
-            let provider = NSItemProvider(item: bookmark.id.uuidString as NSString, typeIdentifier: UTType.seahorseItemUUID.identifier)
-            provider.suggestedName = bookmark.title
-            return provider
+            NSItemProvider.seahorseItem(id: bookmark.id, suggestedName: bookmark.title)
         } preview: {
             // Custom drag preview - small bar
             HStack(spacing: 8) {
