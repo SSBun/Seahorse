@@ -18,6 +18,28 @@
 - 普通界面、搜索、Agent 与 MCP 只暴露 `deletedAt == nil` 的活动条目；永久删除才移除持久化记录。
 - Category 与 Tag 名称按 `lowercased()` 语义保持唯一，条目关系仅保存已成功持久化对象的 UUID。
 
+## CTX-release-distribution — macOS 发布与更新渠道
+- Scope: Seahorse 的 macOS 版本源、GitHub/Sparkle/npm 正式分发边界与发布验证。
+- Paths: `Seahorse.xcodeproj/project.pbxproj`, `scripts/create-dmg.sh`, `scripts/generate-appcast.sh`, `docs/appcast.xml`, `package.json`, `.github/workflows/build.yml`
+- Keywords: release, version, build, DMG, GitHub Release, Sparkle, appcast, npm, @ssbun/seahorse
+- Authority: `Seahorse.xcodeproj/project.pbxproj`, `scripts/create-dmg.sh`, `scripts/generate-appcast.sh`, `package.json`
+- Recheck: 每次正式发布前，以及签名身份、DMG 脚本、feed URL、npm wrapper 或 GitHub workflow 变化时，重新查询本地与远端真实状态。
+
+### Purpose and Boundaries
+- App 版本 source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`；根目录 npm manifest、lockfile 与 CHANGELOG 必须同步。
+- 正式渠道是版本化 GitHub Release DMG、GitHub Pages Sparkle feed 与 `@ssbun/seahorse` npm wrapper；npm 包只包含安装脚本和 README，并按自身版本下载同版 DMG。
+- 是否达到 Developer ID/notarized 分发标准必须从本次最终 artifact 与当前 identity/notary 证据判断，不能沿用历史结论。
+
+### Workflows
+- `scripts/create-dmg.sh` 先构建 MCP helper，再嵌入 production-only Node 依赖、Pi/Node 许可证与兼容 Node 运行时，按原身份重签 App 后生成 DMG 与 SHA256。
+- 本地验证后的 DMG 才是正式候选；GitHub Actions 的 `NO_SIGN=1` 构建只用于临时验证，workflow 通过 `actions/setup-node` 固定官方 Node 运行时。
+- Sparkle feed 固定为 `https://ssbun.github.io/Seahorse/appcast.xml`；公钥随 App 提交，私钥只在本机 Keychain 的 `Seahorse` account，`scripts/generate-appcast.sh` 必须基于最终 DMG 生成 feed。
+- 发布顺序是先公开并独立校验 tag 与 GitHub Release 资产，再推送包含 appcast 的 `main`，确认公开 feed 后最后发布 npm wrapper。
+
+### Decision and Verification Boundaries
+- 每次发布都从 Xcode 设置、Git tag/GitHub Release、公开 appcast 与 npm registry 查询当前版本；Context 不缓存“最新版本”值。
+- 远端 DMG 必须重新下载并与公开 checksum 匹配；公开 appcast 必须与仓库 XML 一致，且版本、build、URL、长度与 EdDSA 签名对应同一 DMG。
+
 ## Components
 - macOS 主列表通过 `ListPerformanceMonitor` 使用 OSLog/signpost 关联筛选、滚动阶段与回调间隙、可见 cell、图片/cache 和 `DataStorage` 发布；高频 cell 与图片事件分别进入 0.5 秒聚合汇总，不记录用户内容。
 - macOS `UpdateManager` 通过 Sparkle 2 `SPUStandardUpdaterController` 执行检查、下载、EdDSA 验签、安装与重启；Sparkle SPM product 设为 macOS-only，iOS target 不链接该 framework。
@@ -75,7 +97,6 @@
 
 ## Decisions and Conventions
 - 主列表在 SwiftUI 滚动阶段保留已经成功显示的网格海报、列表缩略图和 favicon，只暂停 pending 与新资源的 Kingfisher/data URL 图片创建，idle 后恢复；图片生命周期按资源路径隔离，`NetworkManager` 使用默认 URLSession 继承 macOS/iOS 系统代理与 VPN，不提供应用内代理覆盖。
-- Sparkle feed 固定为 GitHub Pages 的 `https://ssbun.github.io/Seahorse/appcast.xml`；公钥随 App 提交，私钥只保存在本机 Keychain 的 `Seahorse` account，每次正式 DMG 发布后用 `scripts/generate-appcast.sh` 更新并提交 feed。
 - Codex Agent 将 Pi provider 的原始 HTTP 429/5xx 判断与外层流错误分类合并为一次共享重试预算；400/401、额度耗尽、取消和其他 Provider 保持原行为，失败尝试的部分输出与工具事件不会外泄。
 - 列表性能只处理有 Release 动态证据的 Critical 问题；当前逐行 `DataStorage` 订阅、观察范围拆分和 iOS 日期格式化均保持为未实施建议，除非后续 Instruments 证明滚动超过帧预算。
 - 富化问题中的删除只允许用户主动确认后移入可恢复的回收站；确认文案必须说明富化失败不等于链接失效，不提供自动删除或永久删除。
@@ -99,14 +120,8 @@
 - MCP 使用通用 `delete_item(id)` 将 bookmark、image 或 text 幂等移入回收站，并返回 `movedToTrash`/`alreadyInTrash`。
 - 图片删除只允许作用于解析符号链接后仍位于 Seahorse `Images/` 目录内、且永久删除后不再被任何条目引用的文件。
 - Xcode 与公开文档统一声明最低版本为 macOS 15.2、iOS 16.0。
-- GitHub 最新 Release 为 `v1.14.0`；其 Apple Development 签名 DMG 与 SHA256 已公开，Sparkle appcast 已发布 build `14`，DMG SHA256 为 `f3e2b32abc9301e4f26d5dfebb9cee619920e8fb943bcddac21b0a119ddf14c0`。
-- Seahorse App 当前开发版本为 `1.14.0`，build number 为 `14`；source of truth 是 Xcode target 的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION`。
-- 正式 DMG 由本地 `scripts/create-dmg.sh` 构建并验证签名；GitHub Actions 的 `NO_SIGN=1` 产物只适合作为临时构建，不能作为签名分发包。
-- GitHub DMG workflow 用 `actions/setup-node` 固定官方 Node `22.22.2`，避免 runner 的动态 Homebrew Node 依赖 `@rpath/libnode.*.dylib` 而无法嵌入 App。
-- 根目录 `@ssbun/seahorse` npm wrapper 本地 manifest 为 `1.14.0`，只发布 `install.js` 与 README，并按自身版本从 GitHub Release 下载 `Seahorse-<version>.dmg`；npm registry 的 `latest` 为 `1.14.0`，分发包只支持 Apple Silicon macOS。
 - MCP server 仅监听本机固定端口，并使用 bearer token 鉴权。
 - MCP helper 不直接读写 Seahorse JSON 存储。
-- `scripts/create-dmg.sh` 会先构建 helper，再将 `dist`、production-only Node 依赖、Pi/Node 许可证和兼容的 Node `>=22.19.0` 独立运行时写入 App bundle，并使用原身份重签名后生成 DMG。
 - MCP helper 使用 SDK `registerTool()` 配置对象注册 schema、annotations 和 handler，避免旧 `tool()` API 对普通对象的重载歧义。
 - MCP 设置页提供 `Force Restart`：只清理命令精确匹配当前 helper 脚本的进程，等待终止后再启动；helper 通过父 PID 守护避免 App 异常退出后成为孤儿进程。
 - MCP 使用 destructive `delete_tag(id)` 删除 Tag；`DataStorage.deleteTag` 会先批量清除全部 item 类型中的关联，category 仍不提供写操作。
